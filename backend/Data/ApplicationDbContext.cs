@@ -9,7 +9,6 @@ namespace backend.Data
         {
         }
 
-        public DbSet<ExampleEntity> ExampleEntities { get; set; }
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductImage> ProductImages { get; set; }
         public DbSet<ProductColor> ProductColors { get; set; }
@@ -17,15 +16,6 @@ namespace backend.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-            
-            // Configure ExampleEntity
-            modelBuilder.Entity<ExampleEntity>(entity =>
-            {
-                entity.HasKey(e => e.Id);
-                entity.Property(e => e.Name)
-                    .IsRequired()
-                    .HasMaxLength(100);
-            });
             
             // Configure Product
             modelBuilder.Entity<Product>(entity =>

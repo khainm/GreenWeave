@@ -1,6 +1,7 @@
-using backend.Data;
 using backend.DTOs;
 using backend.Models;
+using backend.Interfaces.Repositories;
+using backend.Interfaces.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Services

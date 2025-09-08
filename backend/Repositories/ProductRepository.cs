@@ -1,7 +1,9 @@
 using backend.Models;
+using backend.Data;
+using backend.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 
-namespace backend.Data
+namespace backend.Repositories
 {
     public class ProductRepository : IProductRepository
     {
