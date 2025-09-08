@@ -1,7 +1,7 @@
 using backend.DTOs;
 using backend.Models;
 
-namespace backend.Services
+namespace backend.Interfaces.Services
 {
     public interface IProductService
     {
