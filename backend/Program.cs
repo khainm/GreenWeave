@@ -86,10 +86,11 @@ else
 
 app.UseHttpsRedirection();
 
-// Use CORS before other middleware
+app.UseRouting();
+
+// Apply CORS after routing and before auth per ASP.NET Core guidance
 app.UseCors("AllowFrontend");
 
-app.UseRouting();
 app.UseAuthorization();
 
 // Only map API controllers, remove Razor Pages

@@ -1,16 +1,8 @@
-import React, { useEffect, useMemo, useMemo as _, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopNav from '../components/admin/TopNav'
-
-type Product = {
-  id: string
-  name: string
-  sku: string
-  category: string
-  stock: number
-  price: number
-  status: 'active' | 'inactive'
-}
+import ProductService from '../services/productService'
+import type { Product } from '../types/product'
 
 const formatVnd = (v: number) => new Intl.NumberFormat('vi-VN').format(v)
 
@@ -19,19 +11,47 @@ const AdminProductsList: React.FC = () => {
   const [debounced, setDebounced] = useState('')
   const [sortKey, setSortKey] = useState<keyof Product>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [products, setProducts] = useState<Product[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(query), 250)
     return () => clearTimeout(id)
   }, [query])
-  const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
 
-  const products: Product[] = useMemo(() => [
-    { id: 'P001', name: 'Túi Tote Non-stop Single', sku: 'NON1', category: 'Non-stop', stock: 120, price: 159000, status: 'active' },
-    { id: 'P002', name: 'Túi Tote Non-stop Combo 2', sku: 'NON2', category: 'Non-stop', stock: 42, price: 299000, status: 'active' },
-    { id: 'P003', name: 'Túi Tote Trơn Single', sku: 'TRON1', category: 'Trơn', stock: 200, price: 128000, status: 'inactive' },
-    { id: 'P004', name: 'Túi Tote Thêu Cá Nhân Hóa', sku: 'THEU1', category: 'Thêu', stock: 35, price: 250000, status: 'active' }
-  ], [])
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const data = await ProductService.getAllProducts()
+        setProducts(data)
+      } catch (err) {
+        console.error('Error fetching products:', err)
+        setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchProducts()
+  }, [])
+
+  // Hàm xóa sản phẩm
+  const handleDeleteProduct = async (id: number) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return
+    
+    try {
+      await ProductService.deleteProduct(id)
+      setProducts(prev => prev.filter(p => p.id !== id))
+    } catch (err) {
+      console.error('Error deleting product:', err)
+      alert('Có lỗi xảy ra khi xóa sản phẩm. Vui lòng thử lại.')
+    }
+  }
 
   const filtered = products
     .filter(p =>
@@ -88,6 +108,17 @@ const AdminProductsList: React.FC = () => {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
+            <div className="flex items-center text-red-800">
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              {error}
+            </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left">
@@ -124,30 +155,56 @@ const AdminProductsList: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filtered.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-4 px-6 text-gray-700 font-medium">{p.sku}</td>
-                    <td className="py-4 px-6 font-semibold text-gray-900">{p.name}</td>
-                    <td className="py-4 px-6 text-gray-600">{p.category}</td>
-                    <td className="py-4 px-6 text-gray-700">{p.stock}</td>
-                    <td className="py-4 px-6 text-gray-900 font-bold">{formatVnd(p.price)} đ</td>
-                    <td className="py-4 px-6">
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${p.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                        {p.status === 'active' ? 'Đang bán' : 'Ngừng bán'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                          Sửa
-                        </button>
-                        <button className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                          Xóa
-                        </button>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <svg className="animate-spin h-8 w-8 text-green-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-gray-500">Đang tải danh sách sản phẩm...</span>
                       </div>
                     </td>
                   </tr>
-                ))}
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-gray-500">
+                      {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm nào'}
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-4 px-6 text-gray-700 font-medium">{p.sku}</td>
+                      <td className="py-4 px-6 font-semibold text-gray-900">{p.name}</td>
+                      <td className="py-4 px-6 text-gray-600">{p.category}</td>
+                      <td className="py-4 px-6 text-gray-700">{p.stock}</td>
+                      <td className="py-4 px-6 text-gray-900 font-bold">{formatVnd(p.price)} đ</td>
+                      <td className="py-4 px-6">
+                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${p.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                          {p.status === 'active' ? 'Đang bán' : 'Ngừng bán'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Link 
+                            to={`/admin/products/edit/${p.id}`}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Sửa
+                          </Link>
+                          <button 
+                            onClick={() => handleDeleteProduct(p.id)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            Xóa
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

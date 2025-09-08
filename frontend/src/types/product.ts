@@ -1,0 +1,49 @@
+export interface ProductImage {
+  id: number
+  imageUrl: string
+  sortOrder: number
+  isPrimary: boolean
+}
+
+export interface ProductColor {
+  id: number
+  colorCode: string
+  colorName?: string
+  sortOrder: number
+}
+
+export interface Product {
+  id: number
+  name: string
+  sku: string
+  category: string
+  description?: string
+  price: number
+  originalPrice?: number
+  stock: number
+  status: 'active' | 'inactive'
+  createdAt: string
+  updatedAt: string
+  images: ProductImage[]
+  colors: ProductColor[]
+}
+
+export interface CreateProductRequest {
+  name: string
+  sku: string
+  category: string
+  description?: string
+  price: number
+  originalPrice?: number
+  stock: number
+  status: 'active' | 'inactive'
+  colors?: string[]
+  imageUrls?: string[]
+  imageFiles?: File[]
+}
+
+export interface ApiResponse<T> {
+  data?: T
+  message?: string
+  success: boolean
+}
