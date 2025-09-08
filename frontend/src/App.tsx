@@ -4,6 +4,7 @@ import ProductsPage from './pages/ProductsPage'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminProductsList from './pages/AdminProductsList'
 import AdminAddProduct from './pages/AdminAddProduct'
+import AdminEditProduct from './pages/AdminEditProduct.tsx'
 import './App.css'
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/products" element={<AdminProductsList />} />
           <Route path="/admin/products/add" element={<AdminAddProduct />} />
+          <Route path="/admin/products/edit/:id" element={<AdminEditProduct />} />
         </Routes>
       </div>
     </Router>
