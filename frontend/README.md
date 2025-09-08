@@ -1,69 +1,122 @@
-# React + TypeScript + Vite
+# GreenWeave Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Ứng dụng web frontend cho GreenWeave - cửa hàng thực phẩm organic.
 
-Currently, two official plugins are available:
+## Tính năng
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- 🏠 **Trang chủ**: Hero section với carousel, sản phẩm nổi bật
+- 📱 **Responsive Design**: Tối ưu cho mobile, tablet và desktop
+- 🎨 **Modern UI**: Sử dụng Tailwind CSS với thiết kế hiện đại
+- 🛒 **E-commerce**: Giỏ hàng, yêu thích sản phẩm
+- 🧩 **Component-based**: Kiến trúc component dễ bảo trì
 
-## Expanding the ESLint configuration
+## Cấu trúc dự án
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── components/          # Các component tái sử dụng
+│   ├── Header.tsx      # Header với navigation
+│   ├── HeroSection.tsx # Hero section với carousel
+│   ├── MobileMenu.tsx  # Menu mobile
+│   └── ProductCard.tsx # Card sản phẩm
+├── pages/              # Các trang
+│   └── HomePage.tsx    # Trang chủ
+├── assets/             # Hình ảnh, logo
+├── styles/             # CSS tùy chỉnh
+└── App.tsx            # Component chính
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Cài đặt và chạy
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. **Cài đặt dependencies:**
+   ```bash
+   npm install
+   ```
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+2. **Chạy development server:**
+   ```bash
+   npm run dev
+   ```
+
+3. **Build cho production:**
+   ```bash
+   npm run build
+   ```
+
+## Công nghệ sử dụng
+
+- **React 19** - Framework UI
+- **TypeScript** - Type safety
+- **Tailwind CSS** - Styling
+- **Heroicons** - Icon library
+- **Vite** - Build tool
+
+## Responsive Breakpoints
+
+- **Mobile**: < 768px
+- **Tablet**: 768px - 1024px  
+- **Desktop**: > 1024px
+
+## Component Features
+
+### Header
+- Logo GreenWeave
+- Navigation menu
+- Shopping cart & user icons
+- Mobile hamburger menu
+
+### HeroSection
+- Auto-playing carousel
+- Navigation arrows
+- Slide indicators
+- Responsive images
+
+### ProductCard
+- Product image với hover effects
+- Price display với discount
+- Favorite button
+- Add to cart functionality
+
+### MobileMenu
+- Slide-in navigation
+- User authentication buttons
+- Touch-friendly interface
+
+## Customization
+
+### Colors
+- Primary: Green (#10b981)
+- Secondary: Gray (#6b7280)
+- Background: White (#ffffff)
+
+### Fonts
+- Primary: Inter (Google Fonts)
+- Fallback: System fonts
+
+## Performance
+
+- Lazy loading images
+- Optimized bundle size
+- Smooth animations
+- Fast page transitions
+
+## Browser Support
+
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+
+## Development
+
+### Code Style
+- ESLint configuration
+- TypeScript strict mode
+- Component-based architecture
+- Responsive-first design
+
+### Best Practices
+- Semantic HTML
+- Accessibility (a11y)
+- SEO optimization
+- Performance monitoring
