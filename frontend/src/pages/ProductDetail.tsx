@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import Header from '../components/Header'
 import ProductService from '../services/productService'
 import type { Product } from '../types/product'
+import { CartService, getOrCreateCartId } from '../services/cartService'
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams()
@@ -111,7 +112,18 @@ const ProductDetail: React.FC = () => {
               </div>
 
               <div className="mt-6 flex gap-3">
-                <button className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold">Thêm vào giỏ</button>
+                <button
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold"
+                  onClick={async () => {
+                    if (!product) return
+                    const cartId = await getOrCreateCartId()
+                    await CartService.addItem(cartId, { productId: product.id, quantity, unitPrice: product.price, colorCode: selectedColor || undefined })
+                    // Emit a simple event so Header can refresh count later if needed
+                    window.dispatchEvent(new CustomEvent('cart:updated'))
+                  }}
+                >
+                  Thêm vào giỏ
+                </button>
                 <button className="px-4 py-3 rounded-xl border border-gray-300">Mua ngay</button>
               </div>
             </div>

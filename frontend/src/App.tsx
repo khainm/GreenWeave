@@ -7,6 +7,7 @@ import AdminAddProduct from './pages/AdminAddProduct'
 import AdminEditProduct from './pages/AdminEditProduct.tsx'
 import AdminCategories from './pages/AdminCategories'
 import ProductDetail from './pages/ProductDetail'
+import CartPage from './pages/CartPage'
 import './App.css'
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/cart" element={<CartPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/products" element={<AdminProductsList />} />
           <Route path="/admin/products/add" element={<AdminAddProduct />} />
