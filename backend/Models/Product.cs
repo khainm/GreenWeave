@@ -14,9 +14,14 @@ namespace backend.Models
         [MaxLength(50)]
         public string Sku { get; set; } = string.Empty;
         
+        // Backward-compat string category label for display/filtering
         [Required]
         [MaxLength(100)]
         public string Category { get; set; } = string.Empty;
+
+        // Strong FK to Category for relational integrity (optional to preserve legacy data)
+        public int? CategoryId { get; set; }
+        public Category? CategoryRef { get; set; }
         
         [MaxLength(1000)]
         public string? Description { get; set; }

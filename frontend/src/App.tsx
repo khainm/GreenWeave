@@ -5,6 +5,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminProductsList from './pages/AdminProductsList'
 import AdminAddProduct from './pages/AdminAddProduct'
 import AdminEditProduct from './pages/AdminEditProduct.tsx'
+import AdminCategories from './pages/AdminCategories'
 import './App.css'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
           <Route path="/admin/products" element={<AdminProductsList />} />
           <Route path="/admin/products/add" element={<AdminAddProduct />} />
           <Route path="/admin/products/edit/:id" element={<AdminEditProduct />} />
+          <Route path="/admin/categories" element={<AdminCategories />} />
         </Routes>
       </div>
     </Router>

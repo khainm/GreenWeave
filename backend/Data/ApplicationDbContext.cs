@@ -12,11 +12,26 @@ namespace backend.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductImage> ProductImages { get; set; }
         public DbSet<ProductColor> ProductColors { get; set; }
+        public DbSet<Category> Categories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
             
+            // Configure Category
+            modelBuilder.Entity<Category>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+                entity.HasIndex(c => c.Code).IsUnique();
+                entity.Property(c => c.Name).IsRequired().HasMaxLength(100);
+                entity.Property(c => c.Code).IsRequired().HasMaxLength(20);
+                entity.Property(c => c.Description).HasMaxLength(500);
+                entity.Property(c => c.Status).IsRequired().HasMaxLength(20).HasDefaultValue("active");
+                entity.Property(c => c.SortOrder).HasDefaultValue(0);
+                entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            });
+
             // Configure Product
             modelBuilder.Entity<Product>(entity =>
             {
@@ -54,6 +69,12 @@ namespace backend.Data
                     
                 entity.Property(p => p.UpdatedAt)
                     .HasDefaultValueSql("GETUTCDATE()");
+
+                // Optional FK to Category for integrity while keeping legacy string Category
+                entity.HasOne(p => p.CategoryRef)
+                    .WithMany()
+                    .HasForeignKey(p => p.CategoryId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
             
             // Configure ProductImage
