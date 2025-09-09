@@ -41,10 +41,28 @@ const ProductsPage: React.FC = () => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   };
 
-  const getPrimaryImageUrl = (p: Product): string => {
+  const getImageUrlForSelectedColor = (p: Product): string => {
     if (!p.images || p.images.length === 0) return '';
-    const primary = p.images.find(img => img.isPrimary) || p.images.slice().sort((a,b)=>a.sortOrder-b.sortOrder)[0];
+    const selected = selectedColors[p.id];
+    const orderedImages = p.images.slice().sort((a,b)=>a.sortOrder-b.sortOrder);
+    if (selected) {
+      const colorIndex = (p.colors || []).findIndex(c => c.colorCode === selected);
+      if (colorIndex >= 0 && orderedImages[colorIndex]) {
+        return orderedImages[colorIndex].imageUrl;
+      }
+    }
+    const primary = p.images.find(img => img.isPrimary) || orderedImages[0];
     return primary?.imageUrl || '';
+  };
+
+  const isNewProduct = (p: Product): boolean => {
+    try {
+      const created = new Date(p.createdAt);
+      const days = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+      return days <= 14;
+    } catch {
+      return false;
+    }
   };
 
   const grouped = useMemo(() => {
@@ -66,19 +84,18 @@ const ProductsPage: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
         {items.map((product) => (
-          <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col">
+          <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col transition-transform duration-200 group hover:-translate-y-1 hover:shadow-lg">
             {/* Image Container */}
             <div className="relative h-64 bg-gray-100 overflow-hidden">
-              {getPrimaryImageUrl(product) ? (
-                <img src={getPrimaryImageUrl(product)} alt={product.name} className="w-full h-full object-cover" />
+              {getImageUrlForSelectedColor(product) ? (
+                <img src={getImageUrlForSelectedColor(product)} alt={product.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-400">Chưa có ảnh</div>
               )}
               
               {/* New Badge */}
-              {/* Tạm ẩn nhãn NEW; có thể dựa theo createdAt nếu cần */}
-              {false && (
-                <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
+              {isNewProduct(product) && (
+                <div className="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
                   NEW
                 </div>
               )}
@@ -86,41 +103,32 @@ const ProductsPage: React.FC = () => {
 
             {/* Content */}
             <div className="p-4 flex flex-col">
-              <h3 className="font-medium text-gray-900 mb-2 text-sm">
+              <h3 className="font-semibold text-gray-900 mb-2 text-base group-hover:text-green-700 transition-colors">
                 {product.name}
               </h3>
               
               {/* Price */}
               <div className="mb-3">
-                <span className="text-green-600 font-bold text-base">
+                <span className="text-green-600 font-bold text-lg">
                   {formatPrice(product.price)}
                 </span>
               </div>
               
               {/* Color Options */}
-              <div className="flex space-x-1.5">
+              <div className="flex items-center gap-2">
                 {(product.colors || []).map((c, index) => {
                   const color = c.colorCode;
-                  const isLightColor = color === '#ffffff' || color?.toLowerCase() === '#f5f5dc';
-                  const selected = selectedColors[product.id] || (product.colors?.[0]?.colorCode || '');
-                  const isSelected = selected === color;
-                  
+                  const selected = (selectedColors[product.id] || (product.colors?.[0]?.colorCode || '')).toLowerCase();
+                  const isSelected = selected === color.toLowerCase();
+                  const ringClass = isSelected ? 'ring-2 ring-green-500 ring-offset-2' : 'ring-1 ring-gray-200';
+                  const borderForLight = ['#ffffff','#f5f5dc'].includes(color.toLowerCase()) ? 'border border-gray-200' : '';
                   return (
                     <button
                       key={index}
+                      aria-label={`Chọn màu ${color}`}
                       onClick={() => handleColorSelect(product.id, color)}
-                      className="w-4 h-4 transition-all duration-200"
-                      style={{ 
-                        backgroundColor: color,
-                        borderRadius: '50%',
-                        border: isSelected ? '2px solid #10b981' : 
-                                isLightColor ? '1px solid #e5e7eb' : 'none',
-                        width: '16px',
-                        height: '16px',
-                        minWidth: '16px',
-                        minHeight: '16px',
-                        boxSizing: 'border-box'
-                      }}
+                      className={`w-5 h-5 rounded-full transition-transform duration-150 hover:scale-110 ${ringClass} ${borderForLight}`}
+                      style={{ backgroundColor: color }}
                     />
                   );
                 })}
