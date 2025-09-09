@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
 import ProductService from '../services/productService';
+import CategoryService from '../services/categoryService';
 import type { Product } from '../types/product';
+import type { Category } from '../types/category';
 
 const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedColors, setSelectedColors] = useState<{[key: number]: string}>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -14,8 +17,12 @@ const ProductsPage: React.FC = () => {
       try {
         setError(null);
         setIsLoading(true);
-        const data = await ProductService.getAllProducts();
-        setProducts(data);
+        const [prods, cats] = await Promise.all([
+          ProductService.getAllProducts(),
+          CategoryService.list().catch(() => [])
+        ]);
+        setProducts(prods);
+        setCategories((cats as Category[]).filter(c => c.status === 'active').sort((a,b) => a.sortOrder - b.sortOrder));
       } catch (e) {
         console.error(e);
         setError('Không thể tải danh sách sản phẩm');
@@ -137,10 +144,14 @@ const ProductsPage: React.FC = () => {
           <div className="text-gray-500">Đang tải sản phẩm...</div>
         ) : (
           <>
-            {grouped['Non-stop'] && <ProductSection title="Túi Tote Non-stop" items={grouped['Non-stop']} />}
-            {grouped['Trơn'] && <ProductSection title="Túi Tote Trơn" items={grouped['Trơn']} />}
-            {grouped['Thêu'] && <ProductSection title="Túi Tote Thêu" items={grouped['Thêu']} />}
-            {grouped['Khác'] && <ProductSection title="Sản phẩm khác" items={grouped['Khác']} />}
+            {categories.map(cat => (
+              grouped[cat.name] && grouped[cat.name].length > 0 ? (
+                <ProductSection key={cat.id} title={`Túi Tote ${cat.name}`} items={grouped[cat.name]} />
+              ) : null
+            ))}
+            {grouped['Khác'] && grouped['Khác'].length > 0 && (
+              <ProductSection title="Sản phẩm khác" items={grouped['Khác']} />
+            )}
           </>
         )}
       </main>

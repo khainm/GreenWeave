@@ -20,7 +20,9 @@ namespace backend.Repositories
 
         public async Task<int> CountProductsAsync(int categoryId)
         {
-            return await _db.Products.CountAsync(p => p.CategoryId == categoryId || p.CategoryRef!.Id == categoryId);
+            var cat = await _db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId);
+            if (cat == null) return 0;
+            return await _db.Products.CountAsync(p => p.CategoryId == categoryId || p.Category == cat.Name);
         }
 
         public async Task<Category?> GetByIdAsync(int id)
