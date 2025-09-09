@@ -4,10 +4,12 @@ import ProductService from '../services/productService';
 import CategoryService from '../services/categoryService';
 import type { Product } from '../types/product';
 import type { Category } from '../types/category';
+import { useNavigate } from 'react-router-dom';
 
 const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const navigate = useNavigate();
   const [selectedColors, setSelectedColors] = useState<{[key: number]: string}>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ const ProductsPage: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
         {items.map((product) => (
-          <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col transition-transform duration-200 group hover:-translate-y-1 hover:shadow-lg">
+          <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col transition-transform duration-200 group hover:-translate-y-1 hover:shadow-lg cursor-pointer" onClick={() => navigate(`/products/${product.id}`)}>
             {/* Image Container */}
             <div className="relative h-64 bg-gray-100 overflow-hidden">
               {getImageUrlForSelectedColor(product) ? (
@@ -102,7 +104,7 @@ const ProductsPage: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div className="p-4 flex flex-col">
+            <div className="p-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
               <h3 className="font-semibold text-gray-900 mb-2 text-base group-hover:text-green-700 transition-colors">
                 {product.name}
               </h3>
