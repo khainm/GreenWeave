@@ -1,129 +1,56 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
-
-interface ToteProduct {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  colors: string[];
-  selectedColor: string;
-  isNew?: boolean;
-  combo?: string;
-}
+import ProductService from '../services/productService';
+import type { Product } from '../types/product';
 
 const ProductsPage: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedColors, setSelectedColors] = useState<{[key: number]: string}>({});
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const nonStopProducts: ToteProduct[] = [
-    {
-      id: 1,
-      name: 'Túi Tote Non-stop Single',
-      description: '',
-      price: 159000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#10b981', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#10b981',
-      isNew: true
-    },
-    {
-      id: 2,
-      name: 'Túi Tote Non-stop Combo 2',
-      description: '',
-      price: 299000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff'
-    },
-    {
-      id: 3,
-      name: 'Túi Tote Non-stop Combo 3',
-      description: '',
-      price: 389000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff'
-    },
-    {
-      id: 4,
-      name: 'Túi Tote Non-stop Combo 4',
-      description: '',
-      price: 479000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff'
-    }
-  ];
-
-  const plainProducts: ToteProduct[] = [
-    {
-      id: 5,
-      name: 'Túi Tote Trơn Single',
-      description: '',
-      price: 128000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#10b981', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#10b981'
-    },
-    {
-      id: 6,
-      name: 'Túi Tote Trơn Combo 2',
-      description: '',
-      price: 239000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff'
-    },
-    {
-      id: 7,
-      name: 'Túi Tote Trơn Combo 3',
-      description: '',
-      price: 359000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff'
-    },
-    {
-      id: 8,
-      name: 'Túi Tote Trơn Combo 4',
-      description: '',
-      price: 389000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff'
-    }
-  ];
-
-  const personalizedProducts: ToteProduct[] = [
-    {
-      id: 9,
-      name: 'Túi Tote Thêu Cá Nhân Hóa',
-      description: '',
-      price: 250000,
-      image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?ixlib=rb-4.0.3&auto=format&fit=crop&w=500&q=80',
-      colors: ['#ffffff', '#f5f5dc', '#8b4513', '#000000'],
-      selectedColor: '#ffffff',
-      isNew: true
-    }
-  ];
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setError(null);
+        setIsLoading(true);
+        const data = await ProductService.getAllProducts();
+        setProducts(data);
+      } catch (e) {
+        console.error(e);
+        setError('Không thể tải danh sách sản phẩm');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, []);
 
   const handleColorSelect = (productId: number, color: string) => {
-    setSelectedColors(prev => ({
-      ...prev,
-      [productId]: color
-    }));
+    setSelectedColors(prev => ({ ...prev, [productId]: color }));
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
   };
 
-  const ProductSection: React.FC<{ title: string; products: ToteProduct[] }> = ({ title, products }) => (
+  const getPrimaryImageUrl = (p: Product): string => {
+    if (!p.images || p.images.length === 0) return '';
+    const primary = p.images.find(img => img.isPrimary) || p.images.slice().sort((a,b)=>a.sortOrder-b.sortOrder)[0];
+    return primary?.imageUrl || '';
+  };
+
+  const grouped = useMemo(() => {
+    const byCat: Record<string, Product[]> = {};
+    for (const p of products) {
+      const cat = p.category || 'Khác';
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(p);
+    }
+    return byCat;
+  }, [products]);
+
+  const ProductSection: React.FC<{ title: string; items: Product[] }> = ({ title, items }) => (
     <section className="mb-12">
       <div className="flex items-center mb-6">
         <div className="w-1 h-6 bg-green-600 mr-3"></div>
@@ -131,18 +58,19 @@ const ProductsPage: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
+        {items.map((product) => (
           <div key={product.id} className="bg-white">
             {/* Image Container */}
             <div className="relative h-64 bg-gray-100 overflow-hidden mb-3">
-              <img
-                src={product.image}
-                alt={product.name}
-                className="w-full h-full object-cover"
-              />
+              {getPrimaryImageUrl(product) ? (
+                <img src={getPrimaryImageUrl(product)} alt={product.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-gray-400">Chưa có ảnh</div>
+              )}
               
               {/* New Badge */}
-              {product.isNew && (
+              {/* Tạm ẩn nhãn NEW; có thể dựa theo createdAt nếu cần */}
+              {false && (
                 <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
                   NEW
                 </div>
@@ -164,9 +92,11 @@ const ProductsPage: React.FC = () => {
               
               {/* Color Options */}
               <div className="flex space-x-1.5">
-                {product.colors.map((color, index) => {
-                  const isLightColor = color === '#ffffff' || color === '#f5f5dc';
-                  const isSelected = (selectedColors[product.id] || product.selectedColor) === color;
+                {(product.colors || []).map((c, index) => {
+                  const color = c.colorCode;
+                  const isLightColor = color === '#ffffff' || color?.toLowerCase() === '#f5f5dc';
+                  const selected = selectedColors[product.id] || (product.colors?.[0]?.colorCode || '');
+                  const isSelected = selected === color;
                   
                   return (
                     <button
@@ -200,10 +130,19 @@ const ProductsPage: React.FC = () => {
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Product Sections */}
-        <ProductSection title="Túi Tote Trẻ Người Non-stop" products={nonStopProducts} />
-        <ProductSection title="Túi Tote Trơn" products={plainProducts} />
-        <ProductSection title="Túi Tote Thêu Cá Nhân Hóa" products={personalizedProducts} />
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">{error}</div>
+        )}
+        {isLoading ? (
+          <div className="text-gray-500">Đang tải sản phẩm...</div>
+        ) : (
+          <>
+            {grouped['Non-stop'] && <ProductSection title="Túi Tote Non-stop" items={grouped['Non-stop']} />}
+            {grouped['Trơn'] && <ProductSection title="Túi Tote Trơn" items={grouped['Trơn']} />}
+            {grouped['Thêu'] && <ProductSection title="Túi Tote Thêu" items={grouped['Thêu']} />}
+            {grouped['Khác'] && <ProductSection title="Sản phẩm khác" items={grouped['Khác']} />}
+          </>
+        )}
       </main>
 
       {/* Scroll to Top Button */}
