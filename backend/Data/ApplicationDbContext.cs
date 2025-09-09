@@ -13,6 +13,8 @@ namespace backend.Data
         public DbSet<ProductImage> ProductImages { get; set; }
         public DbSet<ProductColor> ProductColors { get; set; }
         public DbSet<Category> Categories { get; set; }
+        public DbSet<Cart> Carts { get; set; }
+        public DbSet<CartItem> CartItems { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -113,6 +115,26 @@ namespace backend.Data
                 entity.HasOne(pc => pc.Product)
                     .WithMany(p => p.Colors)
                     .HasForeignKey(pc => pc.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure Cart
+            modelBuilder.Entity<Cart>(entity =>
+            {
+                entity.HasKey(c => c.Id);
+                entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+            });
+
+            // Configure CartItem
+            modelBuilder.Entity<CartItem>(entity =>
+            {
+                entity.HasKey(ci => ci.Id);
+                entity.Property(ci => ci.UnitPrice).HasColumnType("decimal(18,2)");
+                entity.Property(ci => ci.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.HasOne(ci => ci.Cart)
+                    .WithMany(c => c.Items)
+                    .HasForeignKey(ci => ci.CartId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

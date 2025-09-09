@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCartIcon, UserIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import MobileMenu from './MobileMenu';
+import { CartService, getCartId, getOrCreateCartId } from '../services/cartService';
 
 interface HeaderProps {
   activePage?: string;
@@ -10,6 +11,34 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const [cartCount, setCartCount] = useState<number>(0);
+
+  // Initialize cart id and fetch count
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const id = getCartId() || await getOrCreateCartId();
+        const cart = await CartService.get(id);
+        setCartCount(cart.items?.reduce((s, i) => s + i.quantity, 0) || 0);
+      } catch {
+        // ignore silently
+      }
+    };
+    init();
+  }, []);
+
+  useEffect(() => {
+    const onUpdated = async () => {
+      try {
+        const id = getCartId();
+        if (!id) return;
+        const cart = await CartService.get(id);
+        setCartCount(cart.items?.reduce((s, i) => s + i.quantity, 0) || 0);
+      } catch {}
+    };
+    window.addEventListener('cart:updated', onUpdated as EventListener);
+    return () => window.removeEventListener('cart:updated', onUpdated as EventListener);
+  }, []);
   
   const navigationItems = [
     { id: 'home', label: 'Trang chủ', path: '/' },
@@ -65,9 +94,12 @@ const Header: React.FC<HeaderProps> = () => {
 
             {/* Desktop Icons */}
             <div className="hidden md:flex items-center space-x-3">
-              <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
+              <Link to="/cart" className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
                 <ShoppingCartIcon className="h-5 w-5 text-gray-600" />
-              </button>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 text-[10px] bg-green-600 text-white rounded-full px-1.5 py-0.5">{cartCount}</span>
+                )}
+              </Link>
               <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
                 <UserIcon className="h-5 w-5 text-gray-600" />
               </button>
