@@ -47,6 +47,8 @@ builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();
 builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICustomRepository, CustomRepository>();
+builder.Services.AddScoped<ICustomService, CustomService>();
 
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
@@ -54,7 +56,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:5174") // React dev servers
+            policy.WithOrigins("http://localhost:5173", "http://localhost:5174", "https://localhost:5173", "https://localhost:5174") // React dev servers
                   .AllowAnyHeader()
                   .AllowAnyMethod()
                   .AllowCredentials(); // Allow credentials if needed
@@ -100,5 +102,5 @@ app.UseAuthorization();
 // Only map API controllers, remove Razor Pages
 app.MapControllers();
 
-app.Run();
+await app.RunAsync();
 

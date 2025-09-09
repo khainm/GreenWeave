@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Header from '../components/Header';
 import ProductService from '../services/productService';
 import CategoryService from '../services/categoryService';
+import CustomizableProductCard from '../components/products/CustomizableProductCard';
 import type { Product } from '../types/product';
 import type { Category } from '../types/category';
 import { useNavigate } from 'react-router-dom';
@@ -77,7 +78,8 @@ const ProductsPage: React.FC = () => {
     return byCat;
   }, [products]);
 
-  const ProductSection: React.FC<{ title: string; items: Product[] }> = ({ title, items }) => (
+
+  const ProductSection: React.FC<{ title: string; items: Product[]; category?: Category }> = ({ title, items, category }) => (
     <section className="mb-12">
       <div className="flex items-center mb-6">
         <div className="w-1 h-6 bg-green-600 mr-3"></div>
@@ -85,59 +87,82 @@ const ProductsPage: React.FC = () => {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-        {items.map((product) => (
-          <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col transition-transform duration-200 group hover:-translate-y-1 hover:shadow-lg cursor-pointer" onClick={() => navigate(`/products/${product.id}`)}>
-            {/* Image Container */}
-            <div className="relative h-64 bg-gray-100 overflow-hidden">
-              {getImageUrlForSelectedColor(product) ? (
-                <img src={getImageUrlForSelectedColor(product)} alt={product.name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-400">Chưa có ảnh</div>
-              )}
-              
-              {/* New Badge */}
-              {isNewProduct(product) && (
-                <div className="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
-                  NEW
-                </div>
-              )}
-            </div>
+        {items.map((product) => {
+          // Check if this category allows customization
+          const isCustomizable = category?.isCustomizable;
+          
+          if (isCustomizable) {
+            return (
+              <CustomizableProductCard 
+                key={product.id} 
+                product={product} 
+                category={category!} 
+              />
+            );
+          }
+          
+          // Regular product card
+          return (
+            <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col transition-transform duration-200 group hover:-translate-y-1 hover:shadow-lg cursor-pointer" onClick={() => navigate(`/products/${product.id}`)}>
+              {/* Image Container */}
+              <div className="relative h-64 bg-gray-100 overflow-hidden">
+                {getImageUrlForSelectedColor(product) ? (
+                  <img src={getImageUrlForSelectedColor(product)} alt={product.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">Chưa có ảnh</div>
+                )}
+                
+                {/* New Badge */}
+                {isNewProduct(product) && (
+                  <div className="absolute top-3 left-3 bg-green-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
+                    NEW
+                  </div>
+                )}
+                
+                {/* Customizable Badge */}
+                {category?.isCustomizable && (
+                  <div className="absolute top-3 right-3 bg-blue-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-sm">
+                    TÙY BIẾN
+                  </div>
+                )}
+              </div>
 
-            {/* Content */}
-            <div className="p-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
-              <h3 className="font-semibold text-gray-900 mb-2 text-base group-hover:text-green-700 transition-colors">
-                {product.name}
-              </h3>
-              
-              {/* Price */}
-              <div className="mb-3">
-                <span className="text-green-600 font-bold text-lg">
-                  {formatPrice(product.price)}
-                </span>
-              </div>
-              
-              {/* Color Options */}
-              <div className="flex items-center gap-2">
-                {(product.colors || []).map((c, index) => {
-                  const color = c.colorCode;
-                  const selected = (selectedColors[product.id] || (product.colors?.[0]?.colorCode || '')).toLowerCase();
-                  const isSelected = selected === color.toLowerCase();
-                  const ringClass = isSelected ? 'ring-2 ring-green-500 ring-offset-2' : 'ring-1 ring-gray-200';
-                  const borderForLight = ['#ffffff','#f5f5dc'].includes(color.toLowerCase()) ? 'border border-gray-200' : '';
-                  return (
-                    <button
-                      key={index}
-                      aria-label={`Chọn màu ${color}`}
-                      onClick={() => handleColorSelect(product.id, color)}
-                      className={`w-5 h-5 rounded-full transition-transform duration-150 hover:scale-110 ${ringClass} ${borderForLight}`}
-                      style={{ backgroundColor: color }}
-                    />
-                  );
-                })}
+              {/* Content */}
+              <div className="p-4 flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <h3 className="font-semibold text-gray-900 mb-2 text-base group-hover:text-green-700 transition-colors">
+                  {product.name}
+                </h3>
+                
+                {/* Price */}
+                <div className="mb-3">
+                  <span className="text-green-600 font-bold text-lg">
+                    {formatPrice(product.price)}
+                  </span>
+                </div>
+                
+                {/* Color Options */}
+                <div className="flex items-center gap-2">
+                  {(product.colors || []).map((c, index) => {
+                    const color = c.colorCode;
+                    const selected = (selectedColors[product.id] || (product.colors?.[0]?.colorCode || '')).toLowerCase();
+                    const isSelected = selected === color.toLowerCase();
+                    const ringClass = isSelected ? 'ring-2 ring-green-500 ring-offset-2' : 'ring-1 ring-gray-200';
+                    const borderForLight = ['#ffffff','#f5f5dc'].includes(color.toLowerCase()) ? 'border border-gray-200' : '';
+                    return (
+                      <button
+                        key={index}
+                        aria-label={`Chọn màu ${color}`}
+                        onClick={() => handleColorSelect(product.id, color)}
+                        className={`w-5 h-5 rounded-full transition-transform duration-150 hover:scale-110 ${ringClass} ${borderForLight}`}
+                        style={{ backgroundColor: color }}
+                      />
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -156,7 +181,7 @@ const ProductsPage: React.FC = () => {
           <>
             {categories.map(cat => (
               grouped[cat.name] && grouped[cat.name].length > 0 ? (
-                <ProductSection key={cat.id} title={`Túi Tote ${cat.name}`} items={grouped[cat.name]} />
+                <ProductSection key={cat.id} title={`Túi Tote ${cat.name}`} items={grouped[cat.name]} category={cat} />
               ) : null
             ))}
             {grouped['Khác'] && grouped['Khác'].length > 0 && (

@@ -23,23 +23,40 @@ const AdminAddProduct: React.FC = () => {
     selectedColor: '#10b981',
     status: 'active',
     images: [],
-    imageFiles: []
+    imageFiles: [],
+    customizableIcon: 'solid'
   })
-  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([])
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable?: boolean }[]>([])
 
   // SKU helpers
   const generateSku = (category: string) => {
     return ProductService.generateSku(category)
   }
 
+  const generateUniqueSku = async (category: string) => {
+    try {
+      return await ProductService.generateUniqueSku(category)
+    } catch (error) {
+      console.error('Error generating unique SKU:', error)
+      // Fallback to regular generateSku if unique generation fails
+      return generateSku(category)
+    }
+  }
+
   useEffect(() => {
-    setForm(prev => ({ ...prev, sku: prev.sku || generateSku(prev.category) }))
+    if (form.category && !form.sku) {
+      generateUniqueSku(form.category).then(sku => {
+        setForm(prev => ({ ...prev, sku }))
+      })
+    }
   }, [])
 
   // Regenerate SKU when category changes (for Add page behavior)
   useEffect(() => {
     if (form.category) {
-      setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))
+      generateUniqueSku(form.category).then(sku => {
+        setForm(prev => ({ ...prev, sku }))
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.category])
@@ -51,7 +68,7 @@ const AdminAddProduct: React.FC = () => {
         setCategoryOptions(cats
           .filter(c => c.status === 'active')
           .sort((a,b) => a.sortOrder - b.sortOrder)
-          .map(c => ({ label: c.name, value: String(c.id) })))
+          .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable })))
       } catch (e) {
         // silently ignore for now
       }
@@ -122,7 +139,13 @@ const AdminAddProduct: React.FC = () => {
               isSubmitting={isLoading}
               onSubmit={handleSubmit}
               enableSkuRegenerate
-              onRegenerateSku={() => setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))}
+              onRegenerateSku={() => {
+                if (form.category) {
+                  generateUniqueSku(form.category).then(sku => {
+                    setForm(prev => ({ ...prev, sku }))
+                  })
+                }
+              }}
               categoryOptions={categoryOptions}
             />
             <div className="mt-4">

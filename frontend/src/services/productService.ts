@@ -97,8 +97,31 @@ export class ProductService {
     }
     
     const prefix = prefixMap[category] || 'GW'
-    const randomNum = Math.floor(1000 + Math.random() * 9000)
-    return `${prefix}${randomNum}`
+    // Tạo timestamp để đảm bảo unique
+    const timestamp = Date.now().toString().slice(-6)
+    return `${prefix}${timestamp}`
+  }
+
+  // Tạo SKU unique với retry logic
+  static async generateUniqueSku(category: string, maxRetries: number = 5): Promise<string> {
+    for (let i = 0; i < maxRetries; i++) {
+      const sku = this.generateSku(category)
+      try {
+        // Thử kiểm tra xem SKU đã tồn tại chưa
+        await this.getProductBySku(sku)
+        // Nếu không có lỗi, nghĩa là SKU đã tồn tại, thử lại
+        continue
+      } catch (error: any) {
+        // Nếu có lỗi 404, nghĩa là SKU chưa tồn tại, có thể sử dụng
+        if (error.response?.status === 404) {
+          return sku
+        }
+        // Nếu có lỗi khác, throw error
+        throw error
+      }
+    }
+    // Nếu sau maxRetries vẫn không tạo được SKU unique, throw error
+    throw new Error('Không thể tạo SKU unique sau nhiều lần thử')
   }
 
   // Helper để convert file thành base64 để preview

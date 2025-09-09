@@ -4,8 +4,13 @@ import type { Category, CreateCategoryRequest } from '../types/category'
 export class CategoryService {
   private static readonly BASE = '/api/categories'
 
-  static async list(): Promise<Category[]> {
-    return await apiClient.get<Category[]>(this.BASE)
+  static async list(params?: { visible?: boolean; customizable?: boolean }): Promise<Category[]> {
+    const query = new URLSearchParams()
+    // Note: visible parameter is deprecated - use status filtering instead
+    if (params?.visible !== undefined) query.set('visible', String(params.visible))
+    if (params?.customizable !== undefined) query.set('customizable', String(params.customizable))
+    const url = query.toString() ? `${this.BASE}?${query.toString()}` : this.BASE
+    return await apiClient.get<Category[]>(url)
   }
 
   static async get(id: number): Promise<Category> {

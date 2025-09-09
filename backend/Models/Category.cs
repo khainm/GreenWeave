@@ -23,6 +23,10 @@ namespace backend.Models
 
         public int SortOrder { get; set; } = 0;
 
+        // Visibility and customization flags
+        public bool IsVisible { get; set; } = true;
+        public bool IsCustomizable { get; set; } = false;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }

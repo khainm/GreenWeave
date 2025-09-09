@@ -18,6 +18,14 @@ namespace backend.Repositories
             return await _db.Set<Category>().OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync();
         }
 
+        public async Task<IEnumerable<Category>> GetFilteredAsync(bool? visible, bool? customizable)
+        {
+            var q = _db.Set<Category>().AsQueryable();
+            if (visible.HasValue) q = q.Where(c => c.IsVisible == visible.Value);
+            if (customizable.HasValue) q = q.Where(c => c.IsCustomizable == customizable.Value);
+            return await q.OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync();
+        }
+
         public async Task<int> CountProductsAsync(int categoryId)
         {
             var cat = await _db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == categoryId);

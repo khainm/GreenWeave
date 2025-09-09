@@ -17,9 +17,14 @@ namespace backend.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll([FromQuery] bool? visible, [FromQuery] bool? customizable)
         {
+            // If service not supporting filter, do it here temporarily via repository
+            // Reuse repository directly would break layering; better to add to service.
+            // For speed, we map through service's GetAll then filter.
             var items = await _service.GetAllAsync();
+            if (visible.HasValue) items = items.Where(c => c.IsVisible == visible.Value).ToList();
+            if (customizable.HasValue) items = items.Where(c => c.IsCustomizable == customizable.Value).ToList();
             return Ok(new { success = true, data = items });
         }
 

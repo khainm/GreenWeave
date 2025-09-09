@@ -13,6 +13,8 @@ namespace backend.Models
         [Range(1, int.MaxValue)]
         public int Quantity { get; set; } = 1;
         public decimal UnitPrice { get; set; }
+        public Guid? DesignId { get; set; }
+        public string? CustomizationJson { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public Cart Cart { get; set; } = null!;

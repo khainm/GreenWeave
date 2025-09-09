@@ -1,19 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import TopNav from '../components/admin/TopNav'
 import CategoryService from '../services/categoryService'
-import type { CreateCategoryRequest } from '../types/category'
+import type { CreateCategoryRequest, Category as ApiCategory } from '../types/category'
 import CategoryTable, { type CategoryRow } from '../components/admin/categories/CategoryTable'
-import CategoryModalComponent from '../components/admin/categories/CategoryModal'
+import CategoryModalComponent, { type CategoryForm } from '../components/admin/categories/CategoryModal'
 
-type Category = {
-  id: number
-  name: string
-  code: string
-  description?: string
-  status: 'active' | 'inactive'
-  sortOrder: number
-  productCount?: number
-}
+type Category = ApiCategory
 
 const AdminCategories: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([])
@@ -29,16 +21,7 @@ const AdminCategories: React.FC = () => {
         setError(null)
         setLoading(true)
         const apiItems = await CategoryService.list()
-        const mapped: Category[] = apiItems.map(i => ({
-          id: i.id,
-          name: i.name,
-          code: i.code,
-          description: i.description,
-          status: i.status,
-          sortOrder: i.sortOrder,
-          productCount: (i as any).productCount ?? 0
-        }))
-        setCategories(mapped)
+        setCategories(apiItems)
       } catch (e) {
         setError('Không thể tải danh mục')
       } finally {
@@ -54,15 +37,16 @@ const AdminCategories: React.FC = () => {
     return categories.filter(c => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q))
   }, [categories, query])
 
-  const onSave = async (cat: Omit<Category, 'id'>, id?: number) => {
+  const onSave = async (cat: CategoryForm, id?: number) => {
+    const isVisible = cat.status === 'active'
     if (id) {
-      const payload: CreateCategoryRequest = { ...cat }
+      const payload: CreateCategoryRequest = { name: cat.name, code: cat.code, description: cat.description, status: cat.status, sortOrder: cat.sortOrder, isVisible, isCustomizable: cat.isCustomizable }
       const updated = await CategoryService.update(id, payload)
-      setCategories(prev => prev.map(c => c.id === id ? { id, name: updated.name, code: updated.code, description: updated.description, status: updated.status, sortOrder: updated.sortOrder } : c))
+      setCategories(prev => prev.map(c => c.id === id ? updated : c))
     } else {
-      const payload: CreateCategoryRequest = { ...cat }
+      const payload: CreateCategoryRequest = { name: cat.name, code: cat.code, description: cat.description, status: cat.status, sortOrder: cat.sortOrder, isVisible, isCustomizable: cat.isCustomizable }
       const created = await CategoryService.create(payload)
-      setCategories(prev => [...prev, { id: created.id, name: created.name, code: created.code, description: created.description, status: created.status, sortOrder: created.sortOrder }])
+      setCategories(prev => [...prev, created])
     }
     setModalOpen(false)
     setEditing(null)
@@ -102,7 +86,8 @@ const AdminCategories: React.FC = () => {
                 onBlurSave={async (id) => {
                   const target = categories.find(x => x.id === id)
                   if (!target) return
-                  await CategoryService.update(id, { name: target.name, code: target.code, description: target.description, status: target.status, sortOrder: target.sortOrder })
+                  const isVisible = target.status === 'active'
+                  await CategoryService.update(id, { name: target.name, code: target.code, description: target.description, status: target.status, sortOrder: target.sortOrder, isVisible, isCustomizable: target.isCustomizable })
                 }}
                 onEdit={(row) => { setEditing(row as unknown as Category); setModalOpen(true) }}
                 onDelete={(id) => onDelete(id)}
@@ -113,7 +98,7 @@ const AdminCategories: React.FC = () => {
 
         {modalOpen && (
           <CategoryModalComponent
-            initial={editing || { name: '', code: '', description: '', status: 'active', sortOrder: (categories.at(-1)?.sortOrder ?? 0) + 1 }}
+            initial={editing || { name: '', code: '', description: '', status: 'active', sortOrder: (categories.at(-1)?.sortOrder ?? 0) + 1, isCustomizable: false }}
             existingCodes={categories.map(c => c.code)}
             onClose={() => { setModalOpen(false); setEditing(null) }}
             onSave={(cat) => onSave(cat, editing?.id)}

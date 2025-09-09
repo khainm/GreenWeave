@@ -8,6 +8,7 @@ import AdminEditProduct from './pages/AdminEditProduct.tsx'
 import AdminCategories from './pages/AdminCategories'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
+import CustomDesigner from './pages/CustomDesigner'
 import './App.css'
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:id" element={<ProductDetail />} />
+          <Route path="/custom/:id" element={<CustomDesigner />} />
           <Route path="/cart" element={<CartPage />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/products" element={<AdminProductsList />} />

@@ -45,6 +45,8 @@ namespace backend.Services
                 Description = dto.Description,
                 Status = dto.Status,
                 SortOrder = dto.SortOrder,
+                IsVisible = dto.IsVisible ?? true,
+                IsCustomizable = dto.IsCustomizable ?? false,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -64,6 +66,9 @@ namespace backend.Services
             existing.Description = dto.Description;
             existing.Status = dto.Status;
             existing.SortOrder = dto.SortOrder;
+            // Auto-set IsVisible based on Status
+            existing.IsVisible = dto.Status == "active";
+            existing.IsCustomizable = dto.IsCustomizable ?? false;
             existing.UpdatedAt = DateTime.UtcNow;
             var saved = await _repo.UpdateAsync(existing);
             return ToDto(saved);
@@ -79,6 +84,8 @@ namespace backend.Services
             Description = c.Description,
             Status = c.Status,
             SortOrder = c.SortOrder,
+            IsVisible = c.IsVisible,
+            IsCustomizable = c.IsCustomizable,
             CreatedAt = c.CreatedAt,
             UpdatedAt = c.UpdatedAt
         };

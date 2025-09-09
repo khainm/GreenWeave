@@ -13,6 +13,7 @@ export type ProductFormValues = {
   status: 'active' | 'inactive'
   images: string[]
   imageFiles: File[]
+  customizableIcon?: string
 }
 
 type ProductFormProps = {
@@ -22,7 +23,7 @@ type ProductFormProps = {
   onSubmit: (e: React.FormEvent) => void
   enableSkuRegenerate?: boolean
   onRegenerateSku?: () => void
-  categoryOptions?: { label: string; value: string }[]
+  categoryOptions?: { label: string; value: string; isCustomizable?: boolean }[]
 }
 
 const popularColors = [
@@ -126,6 +127,36 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
           ))}
         </select>
       </div>
+
+      {/* Icon Selection for Customizable Categories */}
+      {values.category && categoryOptions?.find(opt => opt.label === values.category && opt.isCustomizable) && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Icon tùy biến</label>
+          <div className="grid grid-cols-5 gap-2">
+            {[
+              { id: 'solid', name: 'Trơn', icon: '●' },
+              { id: 'stripes', name: 'Sọc', icon: '▬' },
+              { id: 'dots', name: 'Chấm bi', icon: '●' },
+              { id: 'floral', name: 'Hoa', icon: '❀' },
+              { id: 'geometric', name: 'Hình học', icon: '◆' }
+            ].map((pattern) => (
+              <button
+                key={pattern.id}
+                type="button"
+                onClick={() => setValues(prev => ({ ...prev, customizableIcon: pattern.id }))}
+                className={`w-12 h-12 rounded-lg border-2 transition-all flex items-center justify-center text-lg ${
+                  values.customizableIcon === pattern.id 
+                    ? 'border-green-500 ring-2 ring-green-200 bg-green-50' 
+                    : 'border-gray-300 bg-white hover:border-green-300'
+                }`}
+                title={pattern.name}
+              >
+                {pattern.icon}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>

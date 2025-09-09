@@ -15,6 +15,12 @@ namespace backend.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<Cart> Carts { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
+        public DbSet<CustomBaseProduct> CustomBaseProducts { get; set; }
+        public DbSet<CustomBaseAngle> CustomBaseAngles { get; set; }
+        public DbSet<CustomBaseLayer> CustomBaseLayers { get; set; }
+        public DbSet<CustomOptionGroup> CustomOptionGroups { get; set; }
+        public DbSet<CustomOption> CustomOptions { get; set; }
+        public DbSet<CustomDesign> CustomDesigns { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,6 +36,8 @@ namespace backend.Data
                 entity.Property(c => c.Description).HasMaxLength(500);
                 entity.Property(c => c.Status).IsRequired().HasMaxLength(20).HasDefaultValue("active");
                 entity.Property(c => c.SortOrder).HasDefaultValue(0);
+                entity.Property(c => c.IsVisible).HasDefaultValue(true);
+                entity.Property(c => c.IsCustomizable).HasDefaultValue(false);
                 entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
             });
@@ -130,11 +138,82 @@ namespace backend.Data
             modelBuilder.Entity<CartItem>(entity =>
             {
                 entity.HasKey(ci => ci.Id);
+                entity.HasIndex(ci => ci.CartId);
                 entity.Property(ci => ci.UnitPrice).HasColumnType("decimal(18,2)");
                 entity.Property(ci => ci.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.HasOne(ci => ci.Cart)
                     .WithMany(c => c.Items)
                     .HasForeignKey(ci => ci.CartId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Customizable base product mappings
+            modelBuilder.Entity<CustomBaseProduct>(entity =>
+            {
+                entity.HasKey(p => p.Id);
+                entity.Property(p => p.Name).IsRequired().HasMaxLength(200);
+                entity.Property(p => p.BasePrice).HasColumnType("decimal(18,2)");
+                entity.Property(p => p.Status).HasMaxLength(20).HasDefaultValue("active");
+                entity.HasOne(p => p.Category)
+                    .WithMany()
+                    .HasForeignKey(p => p.CategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<CustomBaseAngle>(entity =>
+            {
+                entity.HasKey(a => a.Id);
+                entity.HasIndex(a => new { a.CustomBaseProductId, a.SortOrder });
+                entity.Property(a => a.AngleKey).IsRequired().HasMaxLength(50);
+                entity.HasOne(a => a.Product)
+                    .WithMany(p => p.Angles)
+                    .HasForeignKey(a => a.CustomBaseProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CustomBaseLayer>(entity =>
+            {
+                entity.HasKey(l => l.Id);
+                entity.HasIndex(l => new { l.CustomBaseAngleId, l.ZIndex });
+                entity.Property(l => l.LayerType).IsRequired().HasMaxLength(50);
+                entity.HasOne(l => l.Angle)
+                    .WithMany(a => a.Layers)
+                    .HasForeignKey(l => l.CustomBaseAngleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CustomOptionGroup>(entity =>
+            {
+                entity.HasKey(g => g.Id);
+                entity.HasIndex(g => g.CustomBaseProductId);
+                entity.Property(g => g.Name).IsRequired().HasMaxLength(100);
+                entity.HasOne(g => g.Product)
+                    .WithMany(p => p.OptionGroups)
+                    .HasForeignKey(g => g.CustomBaseProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CustomOption>(entity =>
+            {
+                entity.HasKey(o => o.Id);
+                entity.HasIndex(o => o.CustomOptionGroupId);
+                entity.Property(o => o.Code).IsRequired().HasMaxLength(50);
+                entity.Property(o => o.DisplayName).IsRequired().HasMaxLength(100);
+                entity.Property(o => o.ExtraPrice).HasColumnType("decimal(18,2)");
+                entity.HasOne(o => o.Group)
+                    .WithMany(g => g.Options)
+                    .HasForeignKey(o => o.CustomOptionGroupId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<CustomDesign>(entity =>
+            {
+                entity.HasKey(d => d.Id);
+                entity.Property(d => d.SnapshotPrice).HasColumnType("decimal(18,2)");
+                entity.Property(d => d.PayloadJson).IsRequired();
+                entity.HasOne(d => d.BaseProduct)
+                    .WithMany()
+                    .HasForeignKey(d => d.CustomBaseProductId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

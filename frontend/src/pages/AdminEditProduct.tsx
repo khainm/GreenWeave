@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import TopNav from '../components/admin/TopNav'
 import ProductForm, { type ProductFormValues } from '../components/admin/ProductForm'
 import ProductService from '../services/productService'
+import CategoryService from '../services/categoryService'
 import type { CreateProductRequest, Product } from '../types/product'
 
 type ProductForm = {
@@ -27,6 +28,8 @@ const AdminEditProduct: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable?: boolean }[]>([])
+  const [categoriesLoaded, setCategoriesLoaded] = useState(false)
   const [form, setForm] = useState<ProductFormValues>({
     name: '',
     sku: '',
@@ -39,9 +42,27 @@ const AdminEditProduct: React.FC = () => {
     selectedColor: '#10b981',
     status: 'active',
     images: [],
-    imageFiles: []
+    imageFiles: [],
+    customizableIcon: 'solid'
   })
   // local drag state removed after form extraction
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const cats = await CategoryService.list()
+        setCategoryOptions(cats
+          .filter(c => c.status === 'active')
+          .sort((a,b) => a.sortOrder - b.sortOrder)
+          .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable })))
+        setCategoriesLoaded(true)
+      } catch (e) {
+        console.error('Error loading categories:', e)
+        setCategoriesLoaded(true)
+      }
+    }
+    loadCategories()
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -62,6 +83,8 @@ const AdminEditProduct: React.FC = () => {
           images: product.images?.sort((a, b) => a.sortOrder - b.sortOrder).map(img => img.imageUrl) || [],
           imageFiles: []
         })
+        console.log('Product category:', product.category)
+        console.log('Category options:', categoryOptions)
       } catch (e) {
         console.error(e)
         setError('Không thể tải sản phẩm')
@@ -110,7 +133,7 @@ const AdminEditProduct: React.FC = () => {
   }
 
 
-  if (isLoading) {
+  if (isLoading || !categoriesLoaded) {
     return (
       <div className="min-h-screen bg-gray-50">
         <TopNav />
@@ -148,6 +171,7 @@ const AdminEditProduct: React.FC = () => {
               setValues={setForm}
               isSubmitting={isSaving}
               onSubmit={handleSubmit}
+              categoryOptions={categoryOptions}
             />
             <div className="mt-4">
               <Link to="/admin/products" className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Hủy</Link>

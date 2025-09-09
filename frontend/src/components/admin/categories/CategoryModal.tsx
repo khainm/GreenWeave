@@ -6,6 +6,7 @@ export type CategoryForm = {
   description?: string
   status: 'active' | 'inactive'
   sortOrder: number
+  isCustomizable?: boolean
 }
 
 export const removeAccents = (str: string): string => str.normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -59,6 +60,12 @@ const CategoryModal: React.FC<Props> = ({ initial, existingCodes, onClose, onSav
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
             <textarea value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+          </div>
+          <div className="flex items-center gap-6">
+            <label className="inline-flex items-center gap-2">
+              <input type="checkbox" checked={form.isCustomizable ?? false} onChange={e => setForm(prev => ({ ...prev, isCustomizable: e.target.checked }))} />
+              <span>Cho phép tùy biến</span>
+            </label>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
