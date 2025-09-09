@@ -57,11 +57,11 @@ const ProductsPage: React.FC = () => {
         <h2 className="text-xl font-bold text-gray-900">{title}</h2>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
         {items.map((product) => (
-          <div key={product.id} className="bg-white">
+          <div key={product.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden h-full flex flex-col">
             {/* Image Container */}
-            <div className="relative h-64 bg-gray-100 overflow-hidden mb-3">
+            <div className="relative h-64 bg-gray-100 overflow-hidden">
               {getPrimaryImageUrl(product) ? (
                 <img src={getPrimaryImageUrl(product)} alt={product.name} className="w-full h-full object-cover" />
               ) : (
@@ -78,7 +78,7 @@ const ProductsPage: React.FC = () => {
             </div>
 
             {/* Content */}
-            <div>
+            <div className="p-4 flex flex-col">
               <h3 className="font-medium text-gray-900 mb-2 text-sm">
                 {product.name}
               </h3>
