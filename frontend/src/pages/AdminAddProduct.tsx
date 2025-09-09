@@ -5,6 +5,7 @@ import ProductService from '../services/productService'
 import type { CreateProductRequest } from '../types/product'
 import ProductForm, { type ProductFormValues } from '../components/admin/ProductForm'
 import { formatVnd } from '../utils/format'
+import CategoryService from '../services/categoryService'
 
 const AdminAddProduct: React.FC = () => {
   const navigate = useNavigate()
@@ -24,6 +25,7 @@ const AdminAddProduct: React.FC = () => {
     images: [],
     imageFiles: []
   })
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([])
 
   // SKU helpers
   const generateSku = (category: string) => {
@@ -42,6 +44,20 @@ const AdminAddProduct: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.category])
 
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const cats = await CategoryService.list()
+        setCategoryOptions(cats
+          .filter(c => c.status === 'active')
+          .sort((a,b) => a.sortOrder - b.sortOrder)
+          .map(c => ({ label: c.name, value: String(c.id) })))
+      } catch (e) {
+        // silently ignore for now
+      }
+    }
+    loadCategories()
+  }, [])
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,6 +123,7 @@ const AdminAddProduct: React.FC = () => {
               onSubmit={handleSubmit}
               enableSkuRegenerate
               onRegenerateSku={() => setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))}
+              categoryOptions={categoryOptions}
             />
             <div className="mt-4">
               <Link to="/admin/products" className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Hủy</Link>

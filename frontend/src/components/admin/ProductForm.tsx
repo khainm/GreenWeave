@@ -22,6 +22,7 @@ type ProductFormProps = {
   onSubmit: (e: React.FormEvent) => void
   enableSkuRegenerate?: boolean
   onRegenerateSku?: () => void
+  categoryOptions?: { label: string; value: string }[]
 }
 
 const popularColors = [
@@ -39,7 +40,7 @@ const popularColors = [
   { name: 'Xanh ngọc', value: '#06b6d4' }
 ]
 
-const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitting, onSubmit, enableSkuRegenerate, onRegenerateSku }) => {
+const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitting, onSubmit, enableSkuRegenerate, onRegenerateSku, categoryOptions }) => {
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleFiles = async (files: FileList | null) => {
@@ -120,9 +121,9 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
           required
         >
           <option value="">Chọn danh mục</option>
-          <option value="Non-stop">Non-stop</option>
-          <option value="Trơn">Trơn</option>
-          <option value="Thêu">Thêu</option>
+          {(categoryOptions ?? []).map(opt => (
+            <option key={opt.value} value={opt.label}>{opt.label}</option>
+          ))}
         </select>
       </div>
 
