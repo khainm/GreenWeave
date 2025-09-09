@@ -78,7 +78,7 @@ const TopNav: React.FC = () => {
       <div className="bg-gradient-to-r from-[#0a68ff] via-[#0d6efd] to-[#1270ff] text-white relative">
         <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            {tabs.map((t, idx) => {
+            {tabs.map((t) => {
               const isActive = (t.label === 'Tổng quan' && location.pathname === '/admin') ||
                                (t.label === 'Hàng hóa' && location.pathname.startsWith('/admin/products'))
 
@@ -110,7 +110,11 @@ const TopNav: React.FC = () => {
                               <div className="text-xl font-semibold mb-6">Hàng hóa</div>
                               <ul className="space-y-6 text-gray-800">
                                 <li><Link to="/admin/products" className="hover:text-[#0a68ff] transition-colors">Danh sách hàng hóa</Link></li>
-                                <li><button className="hover:text-[#0a68ff] transition-colors">Danh mục sản phẩm</button></li>
+                                <li>
+                                  <Link to="/admin/categories" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsGoodsOpen(false)}>
+                                    Danh mục sản phẩm
+                                  </Link>
+                                </li>
                                 <li><button className="hover:text-[#0a68ff] transition-colors">Thiết lập giá</button></li>
                               </ul>
                             </div>
