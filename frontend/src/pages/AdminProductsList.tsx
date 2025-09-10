@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopNav from '../components/admin/TopNav'
 import ProductService from '../services/productService'
@@ -18,10 +18,37 @@ const AdminProductsList: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Customizable modal state
+  const [showCustomModal, setShowCustomModal] = useState(false)
+  const [customForm, setCustomForm] = useState({
+    name: '',
+    sku: '',
+    category: '',
+    price: 0,
+    description: '',
+    selectedColor: '#ffffff' as string,
+  })
+  const [availableColors] = useState<string[]>(['#ffffff', '#000000', '#e11d48', '#10b981', '#3b82f6', '#f59e0b'])
+  const [colorImageMap, setColorImageMap] = useState<Record<string, string>>({})
+  const [stickerLibrary, setStickerLibrary] = useState<string[]>([])
+  type PlacedSticker = { id: string; src: string; x: number; y: number; scale: number }
+  const [placedStickers, setPlacedStickers] = useState<PlacedSticker[]>([])
+  const previewRef = useRef<HTMLDivElement>(null)
+  const [dragState, setDragState] = useState<null | { id: string; offsetX: number; offsetY: number; containerLeft: number; containerTop: number }>(null)
+  const [resizeState, setResizeState] = useState<null | { id: string; startX: number; startY: number; startScale: number }>(null)
+
   useEffect(() => {
     const id = setTimeout(() => setDebounced(query), 250)
     return () => clearTimeout(id)
   }, [query])
+
+  // Auto generate SKU when category changes in custom form
+  useEffect(() => {
+    if (customForm.category) {
+      setCustomForm(prev => ({ ...prev, sku: prev.sku || ProductService.generateSku(prev.category) }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customForm.category])
 
   // Fetch products from API
   useEffect(() => {
@@ -74,6 +101,85 @@ const AdminProductsList: React.FC = () => {
       return sortDir === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va))
     })
 
+  // Handlers for Customizable modal
+  const openCustomModal = () => {
+    setShowCustomModal(true)
+  }
+  const closeCustomModal = () => {
+    setShowCustomModal(false)
+    setCustomForm({ name: '', sku: '', category: '', price: 0, description: '', selectedColor: '#ffffff' })
+    setColorImageMap({})
+    setStickerLibrary([])
+    setPlacedStickers([])
+    setDragState(null)
+    setResizeState(null)
+  }
+
+  const handleUploadColorImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const base64 = await ProductService.fileToBase64(file)
+    const colorKey = customForm.selectedColor
+    setColorImageMap(prev => ({ ...prev, [colorKey]: base64 }))
+  }
+
+  const handleAddStickerFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+    const base64s = await Promise.all(files.map(f => ProductService.fileToBase64(f)))
+    setStickerLibrary(prev => [...prev, ...base64s])
+  }
+
+  const placeStickerFromLibrary = (src: string) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    setPlacedStickers(prev => [...prev, { id, src, x: 40 + prev.length * 10, y: 40 + prev.length * 10, scale: 1 }])
+  }
+
+  const onStickerMouseDown = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    const target = e.currentTarget as HTMLDivElement
+    const rect = target.getBoundingClientRect()
+    const containerRect = previewRef.current?.getBoundingClientRect()
+    setDragState({ 
+      id, 
+      offsetX: e.clientX - rect.left, 
+      offsetY: e.clientY - rect.top,
+      containerLeft: containerRect?.left || 0,
+      containerTop: containerRect?.top || 0
+    })
+  }
+
+  const onResizeMouseDown = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation()
+    const sticker = placedStickers.find(s => s.id === id)
+    if (!sticker) return
+    setResizeState({ id, startX: e.clientX, startY: e.clientY, startScale: sticker.scale })
+  }
+
+  useEffect(() => {
+    const onMouseMove = (e: MouseEvent) => {
+      if (dragState) {
+        setPlacedStickers(prev => prev.map(s => s.id === dragState.id ? { ...s, x: e.clientX - dragState.containerLeft - dragState.offsetX, y: e.clientY - dragState.containerTop - dragState.offsetY } : s))
+      } else if (resizeState) {
+        const dx = e.clientX - resizeState.startX
+        const dy = e.clientY - resizeState.startY
+        const delta = Math.max(dx, dy)
+        const newScale = Math.max(0.2, Math.min(3, resizeState.startScale + delta / 200))
+        setPlacedStickers(prev => prev.map(s => s.id === resizeState.id ? { ...s, scale: newScale } : s))
+      }
+    }
+    const onMouseUp = () => {
+      if (dragState) setDragState(null)
+      if (resizeState) setResizeState(null)
+    }
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [dragState, resizeState])
+
   return (
     <div className="min-h-screen bg-gray-50">
       <TopNav />
@@ -111,6 +217,16 @@ const AdminProductsList: React.FC = () => {
                 </svg>
                 Thêm hàng hóa
               </Link>
+              <button
+                type="button"
+                onClick={openCustomModal}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center"
+              >
+                <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/>
+                </svg>
+                Thêm hàng hóa tùy chỉnh
+              </button>
             </div>
           </div>
         </div>
@@ -165,7 +281,7 @@ const AdminProductsList: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center">
+                    <td colSpan={8} className="py-12 text-center">
                       <div className="flex flex-col items-center">
                         <svg className="animate-spin h-8 w-8 text-green-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -177,7 +293,7 @@ const AdminProductsList: React.FC = () => {
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-gray-500">
+                    <td colSpan={8} className="py-12 text-center text-gray-500">
                       {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm nào'}
                     </td>
                   </tr>
@@ -188,7 +304,6 @@ const AdminProductsList: React.FC = () => {
                       <td className="py-4 px-6 font-semibold text-gray-900">{p.name}</td>
                       <td className="py-4 px-6 text-gray-600">{p.category}</td>
                       <td className="py-4 px-6 text-gray-700">{p.stock}</td>
-                      <td className="py-4 px-6 text-gray-900 font-bold">{formatVnd(p.price)} đ</td>
                       <td className="py-4 px-6">
                         {categoryMeta[p.category]?.isCustomizable ? (
                           <span className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">Có</span>
@@ -196,6 +311,7 @@ const AdminProductsList: React.FC = () => {
                           <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 text-xs">Không</span>
                         )}
                       </td>
+                      <td className="py-4 px-6 text-gray-900 font-bold">{formatVnd(p.price)} đ</td>
                       <td className="py-4 px-6">
                         <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${p.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                           {p.status === 'active' ? 'Đang bán' : 'Ngừng bán'}
@@ -224,6 +340,205 @@ const AdminProductsList: React.FC = () => {
             </table>
           </div>
         </div>
+        {showCustomModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/40" onClick={closeCustomModal} />
+            <div className="relative bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-6xl max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="text-lg font-bold text-gray-900">Thêm hàng hóa tùy chỉnh</h3>
+                <button onClick={closeCustomModal} className="p-2 rounded-lg hover:bg-gray-100">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.3 5.71L12 12.01l-6.29-6.3L4.3 7.12 10.59 13.4l-6.3 6.3 1.42 1.41L12 14.83l6.29 6.29 1.41-1.41-6.29-6.3 6.29-6.29z"/>
+                  </svg>
+                </button>
+              </div>
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-64px)]">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Form nhập liệu */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Tên sản phẩm</label>
+                        <input
+                          value={customForm.name}
+                          onChange={(e) => setCustomForm(prev => ({ ...prev, name: e.target.value }))}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Nhập tên sản phẩm"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 items-end">
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Mã sản phẩm</label>
+                          <input
+                            value={customForm.sku}
+                            onChange={(e) => setCustomForm(prev => ({ ...prev, sku: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Tự nhập hoặc bấm Tạo mã"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCustomForm(prev => ({ ...prev, sku: ProductService.generateSku(prev.category) }))}
+                          className="h-10 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800"
+                        >Tạo mã</button>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Danh mục</label>
+                        <select
+                          value={customForm.category}
+                          onChange={(e) => setCustomForm(prev => ({ ...prev, category: e.target.value }))}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="">Chọn danh mục</option>
+                          {Object.entries(categoryMeta)
+                            .filter(([, meta]) => meta.isCustomizable)
+                            .map(([name]) => (
+                              <option key={name} value={name}>{name}</option>
+                            ))}
+                        </select>
+                        {customForm.category && (
+                          <div className="text-xs text-gray-500 mt-1">Tuỳ chỉnh: {categoryMeta[customForm.category]?.isCustomizable ? 'Có' : 'Không'}</div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Giá bán (đ)</label>
+                        <input
+                          type="number"
+                          value={customForm.price}
+                          onChange={(e) => setCustomForm(prev => ({ ...prev, price: Number(e.target.value || 0) }))}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="0"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Màu sắc</label>
+                        <div className="flex flex-wrap gap-2">
+                          {availableColors.map(color => (
+                            <button
+                              key={color}
+                              type="button"
+                              onClick={() => setCustomForm(prev => ({ ...prev, selectedColor: color }))}
+                              className={`relative w-8 h-8 rounded-full border-2 ${customForm.selectedColor === color ? 'border-indigo-600' : 'border-gray-200'}`}
+                              style={{ backgroundColor: color }}
+                              aria-label={`Chọn màu ${color}`}
+                              title={color}
+                            >
+                              {colorImageMap[color] && (
+                                <span className="absolute -right-1 -top-1 w-3 h-3 rounded-full bg-emerald-500 border border-white" />
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-3 text-xs text-gray-500">Mỗi màu có thể gắn 1 ảnh riêng. Chấm xanh = đã có ảnh.</div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Sticker (thêm từ file)</label>
+                        <input type="file" accept="image/*" multiple onChange={handleAddStickerFiles} />
+                        {stickerLibrary.length > 0 && (
+                          <div className="mt-3">
+                            <div className="text-xs text-gray-500 mb-2">Thư viện sticker (bấm để thêm vào preview)</div>
+                            <div className="flex flex-wrap gap-2">
+                              {stickerLibrary.map((src, idx) => (
+                                <button key={idx} type="button" onClick={() => placeStickerFromLibrary(src)} className="border rounded-lg p-1 hover:shadow">
+                                  <img src={src} alt={`sticker-${idx}`} className="w-12 h-12 object-contain" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả sản phẩm</label>
+                        <textarea
+                          value={customForm.description}
+                          onChange={(e) => setCustomForm(prev => ({ ...prev, description: e.target.value }))}
+                          rows={4}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Mô tả ngắn về sản phẩm"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh cho màu đang chọn</label>
+                        <input type="file" accept="image/*" onChange={handleUploadColorImage} />
+                        {colorImageMap[customForm.selectedColor] && (
+                          <div className="mt-2 flex items-center gap-3">
+                            <img src={colorImageMap[customForm.selectedColor]} alt="color-preview" className="w-16 h-16 object-contain border rounded" />
+                            <button
+                              type="button"
+                              onClick={() => setColorImageMap(prev => { const cp = { ...prev }; delete cp[customForm.selectedColor]; return cp })}
+                              className="px-3 py-1.5 text-sm rounded-lg border border-gray-300 hover:bg-gray-50"
+                            >Xóa ảnh</button>
+                          </div>
+                        )}
+                        {Object.keys(colorImageMap).length > 0 && (
+                          <div className="mt-3">
+                            <div className="text-xs text-gray-500 mb-1">Ảnh theo màu đã gắn</div>
+                            <div className="flex flex-wrap gap-3">
+                              {Object.entries(colorImageMap).map(([color, src]) => (
+                                <div key={color} className="flex items-center gap-2">
+                                  <span className="inline-block w-4 h-4 rounded-full border" style={{ backgroundColor: color }} />
+                                  <img src={src} alt={color} className="w-10 h-10 object-contain border rounded" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="pt-2 flex gap-3">
+                        <button onClick={closeCustomModal} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50">Đóng</button>
+                        <button onClick={closeCustomModal} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700">Xong</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview sản phẩm */}
+                  <div className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="text-sm font-semibold text-gray-900 mb-3">Xem trước</div>
+                    <div
+                      ref={previewRef}
+                      className="relative w-full aspect-[3/4] rounded-lg border border-gray-200 overflow-hidden"
+                      style={{ backgroundColor: customForm.selectedColor }}
+                    >
+                      {colorImageMap[customForm.selectedColor] ? (
+                        <img src={colorImageMap[customForm.selectedColor]} alt="preview" className="absolute inset-0 w-full h-full object-contain" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-600 text-sm">Tải ảnh sản phẩm để xem trước</div>
+                      )}
+                      {placedStickers.map(s => (
+                        <div
+                          key={s.id}
+                          className="absolute cursor-move"
+                          style={{ left: s.x, top: s.y, transform: `scale(${s.scale})` }}
+                          onMouseDown={(e) => onStickerMouseDown(e, s.id)}
+                        >
+                          <img src={s.src} alt="sticker" className="w-24 h-24 object-contain pointer-events-none select-none" />
+                          {/* Resize handle */}
+                          <div
+                            className="absolute -right-2 -bottom-2 w-5 h-5 bg-white border border-gray-300 rounded-full shadow cursor-se-resize flex items-center justify-center"
+                            onMouseDown={(e) => onResizeMouseDown(e, s.id)}
+                            title="Kéo để thay đổi kích thước"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="#6b7280"><path d="M3 21h18v-2H3v2zm0-7h13v-2H3v2zm0-7h8V5H3v2z"/></svg>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4">
+                      <div className="text-base font-bold text-gray-900">{customForm.name || 'Tên sản phẩm'}</div>
+                      <div className="text-green-600 font-semibold">{customForm.price ? formatVnd(customForm.price) : '0'} đ</div>
+                      {customForm.description && (
+                        <div className="text-gray-600 text-sm mt-2 line-clamp-3">{customForm.description}</div>
+                      )}
+                      {customForm.category && (
+                        <div className="text-xs text-gray-500 mt-2">Danh mục: {customForm.category}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

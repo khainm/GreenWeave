@@ -49,7 +49,7 @@ const AdminAddProduct: React.FC = () => {
       try {
         const cats = await CategoryService.list()
         setCategoryOptions(cats
-          .filter(c => c.status === 'active')
+          .filter(c => c.status === 'active' && !c.isCustomizable)
           .sort((a,b) => a.sortOrder - b.sortOrder)
           .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable })))
       } catch (e) {
