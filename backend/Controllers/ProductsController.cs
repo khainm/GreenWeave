@@ -41,6 +41,30 @@ namespace backend.Controllers
                 return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy danh sách sản phẩm" });
             }
         }
+
+        /// <summary>
+        /// Danh sách sản phẩm tùy chỉnh (thuộc danh mục isCustomizable)
+        /// </summary>
+        [HttpGet("customizable")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetCustomizableProducts()
+        {
+            var products = await _productService.GetCustomizableProductsAsync();
+            return Ok(new { success = true, data = products });
+        }
+
+        /// <summary>
+        /// Chi tiết sản phẩm tùy chỉnh theo id
+        /// </summary>
+        [HttpGet("customizable/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<ProductResponseDto>> GetCustomizableProductById([Required] int id)
+        {
+            var product = await _productService.GetCustomizableProductByIdAsync(id);
+            if (product == null) return NotFound(new { success = false, message = "Không tìm thấy" });
+            return Ok(new { success = true, data = product });
+        }
         
         /// <summary>
         /// Lấy sản phẩm theo ID
@@ -133,10 +157,29 @@ namespace backend.Controllers
                     Stock = request.Stock,
                     Status = request.Status,
                     Colors = request.Colors ?? new List<string>(),
-                    ImageUrls = request.ImageUrls
+                    ImageUrls = request.ImageUrls,
+                    ColorImageMap = null // mapping sẽ đi qua file upload theo chuẩn hiện tại
                 };
                 
-                var product = await _productService.CreateProductAsync(createProductDto, request.ImageFiles?.ToList());
+// Bind ColorImages from form data manually
+                var colorImages = new Dictionary<string, IFormFile>();
+                if (Request.Form != null)
+                {
+                    foreach (var key in Request.Form.Keys)
+                    {
+                        if (key.StartsWith("ColorImages[") && key.EndsWith("]"))
+                        {
+                            var colorCode = key.Substring(12, key.Length - 13); // Remove "ColorImages[" and "]"
+                            var file = Request.Form.Files[key];
+                            if (file != null && file.Length > 0)
+                            {
+                                colorImages[colorCode] = file;
+                            }
+                        }
+                    }
+                }
+                var stickerFiles = request.StickerFiles?.ToList();
+                var product = await _productService.CreateProductAsync(createProductDto, request.ImageFiles?.ToList(), colorImages, stickerFiles);
                 
                 return CreatedAtAction(
                     nameof(GetProductById), 
@@ -347,6 +390,16 @@ namespace backend.Controllers
         /// Files hình ảnh upload
         /// </summary>
         public IFormFile[]? ImageFiles { get; set; }
+
+        /// <summary>
+        /// Gửi ảnh theo màu trực tiếp qua form-data, key dạng: ColorImages[#RRGGBB]
+        /// </summary>
+        public Dictionary<string, IFormFile>? ColorImages { get; set; }
+
+        /// <summary>
+        /// Sticker của sản phẩm (PNG nền trong suốt), gửi nhiều file: StickerFiles
+        /// </summary>
+        public IFormFile[]? StickerFiles { get; set; }
     }
     
     /// <summary>

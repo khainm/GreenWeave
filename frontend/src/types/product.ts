@@ -3,12 +3,19 @@ export interface ProductImage {
   imageUrl: string
   sortOrder: number
   isPrimary: boolean
+  colorCode?: string
 }
 
 export interface ProductColor {
   id: number
   colorCode: string
   colorName?: string
+  sortOrder: number
+}
+
+export interface ProductSticker {
+  id: number
+  imageUrl: string
   sortOrder: number
 }
 
@@ -26,6 +33,7 @@ export interface Product {
   updatedAt: string
   images: ProductImage[]
   colors: ProductColor[]
+  stickers?: ProductSticker[]
 }
 
 export interface CreateProductRequest {
@@ -40,6 +48,8 @@ export interface CreateProductRequest {
   colors?: string[]
   imageUrls?: string[]
   imageFiles?: File[]
+  // Map color code → file for color-specific images
+  colorImageFiles?: Record<string, File>
 }
 
 export interface ApiResponse<T> {

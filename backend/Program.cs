@@ -54,10 +54,21 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowFrontend",
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:5174") // React dev servers
-                  .AllowAnyHeader()
-                  .AllowAnyMethod()
-                  .AllowCredentials(); // Allow credentials if needed
+            if (builder.Environment.IsDevelopment())
+            {
+                // In development, allow all origins for testing
+                policy.AllowAnyOrigin()
+                      .AllowAnyHeader()
+                      .AllowAnyMethod();
+            }
+            else
+            {
+                // In production, restrict to specific origins
+                policy.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:5174")
+                      .AllowAnyHeader()
+                      .AllowAnyMethod()
+                      .AllowCredentials();
+            }
         });
 });
 

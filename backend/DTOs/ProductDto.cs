@@ -37,6 +37,12 @@ namespace backend.DTOs
         
         // For image URLs (if provided directly)
         public List<string>? ImageUrls { get; set; }
+
+        // Optional mapping: color code -> image URL (nếu gửi trực tiếp)
+        public Dictionary<string, string>? ColorImageMap { get; set; }
+
+        // Stickers (URLs) optional
+        public List<string>? StickerUrls { get; set; }
     }
     
     public class ProductImageUploadDto
@@ -62,6 +68,12 @@ namespace backend.DTOs
         
         public List<ProductImageDto> Images { get; set; } = new();
         public List<ProductColorDto> Colors { get; set; } = new();
+        public List<ProductStickerDto> Stickers { get; set; } = new();
+        // tiện ích: map màu -> ảnh nếu có
+        public Dictionary<string, string> ColorImageMap => Images
+            .Where(i => !string.IsNullOrEmpty(i.ColorCode))
+            .GroupBy(i => i.ColorCode!.ToLower())
+            .ToDictionary(g => g.Key, g => g.OrderBy(i => i.SortOrder).First().ImageUrl);
     }
     
     public class ProductImageDto
@@ -70,6 +82,7 @@ namespace backend.DTOs
         public string ImageUrl { get; set; } = string.Empty;
         public int SortOrder { get; set; }
         public bool IsPrimary { get; set; }
+        public string? ColorCode { get; set; }
     }
     
     public class ProductColorDto
@@ -77,6 +90,13 @@ namespace backend.DTOs
         public int Id { get; set; }
         public string ColorCode { get; set; } = string.Empty;
         public string? ColorName { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    public class ProductStickerDto
+    {
+        public int Id { get; set; }
+        public string ImageUrl { get; set; } = string.Empty;
         public int SortOrder { get; set; }
     }
 }

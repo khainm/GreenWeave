@@ -12,6 +12,7 @@ namespace backend.Data
         public DbSet<Product> Products { get; set; }
         public DbSet<ProductImage> ProductImages { get; set; }
         public DbSet<ProductColor> ProductColors { get; set; }
+        public DbSet<ProductSticker> ProductStickers { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Cart> Carts { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
@@ -97,6 +98,19 @@ namespace backend.Data
                 entity.HasOne(pi => pi.Product)
                     .WithMany(p => p.Images)
                     .HasForeignKey(pi => pi.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+            
+            // Configure ProductSticker
+            modelBuilder.Entity<ProductSticker>(entity =>
+            {
+                entity.HasKey(ps => ps.Id);
+                entity.Property(ps => ps.ImageUrl).IsRequired().HasMaxLength(500);
+                entity.Property(ps => ps.CloudinaryPublicId).HasMaxLength(200);
+                entity.Property(ps => ps.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.HasOne(ps => ps.Product)
+                    .WithMany(p => p.Stickers)
+                    .HasForeignKey(ps => ps.ProductId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
             
