@@ -23,6 +23,15 @@ export class ProductService {
     if (productData.imageFiles?.length) {
       productData.imageFiles.forEach(file => formData.append('ImageFiles', file))
     }
+    if (productData.colorImageFiles) {
+      Object.entries(productData.colorImageFiles).forEach(([color, file]) => {
+        // Backend expects dictionary ColorImages[#RRGGBB]
+        formData.append(`ColorImages[${color}]`, file)
+      })
+    }
+    if ((productData as any).stickerFiles?.length) {
+      ;((productData as any).stickerFiles as File[]).forEach(file => formData.append('StickerFiles', file))
+    }
     return formData
   }
 
@@ -32,6 +41,26 @@ export class ProductService {
       return await apiClient.get<Product[]>(this.BASE_PATH)
     } catch (error) {
       console.error('Error fetching products:', error)
+      throw error
+    }
+  }
+
+  // Customizable products (for CustomProductDesigner)
+  static async getCustomizableProducts(): Promise<Product[]> {
+    try {
+      // apiClient.get unwraps { success, data } and returns data directly
+      return await apiClient.get<Product[]>(`${this.BASE_PATH}/customizable`)
+    } catch (error) {
+      console.error('Error fetching customizable products:', error)
+      throw error
+    }
+  }
+
+  static async getCustomizableProductById(id: number): Promise<Product> {
+    try {
+      return await apiClient.get<Product>(`${this.BASE_PATH}/customizable/${id}`)
+    } catch (error) {
+      console.error('Error fetching customizable product by id:', error)
       throw error
     }
   }

@@ -1,7 +1,9 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import Header from '../components/Header'
 import { Stage, Layer, Image as KonvaImage, Transformer, Rect } from 'react-konva'
 import useImage from 'use-image'
+import ProductService from '../services/productService'
+import type { Product } from '../types/product'
 
 type Sticker = {
   id: string
@@ -13,10 +15,7 @@ type Sticker = {
   rotation: number
 }
 
-const defaultStickers = [
-  'https://cdn-icons-png.flaticon.com/256/10559/10559698.png',
-  'https://cdn-icons-png.flaticon.com/256/6702/6702470.png'
-]
+// No default stickers; users can upload their own
 
 const KonvaImageNode: React.FC<{ name?: string; src: string; x?: number; y?: number; scaleX?: number; scaleY?: number; rotation?: number; draggable?: boolean; onClick?: () => void; onDragEnd?: (pos: { x: number; y: number }) => void; onTransformEnd?: (attrs: { scaleX: number; scaleY: number; rotation: number }) => void }>
   = ({ name, src, x = 0, y = 0, scaleX = 1, scaleY = 1, rotation = 0, draggable, onClick, onDragEnd, onTransformEnd }) => {
@@ -88,6 +87,8 @@ const CustomProductDesigner: React.FC = () => {
   const [baseImageSrc, setBaseImageSrc] = useState<string>('')
   const [canvasSize, setCanvasSize] = useState<number>(480)
   const [showToolsMobile, setShowToolsMobile] = useState<boolean>(false)
+  const [products, setProducts] = useState<Product[]>([])
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
 
   // Keep selection state in Konva Transformer via effect below
 
@@ -164,21 +165,64 @@ const CustomProductDesigner: React.FC = () => {
     return () => ro.disconnect()
   }, [])
 
-  const handleUploadBase = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setBaseImageSrc(reader.result as string)
-    reader.readAsDataURL(file)
+  // Load customizable products
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const list = await ProductService.getCustomizableProducts()
+        setProducts(list)
+        // Auto-select the first product that has an image (primary/any)
+        if (list && list.length > 0) {
+          const withImage = list.find(p => (p.images && p.images.length > 0)) || list[0]
+          setSelectedProduct(withImage)
+        }
+      } catch {}
+    }
+    load()
+  }, [])
+
+  // Helper: find image for a given color from product images
+  const getImageForColor = (p: Product | null, color?: string) => {
+    if (!p) return ''
+    
+    // Nếu có colorCode mapping, dùng nó
+    if (color) {
+      const img = p.images.find(i => i.colorCode?.toLowerCase() === color.toLowerCase())
+      if (img) return img.imageUrl
+      
+      // Nếu không có colorCode, map theo thứ tự: màu 1 → ảnh 1, màu 2 → ảnh 2
+      const colorIndex = p.colors?.findIndex(c => c.colorCode?.toLowerCase() === color.toLowerCase())
+      if (colorIndex !== undefined && colorIndex >= 0 && p.images[colorIndex]) {
+        return p.images[colorIndex].imageUrl
+      }
+    }
+    
+    // Fallback: ảnh chính hoặc ảnh đầu tiên
+    const primary = p.images.find(i => i.isPrimary) || p.images[0]
+    return primary?.imageUrl || ''
   }
 
-  const handleUploadSticker = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => addSticker(reader.result as string)
-    reader.readAsDataURL(file)
-  }
+  // When select product, set default image and default color
+  useEffect(() => {
+    if (!selectedProduct) return
+    const firstColor = selectedProduct?.colors?.[0]?.colorCode
+    if (firstColor) {
+      setProductColor(firstColor)
+      setBaseImageSrc(getImageForColor(selectedProduct, firstColor))
+    } else {
+      setBaseImageSrc(getImageForColor(selectedProduct))
+    }
+    setStickers([])
+    setSelectedId(null)
+  }, [selectedProduct])
+
+  // When change color, update base image from backend data
+  useEffect(() => {
+    if (!selectedProduct) return
+    setBaseImageSrc(getImageForColor(selectedProduct, productColor))
+  }, [productColor])
+
+  // Upload sticker bị vô hiệu hóa theo yêu cầu (chỉ dùng sticker của admin)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -197,29 +241,17 @@ const CustomProductDesigner: React.FC = () => {
           {/* Sidebar tools */}
           {(showToolsMobile || typeof window === 'undefined' || window.innerWidth >= 1024) && (
           <div className="lg:col-span-1 bg-white rounded-2xl border border-gray-200 p-4 space-y-4 lg:sticky lg:top-6 lg:self-start">
-            <div>
-              <div className="text-sm font-semibold text-gray-900 mb-2">Ảnh sản phẩm gốc</div>
-              <input type="file" accept="image/*" onChange={handleUploadBase} className="text-sm" />
-            </div>
+            {/* Sản phẩm sẽ được chọn ở phần gallery bên phải */}
+            {/* Ảnh gốc được nạp theo dữ liệu đã lưu của admin (theo màu) */}
             <div>
               <div className="text-sm font-semibold text-gray-900 mb-2">Màu sản phẩm</div>
               <div className="flex flex-wrap gap-2">
-                {['#ffffff','#000000','#e11d48','#10b981','#3b82f6','#f59e0b'].map(c => (
-                  <button key={c} onClick={() => setProductColor(c)} className={`w-8 h-8 rounded-full border ${productColor===c?'border-green-600':'border-gray-300'}`} style={{ backgroundColor: c }} />
+                {(selectedProduct?.colors?.map(c => c.colorCode) || ['#ffffff','#000000']).map(c => (
+                  <button key={c} onClick={() => setProductColor(c!)} className={`w-8 h-8 rounded-full border ${productColor===c?'border-green-600':'border-gray-300'}`} style={{ backgroundColor: c }} />
                 ))}
               </div>
             </div>
-            <div>
-              <div className="text-sm font-semibold text-gray-900 mb-2">Thêm sticker</div>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {defaultStickers.map((s, i) => (
-                  <button key={i} onClick={() => addSticker(s)} className="border rounded-lg p-1 hover:shadow">
-                    <img src={s} className="w-10 h-10 sm:w-12 sm:h-12 object-contain" />
-                  </button>
-                ))}
-              </div>
-              <input type="file" accept="image/*" onChange={handleUploadSticker} className="text-sm" />
-            </div>
+            {/* Không cho user upload sticker, chỉ sử dụng sticker do admin chuẩn bị */}
             <div className="flex flex-wrap gap-2 pt-2">
               <button onClick={removeSelected} className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm">Xóa sticker</button>
               <button onClick={resetDesign} className="px-3 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm">Làm mới</button>
@@ -233,6 +265,44 @@ const CustomProductDesigner: React.FC = () => {
 
           {/* Canvas area */}
           <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-200 p-3 sm:p-4">
+            {/* Gallery sản phẩm tùy chỉnh */}
+            <div className="mb-4">
+              <div className="text-sm font-semibold text-gray-900 mb-2">Sản phẩm tùy chỉnh</div>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {products?.map(p => {
+                  const thumb = p?.images?.find(i => i.isPrimary)?.imageUrl || p?.images?.[0]?.imageUrl
+                  const active = selectedProduct?.id === p.id
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => setSelectedProduct(p)}
+                      className={`min-w-[130px] border rounded-lg overflow-hidden text-left hover:shadow transition-shadow ${active ? 'border-green-600' : 'border-gray-200'}`}
+                      title={p.name}
+                    >
+                      {thumb && <img src={thumb} className="w-full h-24 object-cover" alt={p.name} />}
+                      <div className="p-2">
+                        <div className="text-xs font-semibold line-clamp-1">{p.name}</div>
+                        <div className="text-xs text-gray-500">SKU: {p.sku}</div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {/* Sticker palette từ admin */}
+            {selectedProduct?.stickers && selectedProduct.stickers.length > 0 && (
+              <div className="mb-4">
+                <div className="text-sm font-semibold text-gray-900 mb-2">Sticker đã được chuẩn bị</div>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {selectedProduct?.stickers?.sort((a,b)=>a.sortOrder-b.sortOrder).map(s => (
+                    <button key={s.id} onClick={() => addSticker(s.imageUrl)} className="border rounded-lg p-1 hover:shadow">
+                      <img src={s.imageUrl} className="w-12 h-12 object-contain" />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="text-sm font-semibold text-gray-900 mb-3">Canvas thiết kế</div>
             <div className="w-full" ref={canvasWrapRef}>
               <div className="mx-auto" style={{ width: '100%', maxWidth: 720 }}>

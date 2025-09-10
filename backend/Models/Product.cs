@@ -47,5 +47,6 @@ namespace backend.Models
         // Navigation properties
         public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
         public ICollection<ProductColor> Colors { get; set; } = new List<ProductColor>();
+        public ICollection<ProductSticker> Stickers { get; set; } = new List<ProductSticker>();
     }
 }

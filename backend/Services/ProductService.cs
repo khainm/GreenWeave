@@ -47,8 +47,20 @@ namespace backend.Services
             var product = await _productRepository.GetBySkuAsync(sku);
             return product != null ? MapToResponseDto(product) : null;
         }
+
+        public async Task<IEnumerable<ProductResponseDto>> GetCustomizableProductsAsync()
+        {
+            var products = await _productRepository.GetCustomizableAsync();
+            return products.Select(MapToResponseDto);
+        }
+
+        public async Task<ProductResponseDto?> GetCustomizableProductByIdAsync(int id)
+        {
+            var product = await _productRepository.GetCustomizableByIdAsync(id);
+            return product != null ? MapToResponseDto(product) : null;
+        }
         
-        public async Task<ProductResponseDto> CreateProductAsync(CreateProductDto createProductDto, List<IFormFile>? imageFiles = null)
+        public async Task<ProductResponseDto> CreateProductAsync(CreateProductDto createProductDto, List<IFormFile>? imageFiles = null, Dictionary<string, IFormFile>? colorImages = null, List<IFormFile>? stickerFiles = null)
         {
             try
             {
@@ -102,6 +114,7 @@ namespace backend.Services
                                     {
                                         ImageUrl = uploadResult.SecureUrl.ToString(),
                                         CloudinaryPublicId = uploadResult.PublicId,
+                                        ColorCode = null, // nếu cần mapping theo màu, client có thể encode vào tên file hoặc gửi map riêng
                                         SortOrder = i,
                                         IsPrimary = i == 0
                                     });
@@ -134,6 +147,7 @@ namespace backend.Services
                                     {
                                         ImageUrl = uploadResult.SecureUrl.ToString(),
                                         CloudinaryPublicId = uploadResult.PublicId,
+                                        ColorCode = null,
                                         SortOrder = startIndex + i,
                                         IsPrimary = images.Count == 0
                                     });
@@ -144,6 +158,7 @@ namespace backend.Services
                                     images.Add(new ProductImage
                                     {
                                         ImageUrl = imageUrl,
+                                        ColorCode = null,
                                         SortOrder = startIndex + i,
                                         IsPrimary = images.Count == 0
                                     });
@@ -156,6 +171,7 @@ namespace backend.Services
                                 images.Add(new ProductImage
                                 {
                                     ImageUrl = imageUrl,
+                                    ColorCode = null,
                                     SortOrder = startIndex + i,
                                     IsPrimary = images.Count == 0
                                 });
@@ -164,10 +180,156 @@ namespace backend.Services
                     }
                 }
                 
+                // If client provided an explicit color->image mapping via URLs
+                if (createProductDto.ColorImageMap != null && createProductDto.ColorImageMap.Any())
+                {
+                    foreach (var kv in createProductDto.ColorImageMap)
+                    {
+                        var color = kv.Key;
+                        var url = kv.Value;
+                        if (string.IsNullOrWhiteSpace(url)) continue;
+                        try
+                        {
+                            var uploadResult = await _cloudinaryService.UploadImageAsync(url, "products");
+                            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+                            {
+                                images.Add(new ProductImage
+                                {
+                                    ImageUrl = uploadResult.SecureUrl.ToString(),
+                                    CloudinaryPublicId = uploadResult.PublicId,
+                                    ColorCode = color.ToLower(),
+                                    SortOrder = images.Count,
+                                    IsPrimary = images.Count == 0
+                                });
+                            }
+                            else
+                            {
+                                images.Add(new ProductImage
+                                {
+                                    ImageUrl = url,
+                                    ColorCode = color.ToLower(),
+                                    SortOrder = images.Count,
+                                    IsPrimary = images.Count == 0
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to process color image map url {Url}", url);
+                            images.Add(new ProductImage
+                            {
+                                ImageUrl = url,
+                                ColorCode = color.ToLower(),
+                                SortOrder = images.Count,
+                                IsPrimary = images.Count == 0
+                            });
+                        }
+                    }
+                }
+
+                // If client provided colorImages files directly in form-data
+                if (colorImages != null && colorImages.Any())
+                {
+                    foreach (var kv in colorImages)
+                    {
+                        var code = kv.Key?.Trim();
+                        var file = kv.Value;
+                        if (string.IsNullOrWhiteSpace(code) || file == null || file.Length == 0) continue;
+                        try
+                        {
+                            var uploadResult = await _cloudinaryService.UploadImageAsync(file, "products");
+                            if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+                            {
+                                images.Add(new ProductImage
+                                {
+                                    ImageUrl = uploadResult.SecureUrl.ToString(),
+                                    CloudinaryPublicId = uploadResult.PublicId,
+                                    ColorCode = code.ToLower(),
+                                    SortOrder = images.Count,
+                                    IsPrimary = images.Count == 0
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to upload color image file for color {Color}", code);
+                        }
+                    }
+                }
+
                 product.Images = images;
+
+                // Stickers collection to persist
+                var stickers = new List<ProductSticker>();
+
+                // Stickers from uploaded files (admin upload via form-data)
+                if (stickerFiles != null && stickerFiles.Any())
+                {
+                    int order = 0;
+                    foreach (var file in stickerFiles)
+                    {
+                        if (file == null || file.Length == 0) continue;
+                        try
+                        {
+                            var upload = await _cloudinaryService.UploadImageAsync(file, "product-stickers");
+                            if (upload.StatusCode == System.Net.HttpStatusCode.OK)
+                            {
+                                stickers.Add(new ProductSticker
+                                {
+                                    ImageUrl = upload.SecureUrl.ToString(),
+                                    CloudinaryPublicId = upload.PublicId,
+                                    SortOrder = order++
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to upload sticker file {FileName}", file.FileName);
+                        }
+                    }
+                }
+
+                // Stickers from URLs (optional)
+                if (createProductDto.StickerUrls != null && createProductDto.StickerUrls.Any())
+                {
+                    int order = 0;
+                    foreach (var url in createProductDto.StickerUrls)
+                    {
+                        if (string.IsNullOrWhiteSpace(url)) continue;
+                        try
+                        {
+                            var upload = await _cloudinaryService.UploadImageAsync(url, "product-stickers");
+                            if (upload.StatusCode == System.Net.HttpStatusCode.OK)
+                            {
+                                stickers.Add(new ProductSticker
+                                {
+                                    ImageUrl = upload.SecureUrl.ToString(),
+                                    CloudinaryPublicId = upload.PublicId,
+                                    SortOrder = order++
+                                });
+                            }
+                            else
+                            {
+                                stickers.Add(new ProductSticker { ImageUrl = url, SortOrder = order++ });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to upload sticker url {Url}", url);
+                            stickers.Add(new ProductSticker { ImageUrl = url, SortOrder = order++ });
+                        }
+                    }
+                }
                 
                 // Create product
                 var createdProduct = await _productRepository.CreateAsync(product);
+
+                // Persist stickers (if any)
+                if (stickers.Any())
+                {
+                    foreach (var s in stickers) s.ProductId = createdProduct.Id;
+                    await _productRepository.AddStickersAsync(createdProduct.Id, stickers);
+                }
                 
                 _logger.LogInformation("Product created successfully: {ProductId} - {ProductName}", createdProduct.Id, createdProduct.Name);
                 
@@ -335,7 +497,8 @@ namespace backend.Services
                     Id = i.Id,
                     ImageUrl = i.ImageUrl,
                     SortOrder = i.SortOrder,
-                    IsPrimary = i.IsPrimary
+                    IsPrimary = i.IsPrimary,
+                    ColorCode = i.ColorCode
                 }).ToList(),
                 Colors = product.Colors.Select(c => new ProductColorDto
                 {
@@ -343,6 +506,12 @@ namespace backend.Services
                     ColorCode = c.ColorCode,
                     ColorName = c.ColorName,
                     SortOrder = c.SortOrder
+                }).ToList(),
+                Stickers = product.Stickers.Select(s => new ProductStickerDto
+                {
+                    Id = s.Id,
+                    ImageUrl = s.ImageUrl,
+                    SortOrder = s.SortOrder
                 }).ToList()
             };
         }
