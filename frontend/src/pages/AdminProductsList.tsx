@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import TopNav from '../components/admin/TopNav'
 import ProductService from '../services/productService'
+import CategoryService from '../services/categoryService'
 import type { Product } from '../types/product'
 
 const formatVnd = (v: number) => new Intl.NumberFormat('vi-VN').format(v)
@@ -13,6 +14,7 @@ const AdminProductsList: React.FC = () => {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [products, setProducts] = useState<Product[]>([])
+  const [categoryMeta, setCategoryMeta] = useState<Record<string, { isCustomizable: boolean }>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -23,12 +25,18 @@ const AdminProductsList: React.FC = () => {
 
   // Fetch products from API
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       try {
         setIsLoading(true)
         setError(null)
-        const data = await ProductService.getAllProducts()
-        setProducts(data)
+        const [prods, cats] = await Promise.all([
+          ProductService.getAllProducts(),
+          CategoryService.list().catch(() => [])
+        ])
+        setProducts(prods)
+        const meta: Record<string, { isCustomizable: boolean }> = {}
+        cats.forEach(c => { meta[c.name] = { isCustomizable: c.isCustomizable } })
+        setCategoryMeta(meta)
       } catch (err) {
         console.error('Error fetching products:', err)
         setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.')
@@ -36,8 +44,7 @@ const AdminProductsList: React.FC = () => {
         setIsLoading(false)
       }
     }
-
-    fetchProducts()
+    fetchData()
   }, [])
 
   // Hàm xóa sản phẩm
@@ -129,6 +136,7 @@ const AdminProductsList: React.FC = () => {
                     { key: 'name', label: 'Tên hàng hóa' },
                     { key: 'category', label: 'Danh mục' },
                     { key: 'stock', label: 'Tồn kho' },
+                    { key: 'isCustomizable', label: 'Tuỳ chỉnh' },
                     { key: 'price', label: 'Giá bán' },
                   ].map((c) => (
                     <th 
@@ -181,6 +189,13 @@ const AdminProductsList: React.FC = () => {
                       <td className="py-4 px-6 text-gray-600">{p.category}</td>
                       <td className="py-4 px-6 text-gray-700">{p.stock}</td>
                       <td className="py-4 px-6 text-gray-900 font-bold">{formatVnd(p.price)} đ</td>
+                      <td className="py-4 px-6">
+                        {categoryMeta[p.category]?.isCustomizable ? (
+                          <span className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">Có</span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 text-xs">Không</span>
+                        )}
+                      </td>
                       <td className="py-4 px-6">
                         <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${p.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
                           {p.status === 'active' ? 'Đang bán' : 'Ngừng bán'}

@@ -21,6 +21,8 @@ namespace backend.Models
         [MaxLength(20)]
         public string Status { get; set; } = "active";
 
+        public bool IsCustomizable { get; set; } = false; // Có thể tuỳ chỉnh hay không
+
         public int SortOrder { get; set; } = 0;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

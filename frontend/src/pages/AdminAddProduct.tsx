@@ -25,7 +25,7 @@ const AdminAddProduct: React.FC = () => {
     images: [],
     imageFiles: []
   })
-  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([])
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable: boolean }[]>([])
 
   // SKU helpers
   const generateSku = (category: string) => {
@@ -51,7 +51,7 @@ const AdminAddProduct: React.FC = () => {
         setCategoryOptions(cats
           .filter(c => c.status === 'active')
           .sort((a,b) => a.sortOrder - b.sortOrder)
-          .map(c => ({ label: c.name, value: String(c.id) })))
+          .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable })))
       } catch (e) {
         // silently ignore for now
       }
@@ -124,6 +124,7 @@ const AdminAddProduct: React.FC = () => {
               enableSkuRegenerate
               onRegenerateSku={() => setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))}
               categoryOptions={categoryOptions}
+              categoryIsCustomizable={categoryOptions.find(o => o.label === form.category)?.isCustomizable}
             />
             <div className="mt-4">
               <Link to="/admin/products" className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Hủy</Link>

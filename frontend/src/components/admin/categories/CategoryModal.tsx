@@ -5,6 +5,7 @@ export type CategoryForm = {
   code: string
   description?: string
   status: 'active' | 'inactive'
+  isCustomizable: boolean
   sortOrder: number
 }
 
@@ -59,6 +60,18 @@ const CategoryModal: React.FC<Props> = ({ initial, existingCodes, onClose, onSav
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
             <textarea value={form.description} onChange={e => setForm(prev => ({ ...prev, description: e.target.value }))} rows={3} className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" />
+          </div>
+          <div>
+            <label className="flex items-center gap-3 text-sm font-medium text-gray-700 mb-2">
+              <input 
+                type="checkbox" 
+                checked={form.isCustomizable} 
+                onChange={e => setForm(prev => ({ ...prev, isCustomizable: e.target.checked }))} 
+                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500 focus:ring-2" 
+              />
+              Cho phép tuỳ chỉnh sản phẩm
+            </label>
+            <p className="text-xs text-gray-500">Các sản phẩm trong danh mục này có thể được tuỳ chỉnh thiết kế</p>
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Trạng thái</label>
