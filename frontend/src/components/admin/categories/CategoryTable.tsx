@@ -6,6 +6,7 @@ export type CategoryRow = {
   code: string
   description?: string
   status: 'active' | 'inactive'
+  isCustomizable: boolean
   sortOrder: number
   productCount?: number
 }
@@ -27,6 +28,7 @@ const CategoryTable: React.FC<Props> = ({ items, onChangeOrder, onBlurSave, onEd
           <th className="py-3 px-6">Tên</th>
           <th className="py-3 px-6">Mã</th>
           <th className="py-3 px-6">Số SP</th>
+          <th className="py-3 px-6">Tuỳ chỉnh</th>
           <th className="py-3 px-6">Mô tả</th>
           <th className="py-3 px-6">Trạng thái</th>
           <th className="py-3 px-6 text-right">Thao tác</th>
@@ -41,6 +43,11 @@ const CategoryTable: React.FC<Props> = ({ items, onChangeOrder, onBlurSave, onEd
             <td className="py-3 px-6 font-semibold text-gray-900">{c.name}</td>
             <td className="py-3 px-6 text-gray-700">{c.code}</td>
             <td className="py-3 px-6 text-gray-700">{c.productCount ?? 0}</td>
+            <td className="py-3 px-6">
+              <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${c.isCustomizable ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                {c.isCustomizable ? 'Có' : 'Không'}
+              </span>
+            </td>
             <td className="py-3 px-6 text-gray-600">{c.description}</td>
             <td className="py-3 px-6">
               <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${c.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>{c.status === 'active' ? 'Đang dùng' : 'Ngừng dùng'}</span>
@@ -53,7 +60,7 @@ const CategoryTable: React.FC<Props> = ({ items, onChangeOrder, onBlurSave, onEd
         ))}
         {items.length === 0 && (
           <tr>
-            <td className="py-8 text-center text-gray-500" colSpan={7}>Không có danh mục</td>
+            <td className="py-8 text-center text-gray-500" colSpan={8}>Không có danh mục</td>
           </tr>
         )}
       </tbody>

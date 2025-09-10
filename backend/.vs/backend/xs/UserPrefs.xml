@@ -1,23 +1,48 @@
 ﻿<Properties StartupConfiguration="{5910CE1E-0458-4DE6-8240-6DCB6EE5BB4D}|https">
-  <MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.ItemProperties.backend PreferredExecutionTarget="/Applications/Google Chrome.app" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Controllers/HealthController.cs">
+    <Files>
+      <File FileName="Program.cs" Line="105" Column="1" />
+      <File FileName="appsettings.json" Line="9" Column="5" />
+      <File FileName=".env" Line="1" Column="1" />
+      <File FileName="Controllers/ProductsController.cs" Line="80" Column="80" />
+      <File FileName="Data/IExampleRepository.cs" Line="1" Column="1" />
+      <File FileName="Data/ApplicationDbContext.cs" Line="1" Column="1" />
+      <File FileName="Data/IProductRepository.cs" Line="1" Column="1" />
+      <File FileName="Data/ProductRepository.cs" Line="1" Column="1" />
+      <File FileName="DTOs/ProductDto.cs" Line="1" Column="1" />
+      <File FileName="Models/Product.cs" Line="1" Column="1" />
+      <File FileName="Models/ProductColor.cs" Line="1" Column="1" />
+      <File FileName="Models/ProductImage.cs" Line="1" Column="1" />
+      <File FileName="Services/CloudinaryService.cs" Line="1" Column="1" />
+      <File FileName="Services/IProductService.cs" Line="1" Column="1" />
+      <File FileName="Services/ProductService.cs" Line="1" Column="1" />
+      <File FileName="README_API.md" Line="1" Column="1" />
+      <File FileName="Controllers/HealthController.cs" Line="1" Column="1" />
+    </Files>
     <Pads>
       <Pad Id="ProjectPad">
         <State name="__root__">
-          <Node name="backend" expanded="True">
-            <Node name="backend" expanded="True">
+          <Node name="backend">
+            <Node name="backend" expanded="True" selected="True">
+              <Node name="Dependencies" expanded="True">
+                <Node name="PackageDependencies" expanded="True" />
+              </Node>
+              <Node name="Controllers" expanded="True" />
               <Node name="Data" expanded="True" />
               <Node name="DTOs" expanded="True" />
+              <Node name="Models" expanded="True" />
+              <Node name="Services" expanded="True" />
             </Node>
           </Node>
         </State>
       </Pad>
     </Pads>
   </MonoDevelop.Ide.Workbench>
-  <MonoDevelop.Ide.ItemProperties.backend PreferredExecutionTarget="/Applications/Google Chrome.app" />
-  <MultiItemStartupConfigurations />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
   <MonoDevelop.Ide.DebuggingService.Breakpoints>
     <BreakpointStore />
   </MonoDevelop.Ide.DebuggingService.Breakpoints>
-  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
-  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MultiItemStartupConfigurations />
 </Properties>

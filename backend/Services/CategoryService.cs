@@ -44,6 +44,7 @@ namespace backend.Services
                 Code = dto.Code,
                 Description = dto.Description,
                 Status = dto.Status,
+                IsCustomizable = dto.IsCustomizable,
                 SortOrder = dto.SortOrder,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
@@ -63,6 +64,7 @@ namespace backend.Services
             existing.Code = dto.Code;
             existing.Description = dto.Description;
             existing.Status = dto.Status;
+            existing.IsCustomizable = dto.IsCustomizable;
             existing.SortOrder = dto.SortOrder;
             existing.UpdatedAt = DateTime.UtcNow;
             var saved = await _repo.UpdateAsync(existing);
@@ -78,6 +80,7 @@ namespace backend.Services
             Code = c.Code,
             Description = c.Description,
             Status = c.Status,
+            IsCustomizable = c.IsCustomizable,
             SortOrder = c.SortOrder,
             CreatedAt = c.CreatedAt,
             UpdatedAt = c.UpdatedAt

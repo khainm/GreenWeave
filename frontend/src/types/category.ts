@@ -4,6 +4,7 @@ export interface Category {
   code: string
   description?: string
   status: 'active' | 'inactive'
+  isCustomizable: boolean
   sortOrder: number
   createdAt: string
   updatedAt: string
@@ -15,6 +16,7 @@ export interface CreateCategoryRequest {
   code: string
   description?: string
   status: 'active' | 'inactive'
+  isCustomizable: boolean
   sortOrder: number
 }
 

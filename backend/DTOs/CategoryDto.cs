@@ -9,6 +9,7 @@ namespace backend.DTOs
         public string Code { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string Status { get; set; } = "active";
+        public bool IsCustomizable { get; set; }
         public int SortOrder { get; set; }
         public int ProductCount { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -27,6 +28,8 @@ namespace backend.DTOs
 
         [MaxLength(500)]
         public string? Description { get; set; }
+
+        public bool IsCustomizable { get; set; } = false;
 
         [Required]
         [RegularExpression("^(active|inactive)$")]

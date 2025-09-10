@@ -22,7 +22,8 @@ type ProductFormProps = {
   onSubmit: (e: React.FormEvent) => void
   enableSkuRegenerate?: boolean
   onRegenerateSku?: () => void
-  categoryOptions?: { label: string; value: string }[]
+  categoryOptions?: { label: string; value: string; isCustomizable?: boolean }[]
+  categoryIsCustomizable?: boolean
 }
 
 const popularColors = [
@@ -40,7 +41,7 @@ const popularColors = [
   { name: 'Xanh ngọc', value: '#06b6d4' }
 ]
 
-const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitting, onSubmit, enableSkuRegenerate, onRegenerateSku, categoryOptions }) => {
+const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitting, onSubmit, enableSkuRegenerate, onRegenerateSku, categoryOptions, categoryIsCustomizable }) => {
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleFiles = async (files: FileList | null) => {
@@ -114,17 +115,30 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">Danh mục *</label>
-        <select
-          value={values.category}
-          onChange={(e) => setValues(prev => ({ ...prev, category: e.target.value }))}
-          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          required
-        >
-          <option value="">Chọn danh mục</option>
-          {(categoryOptions ?? []).map(opt => (
-            <option key={opt.value} value={opt.label}>{opt.label}</option>
-          ))}
-        </select>
+        <div className="relative">
+          <select
+            value={values.category}
+            onChange={(e) => setValues(prev => ({ ...prev, category: e.target.value }))}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent pr-28"
+            required
+          >
+            <option value="">Chọn danh mục</option>
+            {(categoryOptions ?? []).map(opt => (
+              <option key={opt.value} value={opt.label}>{opt.label}</option>
+            ))}
+          </select>
+          {categoryIsCustomizable && (
+            <span className="absolute top-1/2 -translate-y-1/2 right-2 inline-flex items-center gap-1 bg-indigo-100 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-full">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2 4 4 .5-3 3 1 4-4-2-4 2 1-4-3-3 4-.5z"/></svg>
+              Tuỳ chỉnh
+            </span>
+          )}
+        </div>
+        {categoryIsCustomizable && (
+          <p className="mt-1.5 text-xs text-indigo-600 flex items-center gap-1">
+            Danh mục này hỗ trợ tạo sản phẩm tuỳ chỉnh.
+          </p>
+        )}
       </div>
 
       <div>
