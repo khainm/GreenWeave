@@ -43,6 +43,7 @@ const Header: React.FC<HeaderProps> = () => {
   const navigationItems = [
     { id: 'home', label: 'Trang chủ', path: '/' },
     { id: 'products', label: 'Sản phẩm', path: '/products' },
+    { id: 'custom', label: 'Sản phẩm tùy chỉnh', path: '/custom' },
     { id: 'about', label: 'Về chúng tôi', path: '/about' },
     { id: 'contact', label: 'Liên hệ', path: '/contact' }
   ];
