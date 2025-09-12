@@ -32,6 +32,9 @@ export class ProductService {
     if ((productData as any).stickerFiles?.length) {
       ;((productData as any).stickerFiles as File[]).forEach(file => formData.append('StickerFiles', file))
     }
+    if ((productData as any).stickerUrls?.length) {
+      ;((productData as any).stickerUrls as string[]).forEach((url, index) => formData.append(`StickerUrls[${index}]`, url))
+    }
     return formData
   }
 

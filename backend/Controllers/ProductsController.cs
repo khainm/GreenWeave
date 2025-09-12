@@ -158,7 +158,8 @@ namespace backend.Controllers
                     Status = request.Status,
                     Colors = request.Colors ?? new List<string>(),
                     ImageUrls = request.ImageUrls,
-                    ColorImageMap = null // mapping sẽ đi qua file upload theo chuẩn hiện tại
+                    ColorImageMap = null, // mapping sẽ đi qua file upload theo chuẩn hiện tại
+                    StickerUrls = request.StickerUrls
                 };
                 
 // Bind ColorImages from form data manually
@@ -177,6 +178,29 @@ namespace backend.Controllers
                             }
                         }
                     }
+                }
+
+                // Bind StickerUrls from form data manually
+                var stickerUrls = new List<string>();
+                if (Request.Form != null)
+                {
+                    foreach (var key in Request.Form.Keys)
+                    {
+                        if (key.StartsWith("StickerUrls[") && key.EndsWith("]"))
+                        {
+                            var url = Request.Form[key].ToString();
+                            if (!string.IsNullOrWhiteSpace(url))
+                            {
+                                stickerUrls.Add(url);
+                            }
+                        }
+                    }
+                }
+                
+                // Override StickerUrls if manually bound from form data
+                if (stickerUrls.Any())
+                {
+                    createProductDto.StickerUrls = stickerUrls;
                 }
                 var stickerFiles = request.StickerFiles?.ToList();
                 var product = await _productService.CreateProductAsync(createProductDto, request.ImageFiles?.ToList(), colorImages, stickerFiles);
@@ -400,6 +424,11 @@ namespace backend.Controllers
         /// Sticker của sản phẩm (PNG nền trong suốt), gửi nhiều file: StickerFiles
         /// </summary>
         public IFormFile[]? StickerFiles { get; set; }
+        
+        /// <summary>
+        /// Sticker URLs từ internet, gửi dạng array: StickerUrls[0], StickerUrls[1], ...
+        /// </summary>
+        public List<string>? StickerUrls { get; set; }
     }
     
     /// <summary>
