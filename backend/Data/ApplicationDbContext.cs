@@ -1,9 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using backend.Models;
 
 namespace backend.Data
 {
-    public class ApplicationDbContext : DbContext
+    public class ApplicationDbContext : IdentityDbContext<User>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : base(options)
         {
@@ -16,10 +17,49 @@ namespace backend.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<Cart> Carts { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
+        public DbSet<UserAddress> UserAddresses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            
+            // Configure User (extends IdentityUser)
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.HasIndex(u => u.CustomerCode).IsUnique();
+                entity.Property(u => u.CustomerCode).IsRequired().HasMaxLength(20);
+                entity.Property(u => u.FullName).IsRequired().HasMaxLength(100);
+                entity.Property(u => u.Address).HasMaxLength(500);
+                entity.Property(u => u.Avatar).HasMaxLength(255);
+                entity.Property(u => u.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(u => u.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(u => u.IsActive).HasDefaultValue(true);
+            });
+
+            // Configure UserAddress
+            modelBuilder.Entity<UserAddress>(entity =>
+            {
+                entity.HasKey(ua => ua.Id);
+                entity.Property(ua => ua.UserId).IsRequired();
+                entity.Property(ua => ua.FullName).IsRequired().HasMaxLength(100);
+                entity.Property(ua => ua.PhoneNumber).IsRequired().HasMaxLength(15);
+                entity.Property(ua => ua.AddressLine).IsRequired().HasMaxLength(200);
+                entity.Property(ua => ua.Ward).HasMaxLength(100);
+                entity.Property(ua => ua.District).IsRequired().HasMaxLength(100);
+                entity.Property(ua => ua.Province).IsRequired().HasMaxLength(100);
+                entity.Property(ua => ua.PostalCode).HasMaxLength(10);
+                entity.Property(ua => ua.AddressType).IsRequired().HasMaxLength(20).HasDefaultValue("Home");
+                entity.Property(ua => ua.IsDefault).HasDefaultValue(false);
+                entity.Property(ua => ua.IsActive).HasDefaultValue(true);
+                entity.Property(ua => ua.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(ua => ua.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Relationship with User
+                entity.HasOne(ua => ua.User)
+                    .WithMany(u => u.Addresses)
+                    .HasForeignKey(ua => ua.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
             
             // Configure Category
             modelBuilder.Entity<Category>(entity =>
@@ -136,8 +176,15 @@ namespace backend.Data
             modelBuilder.Entity<Cart>(entity =>
             {
                 entity.HasKey(c => c.Id);
+                entity.Property(c => c.UserId).IsRequired();
                 entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Relationship with User
+                entity.HasOne(c => c.User)
+                    .WithMany(u => u.Carts)
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             // Configure CartItem
@@ -149,6 +196,31 @@ namespace backend.Data
                 entity.HasOne(ci => ci.Cart)
                     .WithMany(c => c.Items)
                     .HasForeignKey(ci => ci.CartId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure UserAddress
+            modelBuilder.Entity<UserAddress>(entity =>
+            {
+                entity.HasKey(ua => ua.Id);
+                entity.Property(ua => ua.UserId).IsRequired();
+                entity.Property(ua => ua.FullName).IsRequired().HasMaxLength(100);
+                entity.Property(ua => ua.PhoneNumber).IsRequired().HasMaxLength(15);
+                entity.Property(ua => ua.AddressLine).IsRequired().HasMaxLength(200);
+                entity.Property(ua => ua.Ward).HasMaxLength(100);
+                entity.Property(ua => ua.District).IsRequired().HasMaxLength(100);
+                entity.Property(ua => ua.Province).IsRequired().HasMaxLength(100);
+                entity.Property(ua => ua.PostalCode).HasMaxLength(10);
+                entity.Property(ua => ua.AddressType).HasMaxLength(20).HasDefaultValue("Home");
+                entity.Property(ua => ua.IsDefault).HasDefaultValue(false);
+                entity.Property(ua => ua.IsActive).HasDefaultValue(true);
+                entity.Property(ua => ua.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(ua => ua.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Relationship with User
+                entity.HasOne(ua => ua.User)
+                    .WithMany(u => u.Addresses)
+                    .HasForeignKey(ua => ua.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

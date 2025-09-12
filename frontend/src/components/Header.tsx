@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCartIcon, UserIcon, Bars3Icon } from '@heroicons/react/24/outline';
+import { ShoppingCartIcon, Bars3Icon } from '@heroicons/react/24/outline';
 import MobileMenu from './MobileMenu';
 import { CartService, getCartId, getOrCreateCartId } from '../services/cartService';
 
@@ -101,16 +101,28 @@ const Header: React.FC<HeaderProps> = () => {
                   <span className="absolute -top-1 -right-1 text-[10px] bg-green-600 text-white rounded-full px-1.5 py-0.5">{cartCount}</span>
                 )}
               </Link>
-              <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
-                <UserIcon className="h-5 w-5 text-gray-600" />
-              </button>
+              <Link 
+                to="/login" 
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-green-600 transition-colors duration-200"
+              >
+                Đăng nhập
+              </Link>
+              <Link 
+                to="/register" 
+                className="px-4 py-2 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
+              >
+                Đăng ký
+              </Link>
             </div>
 
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center space-x-3">
-              <button className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
+              <Link to="/cart" className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200">
                 <ShoppingCartIcon className="h-5 w-5 text-gray-600" />
-              </button>
+                {cartCount > 0 && (
+                  <span className="absolute -top-1 -right-1 text-[10px] bg-green-600 text-white rounded-full px-1.5 py-0.5">{cartCount}</span>
+                )}
+              </Link>
               <button
                 onClick={toggleMobileMenu}
                 className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
