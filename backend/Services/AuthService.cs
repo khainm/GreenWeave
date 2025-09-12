@@ -14,6 +14,7 @@ namespace backend.Services
         private readonly ICustomerCodeService _customerCodeService;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly IUserRepository _userRepository;
+        private readonly IUserAddressService _userAddressService;
 
         // Logic sử dụng:
         // - UserManager: Authentication operations (register, login, password, identity operations)
@@ -25,7 +26,8 @@ namespace backend.Services
             IJwtService jwtService,
             ICustomerCodeService customerCodeService,
             ICloudinaryService cloudinaryService,
-            IUserRepository userRepository)
+            IUserRepository userRepository,
+            IUserAddressService userAddressService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -33,6 +35,7 @@ namespace backend.Services
             _customerCodeService = customerCodeService;
             _cloudinaryService = cloudinaryService;
             _userRepository = userRepository;
+            _userAddressService = userAddressService;
         }
 
         // Helper method để tạo UserDto
@@ -103,6 +106,34 @@ namespace backend.Services
 
                 // Assign Customer role by default
                 await _userManager.AddToRoleAsync(user, UserRoles.Customer);
+
+                // Tự động tạo UserAddress từ địa chỉ đăng ký nếu có
+                if (!string.IsNullOrWhiteSpace(registerDto.Address))
+                {
+                    var createAddressDto = new CreateUserAddressDto
+                    {
+                        FullName = registerDto.FullName,
+                        PhoneNumber = registerDto.PhoneNumber ?? string.Empty,
+                        AddressType = "Home", // Mặc định
+                        AddressLine = registerDto.Address,
+                        Ward = "", // Để trống vì không có thông tin chi tiết
+                        District = "Chưa xác định",
+                        Province = "Chưa xác định",
+                        PostalCode = null,
+                        IsDefault = true // Đặt làm địa chỉ mặc định
+                    };
+
+                    // Tạo địa chỉ nhưng không làm ảnh hưởng đến quá trình đăng ký nếu lỗi
+                    try
+                    {
+                        await _userAddressService.CreateAddressAsync(user.Id, createAddressDto);
+                    }
+                    catch
+                    {
+                        // Log lỗi nhưng không return error để không ảnh hưởng đến việc đăng ký
+                        // Có thể log: Không thể tạo địa chỉ tự động cho user
+                    }
+                }
 
                 // Generate JWT token with roles
                 var roles = await _userManager.GetRolesAsync(user);
