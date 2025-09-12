@@ -12,6 +12,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, activePage = '
   const navigationItems = [
     { id: 'home', label: 'Trang chủ', path: '/' },
     { id: 'products', label: 'Sản phẩm', path: '/products' },
+    { id: 'custom', label: 'Sản phẩm tùy chỉnh', path: '/custom' },
     { id: 'about', label: 'Về chúng tôi', path: '/about' },
     { id: 'contact', label: 'Liên hệ', path: '/contact' }
   ];
@@ -74,12 +75,20 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, activePage = '
           {/* Footer */}
           <div className="p-4 border-t border-gray-200">
             <div className="space-y-3">
-              <button className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors duration-200">
+              <Link 
+                to="/login" 
+                onClick={onClose}
+                className="block w-full bg-green-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-green-700 transition-colors duration-200 text-center"
+              >
                 Đăng nhập
-              </button>
-              <button className="w-full border border-green-600 text-green-600 py-3 px-4 rounded-lg font-semibold hover:bg-green-50 transition-colors duration-200">
+              </Link>
+              <Link 
+                to="/register" 
+                onClick={onClose}
+                className="block w-full border border-green-600 text-green-600 py-3 px-4 rounded-lg font-semibold hover:bg-green-50 transition-colors duration-200 text-center"
+              >
                 Đăng ký
-              </button>
+              </Link>
             </div>
           </div>
         </div>
