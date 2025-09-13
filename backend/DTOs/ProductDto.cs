@@ -43,6 +43,9 @@ namespace backend.DTOs
 
         // Stickers (URLs) optional
         public List<string>? StickerUrls { get; set; }
+        
+        // Stickers from placedStickers (from frontend)
+        public List<ProductStickerDto>? Stickers { get; set; }
     }
     
     public class ProductImageUploadDto

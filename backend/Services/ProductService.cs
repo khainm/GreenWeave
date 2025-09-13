@@ -342,7 +342,7 @@ namespace backend.Services
             }
         }
         
-        public async Task<ProductResponseDto> UpdateProductAsync(int id, CreateProductDto updateProductDto, List<IFormFile>? imageFiles = null)
+        public async Task<ProductResponseDto> UpdateProductAsync(int id, CreateProductDto updateProductDto, List<IFormFile>? imageFiles = null, List<IFormFile>? stickerFiles = null)
         {
             try
             {
@@ -409,6 +409,151 @@ namespace backend.Services
                                 _logger.LogError(ex, "Failed to upload image file {FileName} for product {ProductId}", file.FileName, id);
                             }
                         }
+                    }
+                }
+                
+                // Handle stickers update (replace all existing stickers)
+                if ((stickerFiles != null && stickerFiles.Any()) || (updateProductDto.StickerUrls != null && updateProductDto.StickerUrls.Any()) || (updateProductDto.Stickers != null && updateProductDto.Stickers.Any()))
+                {
+                    // Clear existing stickers
+                    await _productRepository.ClearStickersAsync(id);
+                    
+                    // Add new stickers from files
+                    var stickers = new List<ProductSticker>();
+                    int order = 0;
+                    
+                    if (stickerFiles != null && stickerFiles.Any())
+                    {
+                        foreach (var file in stickerFiles)
+                        {
+                            if (file == null || file.Length == 0) continue;
+                            try
+                            {
+                                var upload = await _cloudinaryService.UploadImageAsync(file, "product-stickers");
+                                if (upload.StatusCode == System.Net.HttpStatusCode.OK)
+                                {
+                                    stickers.Add(new ProductSticker
+                                    {
+                                        ProductId = id,
+                                        ImageUrl = upload.SecureUrl.ToString(),
+                                        CloudinaryPublicId = upload.PublicId,
+                                        SortOrder = order++
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to upload sticker file {FileName} for product {ProductId}", file.FileName, id);
+                            }
+                        }
+                    }
+                    
+                    // Add new stickers from URLs
+                    if (updateProductDto.StickerUrls != null && updateProductDto.StickerUrls.Any())
+                    {
+                        foreach (var url in updateProductDto.StickerUrls)
+                        {
+                            if (string.IsNullOrWhiteSpace(url)) continue;
+                            try
+                            {
+                                var upload = await _cloudinaryService.UploadImageAsync(url, "product-stickers");
+                                if (upload.StatusCode == System.Net.HttpStatusCode.OK)
+                                {
+                                    stickers.Add(new ProductSticker
+                                    {
+                                        ProductId = id,
+                                        ImageUrl = upload.SecureUrl.ToString(),
+                                        CloudinaryPublicId = upload.PublicId,
+                                        SortOrder = order++
+                                    });
+                                }
+                                else
+                                {
+                                    stickers.Add(new ProductSticker 
+                                    { 
+                                        ProductId = id,
+                                        ImageUrl = url, 
+                                        SortOrder = order++ 
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to upload sticker url {Url} for product {ProductId}", url, id);
+                                stickers.Add(new ProductSticker 
+                                { 
+                                    ProductId = id,
+                                    ImageUrl = url, 
+                                    SortOrder = order++ 
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Add stickers from placedStickers (from frontend)
+                    if (updateProductDto.Stickers != null && updateProductDto.Stickers.Any())
+                    {
+                        foreach (var sticker in updateProductDto.Stickers)
+                        {
+                            if (string.IsNullOrWhiteSpace(sticker.ImageUrl)) continue;
+                            
+                            // Skip placeholder stickers
+                            if (sticker.ImageUrl == "custom-placeholder") continue;
+                            
+                            try
+                            {
+                                // If it's a URL, try to upload to Cloudinary
+                                if (sticker.ImageUrl.StartsWith("http"))
+                                {
+                                    var upload = await _cloudinaryService.UploadImageAsync(sticker.ImageUrl, "product-stickers");
+                                    if (upload.StatusCode == System.Net.HttpStatusCode.OK)
+                                    {
+                                        stickers.Add(new ProductSticker
+                                        {
+                                            ProductId = id,
+                                            ImageUrl = upload.SecureUrl.ToString(),
+                                            CloudinaryPublicId = upload.PublicId,
+                                            SortOrder = sticker.SortOrder
+                                        });
+                                    }
+                                    else
+                                    {
+                                        stickers.Add(new ProductSticker 
+                                        { 
+                                            ProductId = id,
+                                            ImageUrl = sticker.ImageUrl, 
+                                            SortOrder = sticker.SortOrder 
+                                        });
+                                    }
+                                }
+                                else
+                                {
+                                    // Direct URL or base64
+                                    stickers.Add(new ProductSticker 
+                                    { 
+                                        ProductId = id,
+                                        ImageUrl = sticker.ImageUrl, 
+                                        SortOrder = sticker.SortOrder 
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError(ex, "Failed to process sticker {ImageUrl} for product {ProductId}", sticker.ImageUrl, id);
+                                stickers.Add(new ProductSticker 
+                                { 
+                                    ProductId = id,
+                                    ImageUrl = sticker.ImageUrl, 
+                                    SortOrder = sticker.SortOrder 
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Persist new stickers
+                    if (stickers.Any())
+                    {
+                        await _productRepository.AddStickersAsync(id, stickers);
                     }
                 }
                 

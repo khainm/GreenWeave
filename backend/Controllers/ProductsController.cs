@@ -258,10 +258,36 @@ namespace backend.Controllers
                     Stock = request.Stock,
                     Status = request.Status,
                     Colors = request.Colors ?? new List<string>(),
-                    ImageUrls = request.ImageUrls
+                    ImageUrls = request.ImageUrls,
+                    StickerUrls = request.StickerUrls,
+                    Stickers = request.Stickers
                 };
                 
-                var product = await _productService.UpdateProductAsync(id, updateProductDto, request.ImageFiles?.ToList());
+                // Bind StickerUrls from form data manually (same as CreateProduct)
+                var stickerUrls = new List<string>();
+                if (Request.Form != null)
+                {
+                    foreach (var key in Request.Form.Keys)
+                    {
+                        if (key.StartsWith("StickerUrls[") && key.EndsWith("]"))
+                        {
+                            var url = Request.Form[key].ToString();
+                            if (!string.IsNullOrWhiteSpace(url))
+                            {
+                                stickerUrls.Add(url);
+                            }
+                        }
+                    }
+                }
+                
+                // Override StickerUrls if manually bound from form data
+                if (stickerUrls.Any())
+                {
+                    updateProductDto.StickerUrls = stickerUrls;
+                }
+                
+                var stickerFiles = request.StickerFiles?.ToList();
+                var product = await _productService.UpdateProductAsync(id, updateProductDto, request.ImageFiles?.ToList(), stickerFiles);
                 
                 return Ok(new { success = true, message = "Cập nhật sản phẩm thành công", data = product });
             }
@@ -429,6 +455,11 @@ namespace backend.Controllers
         /// Sticker URLs từ internet, gửi dạng array: StickerUrls[0], StickerUrls[1], ...
         /// </summary>
         public List<string>? StickerUrls { get; set; }
+        
+        /// <summary>
+        /// Stickers từ placedStickers (from frontend)
+        /// </summary>
+        public List<ProductStickerDto>? Stickers { get; set; }
     }
     
     /// <summary>

@@ -23,6 +23,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
+                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync();
             }
@@ -40,6 +41,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
+                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
                     .FirstOrDefaultAsync(p => p.Id == id);
             }
             catch (Exception ex)
@@ -56,6 +58,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
+                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
                     .FirstOrDefaultAsync(p => p.Sku == sku);
             }
             catch (Exception ex)
@@ -273,6 +276,27 @@ namespace backend.Repositories
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting customizable product by id: {Id}", id);
+                throw;
+            }
+        }
+        
+        public async Task ClearStickersAsync(int productId)
+        {
+            try
+            {
+                var stickers = await _context.ProductStickers
+                    .Where(s => s.ProductId == productId)
+                    .ToListAsync();
+                
+                if (stickers.Any())
+                {
+                    _context.ProductStickers.RemoveRange(stickers);
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error clearing stickers for product: {ProductId}", productId);
                 throw;
             }
         }
