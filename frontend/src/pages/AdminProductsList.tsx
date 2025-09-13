@@ -4,16 +4,28 @@ import TopNav from '../components/admin/TopNav'
 import ProductService from '../services/productService'
 import CategoryService from '../services/categoryService'
 import type { Product } from '../types/product'
+
+// Extended type for sorting that includes productType
+type SortableProductKey = keyof Product | 'productType'
 import CustomProductModal from '../components/admin/CustomProductModal'
 
 const formatVnd = (v: number) => new Intl.NumberFormat('vi-VN').format(v)
 
+// Helper function to determine product type
+const getProductType = (product: Product, categoryMeta: Record<string, { isCustomizable: boolean }>): 'regular' | 'custom' => {
+  // Product is custom if it has stickers OR if its category is customizable
+  const hasStickers = product.stickers && product.stickers.length > 0
+  const isCategoryCustomizable = categoryMeta[product.category]?.isCustomizable || false
+  return (hasStickers || isCategoryCustomizable) ? 'custom' : 'regular'
+}
+
 const AdminProductsList: React.FC = () => {
   const [query, setQuery] = useState('')
   const [debounced, setDebounced] = useState('')
-  const [sortKey, setSortKey] = useState<keyof Product>('name')
+  const [sortKey, setSortKey] = useState<SortableProductKey>('name')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all')
+  const [productType, setProductType] = useState<'all' | 'regular' | 'custom'>('all')
   const [products, setProducts] = useState<Product[]>([])
   const [categoryMeta, setCategoryMeta] = useState<Record<string, { isCustomizable: boolean }>>({})
   const [isLoading, setIsLoading] = useState(true)
@@ -21,6 +33,7 @@ const AdminProductsList: React.FC = () => {
 
   // Customizable modal state (moved into component)
   const [showCustomModal, setShowCustomModal] = useState(false)
+  const [editingCustomProduct, setEditingCustomProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(query), 250)
@@ -68,11 +81,18 @@ const AdminProductsList: React.FC = () => {
   }
 
   const filtered = products
-    .filter(p =>
-      (status === 'all' || p.status === status) &&
-      (p.name.toLowerCase().includes(debounced.toLowerCase()) || p.sku.toLowerCase().includes(debounced.toLowerCase()))
-    )
+    .filter(p => {
+      const matchesStatus = status === 'all' || p.status === status
+      const matchesSearch = p.name.toLowerCase().includes(debounced.toLowerCase()) || p.sku.toLowerCase().includes(debounced.toLowerCase())
+      const matchesType = productType === 'all' || getProductType(p, categoryMeta) === productType
+      return matchesStatus && matchesSearch && matchesType
+    })
     .sort((a, b) => {
+      if (sortKey === 'productType') {
+        const va = getProductType(a, categoryMeta)
+        const vb = getProductType(b, categoryMeta)
+        return sortDir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va)
+      }
       const va = a[sortKey]
       const vb = b[sortKey]
       if (typeof va === 'number' && typeof vb === 'number') {
@@ -83,9 +103,30 @@ const AdminProductsList: React.FC = () => {
 
   // Handlers for Customizable modal
   const openCustomModal = () => setShowCustomModal(true)
-  const closeCustomModal = () => setShowCustomModal(false)
+  const closeCustomModal = () => {
+    setShowCustomModal(false)
+    setEditingCustomProduct(null)
+  }
+  
+  const openCustomEditModal = (product: Product) => {
+    setEditingCustomProduct(product)
+    setShowCustomModal(true)
+  }
 
   const handleCreated = (p: Product) => setProducts(prev => [p, ...prev])
+  
+  const handleUpdated = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
+  }
+
+  // Thống kê sản phẩm
+  const productStats = {
+    total: products.length,
+    regular: products.filter(p => getProductType(p, categoryMeta) === 'regular').length,
+    custom: products.filter(p => getProductType(p, categoryMeta) === 'custom').length,
+    active: products.filter(p => p.status === 'active').length,
+    inactive: products.filter(p => p.status === 'inactive').length
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -93,7 +134,27 @@ const AdminProductsList: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <h1 className="text-2xl font-bold text-gray-900">Danh sách hàng hóa</h1>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Danh sách hàng hóa</h1>
+              <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  Thường: {productStats.regular}
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  Tùy chỉnh: {productStats.custom}
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  Đang bán: {productStats.active}
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                  Ngừng bán: {productStats.inactive}
+                </span>
+              </div>
+            </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
               <div className="relative">
                 <input 
@@ -114,6 +175,15 @@ const AdminProductsList: React.FC = () => {
                 <option value="all">Tất cả trạng thái</option>
                 <option value="active">Đang bán</option>
                 <option value="inactive">Ngừng bán</option>
+              </select>
+              <select 
+                value={productType} 
+                onChange={(e) => setProductType(e.target.value as any)} 
+                className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors min-w-[160px]"
+              >
+                <option value="all">Tất cả loại</option>
+                <option value="regular">Sản phẩm thường</option>
+                <option value="custom">Sản phẩm tùy chỉnh</option>
               </select>
               <Link 
                 to="/admin/products/add" 
@@ -159,6 +229,7 @@ const AdminProductsList: React.FC = () => {
                     { key: 'name', label: 'Tên hàng hóa' },
                     { key: 'category', label: 'Danh mục' },
                     { key: 'stock', label: 'Tồn kho' },
+                    { key: 'productType', label: 'Loại sản phẩm' },
                     { key: 'isCustomizable', label: 'Tuỳ chỉnh' },
                     { key: 'price', label: 'Giá bán' },
                   ].map((c) => (
@@ -166,14 +237,20 @@ const AdminProductsList: React.FC = () => {
                       key={c.key} 
                       className="py-4 px-6 cursor-pointer select-none hover:bg-gray-100 transition-colors" 
                       onClick={() => {
-                        const k = c.key as keyof Product
-                        if (sortKey === k) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                        else { setSortKey(k); setSortDir('asc') }
+                        if (c.key === 'productType') {
+                          // Custom sort for product type
+                          if (sortKey === 'productType') setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                          else { setSortKey('productType'); setSortDir('asc') }
+                        } else {
+                          const k = c.key as SortableProductKey
+                          if (sortKey === k) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+                          else { setSortKey(k); setSortDir('asc') }
+                        }
                       }}
                     >
                       <div className="flex items-center">
                         <span>{c.label}</span>
-                        {sortKey === (c.key as keyof Product) && (
+                        {(sortKey === (c.key as SortableProductKey)) && (
                           <svg className="ml-2" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M7 10l5 5 5-5z" transform={sortDir === 'asc' ? 'rotate(180 12 12)' : ''} />
                           </svg>
@@ -188,7 +265,7 @@ const AdminProductsList: React.FC = () => {
               <tbody className="divide-y divide-gray-100">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center">
+                    <td colSpan={9} className="py-12 text-center">
                       <div className="flex flex-col items-center">
                         <svg className="animate-spin h-8 w-8 text-green-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -200,7 +277,7 @@ const AdminProductsList: React.FC = () => {
                   </tr>
                 ) : filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-12 text-center text-gray-500">
+                    <td colSpan={9} className="py-12 text-center text-gray-500">
                       {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm nào'}
                     </td>
                   </tr>
@@ -211,6 +288,23 @@ const AdminProductsList: React.FC = () => {
                       <td className="py-4 px-6 font-semibold text-gray-900">{p.name}</td>
                       <td className="py-4 px-6 text-gray-600">{p.category}</td>
                       <td className="py-4 px-6 text-gray-700">{p.stock}</td>
+                      <td className="py-4 px-6">
+                        {getProductType(p, categoryMeta) === 'custom' ? (
+                          <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                            Tùy chỉnh
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                            </svg>
+                            Thường
+                          </span>
+                        )}
+                      </td>
                       <td className="py-4 px-6">
                         {categoryMeta[p.category]?.isCustomizable ? (
                           <span className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">Có</span>
@@ -226,12 +320,24 @@ const AdminProductsList: React.FC = () => {
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Link 
-                            to={`/admin/products/edit/${p.id}`}
-                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            Sửa
-                          </Link>
+                          {getProductType(p, categoryMeta) === 'custom' ? (
+                            <button
+                              onClick={() => openCustomEditModal(p)}
+                              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                              </svg>
+                              Sửa tùy chỉnh
+                            </button>
+                          ) : (
+                            <Link 
+                              to={`/admin/products/edit/${p.id}`}
+                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              Sửa
+                            </Link>
+                          )}
                           <button 
                             onClick={() => handleDeleteProduct(p.id)}
                             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -251,7 +357,8 @@ const AdminProductsList: React.FC = () => {
           <CustomProductModal
             open={showCustomModal}
             onClose={closeCustomModal}
-            onCreated={handleCreated}
+            onCreated={editingCustomProduct ? handleUpdated : handleCreated}
+            initialProduct={editingCustomProduct || undefined}
           />
         )}
       </div>

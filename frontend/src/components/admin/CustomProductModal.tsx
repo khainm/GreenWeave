@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import type { Product } from '../../types/product'
+import type { Product, CreateProductRequest } from '../../types/product'
 import ProductService from '../../services/productService'
 import CategoryService from '../../services/categoryService'
 
@@ -7,11 +7,12 @@ type Props = {
   open: boolean
   onClose: () => void
   onCreated: (product: Product) => void
+  initialProduct?: Product
 }
 
 const formatVnd = (v: number) => new Intl.NumberFormat('vi-VN').format(v)
 
-const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
+const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initialProduct }) => {
   const [customForm, setCustomForm] = useState({
     name: '',
     sku: '',
@@ -37,6 +38,7 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   const [resizeState, setResizeState] = useState<null | { id: string; startX: number; startY: number; startScale: number }>(null)
   const [isSavingCustom, setIsSavingCustom] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [isEditMode, setIsEditMode] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -45,6 +47,85 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
       setCategories(list?.map((c: any) => ({ name: c.name, isCustomizable: c.isCustomizable })) || [])
     }).catch(() => setCategories([]))
   }, [open])
+
+  // Helper function để phân biệt sticker từ file vs URL
+  const categorizeStickers = (stickers: any[]) => {
+    const urlStickers: string[] = []
+    const allStickers: string[] = []
+    
+    stickers.forEach(sticker => {
+      const imageUrl = sticker.imageUrl
+      allStickers.push(imageUrl)
+      
+      // Phân biệt: nếu URL không phải từ Cloudinary upload và không phải base64 thì là URL trực tiếp
+      // Cloudinary URLs thường có pattern như: https://res.cloudinary.com/...
+      // Base64 images: data:image/...
+      if (!imageUrl.includes('cloudinary.com') && !imageUrl.startsWith('data:image/')) {
+        urlStickers.push(imageUrl)
+      }
+    })
+    
+    return { urlStickers, allStickers }
+  }
+
+  // Initialize form when initialProduct is provided
+  useEffect(() => {
+    if (initialProduct && open) {
+      setIsEditMode(true)
+      setCustomForm({
+        name: initialProduct.name,
+        sku: initialProduct.sku,
+        category: initialProduct.category,
+        price: initialProduct.price,
+        description: initialProduct.description || '',
+        selectedColor: initialProduct.colors?.[0]?.colorCode || '#ffffff'
+      })
+      setImages(initialProduct.images?.map(img => img.imageUrl) || [])
+      setColors(initialProduct.colors?.map(c => c.colorCode) || ['#ffffff', '#000000'])
+      
+      // Phân loại stickers khi load edit
+      if (initialProduct.stickers && initialProduct.stickers.length > 0) {
+        const { urlStickers, allStickers } = categorizeStickers(initialProduct.stickers)
+        
+        setStickerLibrary(allStickers) // Tất cả stickers để hiển thị trong library
+        setStickerUrls(urlStickers) // Chỉ các URL trực tiếp (không phải từ file upload)
+        
+        // Load stickers into placedStickers for preview
+        const placed = initialProduct.stickers.map((sticker, idx) => ({
+          id: `sticker-${sticker.id || idx}`,
+          src: sticker.imageUrl,
+          x: 50 + (idx * 20), // Spread them out
+          y: 50 + (idx * 20),
+          scale: 1
+        }))
+        setPlacedStickers(placed)
+      } else {
+        setStickerLibrary([])
+        setStickerUrls([])
+        setPlacedStickers([])
+      }
+      
+      // Reset file arrays cho edit mode
+      setStickerFiles([])
+    } else if (open) {
+      setIsEditMode(false)
+      // Reset form for new product
+      setCustomForm({
+        name: '',
+        sku: '',
+        category: '',
+        price: 0,
+        description: '',
+        selectedColor: '#ffffff'
+      })
+      setImages([])
+      setColors(['#ffffff', '#000000'])
+      setStickerLibrary([])
+      setStickerUrls([])
+      setPlacedStickers([])
+      setStickerFiles([])
+    }
+  }, [initialProduct, open])
 
   useEffect(() => {
     if (customForm.category) {
@@ -68,6 +149,18 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
     const base64s = await Promise.all(files.map(f => ProductService.fileToBase64(f)))
     setStickerLibrary(prev => [...prev, ...base64s])
     setStickerFiles(prev => [...prev, ...files])
+    
+    // Tự động đặt stickers vào preview
+    base64s.forEach((src, idx) => {
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}-${idx}`
+      setPlacedStickers(prev => [...prev, { 
+        id, 
+        src, 
+        x: 40 + (prev.length + idx) * 10, 
+        y: 40 + (prev.length + idx) * 10, 
+        scale: 1 
+      }])
+    })
   }
 
   const addStickerFromUrl = async () => {
@@ -82,6 +175,17 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
       const url = stickerUrl.trim()
       setStickerLibrary(prev => [...prev, url])
       setStickerUrls(prev => [...prev, url])
+      
+      // Tự động đặt sticker vào preview
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      setPlacedStickers(prev => [...prev, { 
+        id, 
+        src: url, 
+        x: 40 + prev.length * 10, 
+        y: 40 + prev.length * 10, 
+        scale: 1 
+      }])
+      
       setStickerUrl('')
     } catch (error) {
       alert('URL không hợp lệ. Vui lòng nhập URL ảnh hợp lệ.')
@@ -94,6 +198,11 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
   const placeStickerFromLibrary = (src: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
     setPlacedStickers(prev => [...prev, { id, src, x: 40 + prev.length * 10, y: 40 + prev.length * 10, scale: 1 }])
+  }
+
+  // Xử lý xóa sticker đã được đặt trên preview
+  const removePlacedSticker = (stickerId: string | number) => {
+    setPlacedStickers(prev => prev.filter(sticker => sticker.id !== stickerId))
   }
 
   const onStickerMouseDown = (e: React.MouseEvent, id: string) => {
@@ -166,7 +275,9 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
         setIsSavingCustom(false)
         return
       }
-      const payload = {
+      
+      // Chuẩn bị payload với stickers được phân loại đúng
+      const payload: CreateProductRequest = {
         name: customForm.name,
         sku: customForm.sku,
         category: customForm.category,
@@ -174,18 +285,78 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
         price: customForm.price,
         originalPrice: undefined,
         stock: 0,
-        status: 'active' as const,
+        status: 'active',
         colors: colors,
-        imageFiles: imageFiles, // Ảnh chung
-        stickerFiles: stickerFiles, // File stickers từ máy tính
-        stickerUrls: stickerUrls, // URL stickers từ internet
+        imageFiles: imageFiles, // Ảnh chung từ máy tính
+        stickerFiles: stickerFiles, // File stickers từ máy tính (sẽ upload lên Cloudinary)
+        stickerUrls: stickerUrls.filter(url => url.trim() !== ''), // URLs trực tiếp từ internet
+        // Gửi placedStickers chỉ với fields mà backend hỗ trợ
+        stickers: placedStickers.length > 0 ? placedStickers.map((sticker, idx) => {
+          // Sử dụng index làm ID đơn giản (1, 2, 3...)
+          const simpleId = idx + 1
+          
+          console.log(`🔍 Sticker conversion [${idx}]: ID ${sticker.id} -> ${simpleId}, URL: ${sticker.src}`)
+          
+          const stickerObj = {
+            id: simpleId,              // Luôn luôn là number đơn giản
+            imageUrl: sticker.src,     // URL của sticker
+            sortOrder: simpleId        // Cùng với ID để đơn giản
+          }
+          
+          console.log(`🔍 Final sticker object [${idx}]:`, stickerObj)
+          return stickerObj
+        }) : []
       }
-      const created = await ProductService.createProduct({ ...(payload as any) } as any)
-      onCreated(created)
+      
+      console.log('🔍 [CustomProductModal] Payload chi tiết:')
+      console.log('  - Tên sản phẩm:', payload.name)
+      console.log('  - SKU:', payload.sku)
+      console.log('  - Category:', payload.category)
+      console.log('  - Price:', payload.price)
+      console.log('  - Status:', payload.status)
+      console.log('  - Colors:', payload.colors)
+      console.log('  - File stickers (sẽ upload):', stickerFiles.length, 'files')
+      console.log('  - URL stickers (trực tiếp):', stickerUrls.length, 'URLs:', stickerUrls)
+      console.log('  - Placed stickers original:', placedStickers)
+      console.log('  - Placed stickers converted:', payload.stickers)
+      console.log('  - Image files:', imageFiles.length)
+      console.log('  - Full payload:', payload)
+      
+      if (isEditMode && initialProduct) {
+        // Update existing product
+        const updated = await ProductService.updateProduct(initialProduct.id, payload)
+        console.log('✅ Cập nhật sản phẩm thành công:', updated.id)
+        onCreated(updated)
+      } else {
+        // Create new product
+        const created = await ProductService.createProduct(payload)
+        console.log('✅ Tạo sản phẩm mới thành công:', created.id)
+        onCreated(created)
+      }
       onClose()
-    } catch (e) {
-      console.error(e)
-      setSaveError('Không thể lưu sản phẩm. Vui lòng thử lại.')
+    } catch (e: any) {
+      console.error('❌ Lỗi khi lưu sản phẩm:', e)
+      
+      // Log chi tiết lỗi để debug
+      if (e.response) {
+        console.error('Response status:', e.response.status)
+        console.error('Response data:', e.response.data)
+        console.error('Response headers:', e.response.headers)
+        
+        // Hiển thị lỗi validation chi tiết
+        if (e.response.status === 400 && e.response.data?.errors) {
+          const validationErrors = Object.entries(e.response.data.errors)
+            .map(([field, messages]) => `${field}: ${(messages as string[]).join(', ')}`)
+            .join('\n')
+          setSaveError(`Lỗi validation:\n${validationErrors}`)
+        } else if (e.response.data?.message) {
+          setSaveError(`Lỗi: ${e.response.data.message}`)
+        } else {
+          setSaveError(`Lỗi HTTP ${e.response.status}: Không thể lưu sản phẩm`)
+        }
+      } else {
+        setSaveError('Không thể kết nối đến server. Vui lòng thử lại.')
+      }
     } finally {
       setIsSavingCustom(false)
     }
@@ -198,7 +369,9 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
       <div className="relative bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-6xl max-h-[90vh] overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h3 className="text-lg font-bold text-gray-900">Thêm hàng hóa tùy chỉnh</h3>
+          <h3 className="text-lg font-bold text-gray-900">
+            {isEditMode ? 'Chỉnh sửa hàng hóa tùy chỉnh' : 'Thêm hàng hóa tùy chỉnh'}
+          </h3>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M18.3 5.71L12 12.01l-6.29-6.3L4.3 7.12 10.59 13.4l-6.3 6.3 1.42 1.41L12 14.83l6.29 6.29 1.41-1.41-6.29-6.3 6.29-6.29z"/>
@@ -408,34 +581,84 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                   {/* Sticker Library */}
                   {stickerLibrary.length > 0 && (
                     <div className="mt-3">
-                      <div className="text-xs text-gray-500 mb-2">
-                        Thư viện sticker ({stickerLibrary.length}) - Click để thêm vào preview
-                        {stickerFiles.length > 0 && (
-                          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
-                            {stickerFiles.length} từ file
-                          </span>
-                        )}
-                        {stickerUrls.length > 0 && (
-                          <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
-                            {stickerUrls.length} từ URL
-                          </span>
-                        )}
+                      <div className="text-xs text-gray-500 mb-3">
+                        <div className="flex items-center justify-between">
+                          <span>Thư viện sticker ({stickerLibrary.length}) - Click để thêm vào preview</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                              <span className="text-xs">File máy</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                              <span className="text-xs">URL Internet</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="text-xs">Cloudinary</span>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mt-2">
+                          {(() => {
+                            const fileCount = stickerLibrary.filter(src => src.startsWith('data:image/')).length
+                            const urlCount = stickerLibrary.filter(src => stickerUrls.includes(src)).length
+                            const cloudinaryCount = stickerLibrary.filter(src => src.includes('cloudinary.com')).length
+                            
+                            return (
+                              <>
+                                {fileCount > 0 && (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                                    {fileCount} từ file máy
+                                  </span>
+                                )}
+                                {urlCount > 0 && (
+                                  <span className="px-2 py-1 bg-purple-100 text-purple-700 rounded-full text-xs">
+                                    {urlCount} từ URL internet
+                                  </span>
+                                )}
+                                {cloudinaryCount > 0 && (
+                                  <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                                    {cloudinaryCount} đã lưu Cloudinary
+                                  </span>
+                                )}
+                              </>
+                            )
+                          })()}
+                        </div>
                       </div>
                       <div className="grid grid-cols-4 gap-2 max-h-32 overflow-y-auto">
                         {stickerLibrary.map((src, idx) => {
                           const isFromUrl = stickerUrls.includes(src)
                           const isFromFile = src.startsWith('data:image/')
+                          const isFromCloudinary = src.includes('cloudinary.com') && !isFromUrl && !isFromFile
+                          
+                          let borderColor = 'border-gray-200 hover:border-gray-300'
+                          let indicatorColor = '#9ca3af'
+                          let tooltipText = 'Không xác định nguồn'
+                          
+                          if (isFromFile) {
+                            borderColor = 'border-blue-300 hover:border-blue-400'
+                            indicatorColor = '#3b82f6'
+                            tooltipText = 'Từ file máy tính'
+                          } else if (isFromUrl) {
+                            borderColor = 'border-purple-300 hover:border-purple-400'
+                            indicatorColor = '#8b5cf6'
+                            tooltipText = 'Từ URL internet'
+                          } else if (isFromCloudinary) {
+                            borderColor = 'border-green-300 hover:border-green-400'
+                            indicatorColor = '#10b981'
+                            tooltipText = 'Đã lưu trên Cloudinary'
+                          }
                           
                           return (
                             <button 
                               key={idx} 
                               type="button" 
                               onClick={() => placeStickerFromLibrary(src)} 
-                              className={`border rounded-lg p-2 hover:shadow-md transition-all duration-200 group relative ${
-                                isFromUrl ? 'border-purple-300 hover:border-purple-400' : 
-                                isFromFile ? 'border-blue-300 hover:border-blue-400' : 
-                                'border-gray-200 hover:border-gray-300'
-                              }`}
+                              className={`border rounded-lg p-2 hover:shadow-md transition-all duration-200 group relative ${borderColor}`}
+                              title={tooltipText}
                             >
                               <div className="aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded flex items-center justify-center">
                                 <img 
@@ -447,13 +670,18 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                                   }}
                                 />
                               </div>
-                              {/* Source indicator */}
+                              {/* Source indicator với màu động */}
                               <div className="absolute top-1 right-1">
-                                {isFromUrl ? (
-                                  <div className="w-3 h-3 bg-purple-500 rounded-full" title="Từ URL"></div>
-                                ) : isFromFile ? (
-                                  <div className="w-3 h-3 bg-blue-500 rounded-full" title="Từ file"></div>
-                                ) : null}
+                                <div 
+                                  className="w-3 h-3 rounded-full shadow-sm border border-white" 
+                                  style={{ backgroundColor: indicatorColor }}
+                                  title={tooltipText}
+                                ></div>
+                              </div>
+                              
+                              {/* Thêm tooltip text khi hover */}
+                              <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                                {tooltipText}
                               </div>
                             </button>
                           )
@@ -477,14 +705,28 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                 )}
                 <div className="pt-2 flex gap-3">
                   <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-medium hover:bg-gray-50">Đóng</button>
-                  <button onClick={handleSaveCustomProduct} disabled={isSavingCustom} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60">{isSavingCustom ? 'Đang lưu...' : 'Lưu sản phẩm'}</button>
+                  <button onClick={handleSaveCustomProduct} disabled={isSavingCustom} className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-semibold hover:bg-indigo-700 disabled:opacity-60">
+                    {isSavingCustom ? 'Đang lưu...' : (isEditMode ? 'Cập nhật sản phẩm' : 'Lưu sản phẩm')}
+                  </button>
                 </div>
               </div>
             </div>
 
             {/* Preview sản phẩm */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="text-sm font-semibold text-gray-900 mb-3">Xem trước</div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-gray-900">Xem trước</div>
+                {placedStickers.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPlacedStickers([])}
+                    className="text-xs px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors duration-200"
+                    title="Xóa tất cả stickers"
+                  >
+                    Xóa tất cả ({placedStickers.length})
+                  </button>
+                )}
+              </div>
               <div
                 ref={previewRef}
                 className="relative w-full aspect-[3/4] rounded-lg border border-gray-200 overflow-hidden"
@@ -499,13 +741,30 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated }) => {
                 {placedStickers.map(s => (
                   <div
                     key={s.id}
-                    className="absolute cursor-move"
+                    className="absolute cursor-move group"
                     style={{ left: s.x, top: s.y, transform: `scale(${s.scale})` }}
                     onMouseDown={(e) => onStickerMouseDown(e, s.id)}
                   >
                     <img src={s.src} alt="sticker" className="w-24 h-24 object-contain pointer-events-none select-none" />
+                    
+                    {/* Nút xóa sticker */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removePlacedSticker(s.id)
+                      }}
+                      className="absolute -right-1 -top-1 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center"
+                      title="Xóa sticker"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                      </svg>
+                    </button>
+                    
+                    {/* Nút resize */}
                     <div
-                      className="absolute -right-2 -bottom-2 w-5 h-5 bg-white border border-gray-300 rounded-full shadow cursor-se-resize flex items-center justify-center"
+                      className="absolute -right-2 -bottom-2 w-5 h-5 bg-white border border-gray-300 rounded-full shadow cursor-se-resize flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                       onMouseDown={(e) => onResizeMouseDown(e, s.id)}
                       title="Kéo để thay đổi kích thước"
                     >

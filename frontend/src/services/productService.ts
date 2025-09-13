@@ -29,11 +29,32 @@ export class ProductService {
         formData.append(`ColorImages[${color}]`, file)
       })
     }
-    if ((productData as any).stickerFiles?.length) {
-      ;((productData as any).stickerFiles as File[]).forEach(file => formData.append('StickerFiles', file))
+    
+    // Handle sticker files từ máy tính
+    if (productData.stickerFiles?.length) {
+      productData.stickerFiles.forEach(file => formData.append('StickerFiles', file))
     }
-    if ((productData as any).stickerUrls?.length) {
-      ;((productData as any).stickerUrls as string[]).forEach((url, index) => formData.append(`StickerUrls[${index}]`, url))
+    
+    // Handle sticker URLs từ internet 
+    if (productData.stickerUrls?.length) {
+      productData.stickerUrls.forEach((url, index) => formData.append(`StickerUrls[${index}]`, url))
+    }
+    
+    // Handle placed stickers (chỉ gửi fields backend hỗ trợ)
+    if (productData.stickers?.length) {
+      productData.stickers.forEach((sticker, index) => {
+        console.log(`🔍 Building FormData for sticker ${index}:`, sticker)
+        
+        // Đảm bảo ID là number
+        const stickerIdNumber = Number(sticker.id)
+        console.log(`🔍 Sticker ID conversion: ${sticker.id} -> ${stickerIdNumber}`)
+        
+        // Gửi từng field của sticker theo format backend mong đợi  
+        formData.append(`Stickers[${index}].Id`, stickerIdNumber.toString())
+        formData.append(`Stickers[${index}].ImageUrl`, sticker.imageUrl)
+        formData.append(`Stickers[${index}].SortOrder`, sticker.sortOrder.toString())
+        // Không gửi x, y, scale vì ProductStickerDto không có
+      })
     }
     return formData
   }
@@ -103,6 +124,17 @@ export class ProductService {
   static async updateProduct(id: number, productData: CreateProductRequest): Promise<Product> {
     try {
       const formData = this.buildFormData(productData)
+      
+      // Debug FormData content
+      console.log('🔍 [ProductService] FormData content:')
+      for (let [key, value] of formData.entries()) {
+        if (value instanceof File) {
+          console.log(`${key}: File(${value.name}, ${value.size} bytes, ${value.type})`)
+        } else {
+          console.log(`${key}: ${value}`)
+        }
+      }
+      
       return await apiClient.putForm<Product>(`${this.BASE_PATH}/${id}`, formData)
     } catch (error) {
       console.error('Error updating product:', error)

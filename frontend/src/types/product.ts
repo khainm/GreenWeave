@@ -50,6 +50,14 @@ export interface CreateProductRequest {
   imageFiles?: File[]
   // Map color code → file for color-specific images
   colorImageFiles?: Record<string, File>
+  // Sticker fields
+  stickerFiles?: File[] // Files sticker từ máy tính
+  stickerUrls?: string[] // URLs sticker từ internet
+  stickers?: Array<{ // Stickers đã đặt (chỉ gửi fields backend hỗ trợ)
+    id: number
+    imageUrl: string
+    sortOrder: number
+  }>
 }
 
 export interface ApiResponse<T> {

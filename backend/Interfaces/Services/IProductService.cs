@@ -9,7 +9,7 @@ namespace backend.Interfaces.Services
         Task<ProductResponseDto?> GetProductByIdAsync(int id);
         Task<ProductResponseDto?> GetProductBySkuAsync(string sku);
         Task<ProductResponseDto> CreateProductAsync(CreateProductDto createProductDto, List<IFormFile>? imageFiles = null, Dictionary<string, IFormFile>? colorImages = null, List<IFormFile>? stickerFiles = null);
-        Task<ProductResponseDto> UpdateProductAsync(int id, CreateProductDto updateProductDto, List<IFormFile>? imageFiles = null);
+        Task<ProductResponseDto> UpdateProductAsync(int id, CreateProductDto updateProductDto, List<IFormFile>? imageFiles = null, List<IFormFile>? stickerFiles = null);
         Task<bool> DeleteProductAsync(int id);
         Task<string> GenerateSkuAsync(string category);
 
