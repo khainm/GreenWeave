@@ -1,23 +1,19 @@
 import React, { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import TopNav from '../components/admin/TopNav'
 import ProductService from '../services/productService'
 import CategoryService from '../services/categoryService'
 import type { Product } from '../types/product'
+import CustomProductModal from '../components/admin/CustomProductModal'
+import { 
+  ProductStats, 
+  ProductFilters, 
+  ProductActions, 
+  ProductTable,
+  getProductType
+} from '../components/admin/products'
 
 // Extended type for sorting that includes productType
 type SortableProductKey = keyof Product | 'productType'
-import CustomProductModal from '../components/admin/CustomProductModal'
-
-const formatVnd = (v: number) => new Intl.NumberFormat('vi-VN').format(v)
-
-// Helper function to determine product type
-const getProductType = (product: Product, categoryMeta: Record<string, { isCustomizable: boolean }>): 'regular' | 'custom' => {
-  // Product is custom if it has stickers OR if its category is customizable
-  const hasStickers = product.stickers && product.stickers.length > 0
-  const isCategoryCustomizable = categoryMeta[product.category]?.isCustomizable || false
-  return (hasStickers || isCategoryCustomizable) ? 'custom' : 'regular'
-}
 
 const AdminProductsList: React.FC = () => {
   const [query, setQuery] = useState('')
@@ -101,6 +97,16 @@ const AdminProductsList: React.FC = () => {
       return sortDir === 'asc' ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va))
     })
 
+  // Handle sorting
+  const handleSort = (key: SortableProductKey) => {
+    if (sortKey === key) {
+      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
   // Handlers for Customizable modal
   const openCustomModal = () => setShowCustomModal(true)
   const closeCustomModal = () => {
@@ -134,76 +140,22 @@ const AdminProductsList: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Danh sách hàng hóa</h1>
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  Thường: {productStats.regular}
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                  Tùy chỉnh: {productStats.custom}
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Đang bán: {productStats.active}
-                </span>
-                <span className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                  Ngừng bán: {productStats.inactive}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="relative">
-                <input 
-                  value={query} 
-                  onChange={(e) => setQuery(e.target.value)} 
-                  placeholder="Tìm theo tên hoặc SKU" 
-                  className="pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm w-72 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors" 
-                />
-                <svg className="absolute left-3 top-3" width="16" height="16" viewBox="0 0 24 24" fill="#9ca3af">
-                  <path d="M21 20l-5.2-5.2a7 7 0 10-1.4 1.4L20 21l1-1zM5 10a5 5 0 1110 0A5 5 0 015 10z"/>
-                </svg>
-              </div>
-              <select 
-                value={status} 
-                onChange={(e) => setStatus(e.target.value as any)} 
-                className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors min-w-[160px]"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="active">Đang bán</option>
-                <option value="inactive">Ngừng bán</option>
-              </select>
-              <select 
-                value={productType} 
-                onChange={(e) => setProductType(e.target.value as any)} 
-                className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors min-w-[160px]"
-              >
-                <option value="all">Tất cả loại</option>
-                <option value="regular">Sản phẩm thường</option>
-                <option value="custom">Sản phẩm tùy chỉnh</option>
-              </select>
-              <Link 
-                to="/admin/products/add" 
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center"
-              >
-                <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                </svg>
-                Thêm hàng hóa
-              </Link>
-              <button
-                type="button"
-                onClick={openCustomModal}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center"
-              >
-                <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/>
-                </svg>
-                Thêm hàng hóa tùy chỉnh
-              </button>
+            <ProductStats
+              regular={productStats.regular}
+              custom={productStats.custom}
+              active={productStats.active}
+              inactive={productStats.inactive}
+            />
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+              <ProductFilters
+                query={query}
+                setQuery={setQuery}
+                status={status}
+                setStatus={setStatus}
+                productType={productType}
+                setProductType={setProductType}
+              />
+              <ProductActions onOpenCustomModal={openCustomModal} />
             </div>
           </div>
         </div>
@@ -219,140 +171,17 @@ const AdminProductsList: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-gray-50">
-                <tr className="text-gray-600 text-sm font-medium">
-                  {[
-                    { key: 'sku', label: 'Mã' },
-                    { key: 'name', label: 'Tên hàng hóa' },
-                    { key: 'category', label: 'Danh mục' },
-                    { key: 'stock', label: 'Tồn kho' },
-                    { key: 'productType', label: 'Loại sản phẩm' },
-                    { key: 'isCustomizable', label: 'Tuỳ chỉnh' },
-                    { key: 'price', label: 'Giá bán' },
-                  ].map((c) => (
-                    <th 
-                      key={c.key} 
-                      className="py-4 px-6 cursor-pointer select-none hover:bg-gray-100 transition-colors" 
-                      onClick={() => {
-                        if (c.key === 'productType') {
-                          // Custom sort for product type
-                          if (sortKey === 'productType') setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                          else { setSortKey('productType'); setSortDir('asc') }
-                        } else {
-                          const k = c.key as SortableProductKey
-                          if (sortKey === k) setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
-                          else { setSortKey(k); setSortDir('asc') }
-                        }
-                      }}
-                    >
-                      <div className="flex items-center">
-                        <span>{c.label}</span>
-                        {(sortKey === (c.key as SortableProductKey)) && (
-                          <svg className="ml-2" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M7 10l5 5 5-5z" transform={sortDir === 'asc' ? 'rotate(180 12 12)' : ''} />
-                          </svg>
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                  <th className="py-4 px-6">Trạng thái</th>
-                  <th className="py-4 px-6 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center">
-                      <div className="flex flex-col items-center">
-                        <svg className="animate-spin h-8 w-8 text-green-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span className="text-gray-500">Đang tải danh sách sản phẩm...</span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-12 text-center text-gray-500">
-                      {products.length === 0 ? 'Chưa có sản phẩm nào' : 'Không tìm thấy sản phẩm nào'}
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-6 text-gray-700 font-medium">{p.sku}</td>
-                      <td className="py-4 px-6 font-semibold text-gray-900">{p.name}</td>
-                      <td className="py-4 px-6 text-gray-600">{p.category}</td>
-                      <td className="py-4 px-6 text-gray-700">{p.stock}</td>
-                      <td className="py-4 px-6">
-                        {getProductType(p, categoryMeta) === 'custom' ? (
-                          <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                            </svg>
-                            Tùy chỉnh
-                          </span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                            </svg>
-                            Thường
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6">
-                        {categoryMeta[p.category]?.isCustomizable ? (
-                          <span className="px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">Có</span>
-                        ) : (
-                          <span className="px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 text-xs">Không</span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-gray-900 font-bold">{formatVnd(p.price)} đ</td>
-                      <td className="py-4 px-6">
-                        <span className={`px-3 py-1.5 rounded-full text-xs font-semibold ${p.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                          {p.status === 'active' ? 'Đang bán' : 'Ngừng bán'}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {getProductType(p, categoryMeta) === 'custom' ? (
-                            <button
-                              onClick={() => openCustomEditModal(p)}
-                              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                              </svg>
-                              Sửa tùy chỉnh
-                            </button>
-                          ) : (
-                            <Link 
-                              to={`/admin/products/edit/${p.id}`}
-                              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                            >
-                              Sửa
-                            </Link>
-                          )}
-                          <button 
-                            onClick={() => handleDeleteProduct(p.id)}
-                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <ProductTable
+          products={filtered}
+          isLoading={isLoading}
+          categoryMeta={categoryMeta}
+          getProductType={getProductType}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={handleSort}
+          onDeleteProduct={handleDeleteProduct}
+          onEditCustomProduct={openCustomEditModal}
+        />
         {showCustomModal && (
           <CustomProductModal
             open={showCustomModal}
