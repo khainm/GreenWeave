@@ -91,11 +91,11 @@ const Header: React.FC<HeaderProps> = () => {
               <img 
                 src="/src/assets/logo-no-background.png" 
                 alt="GreenWeave" 
-                className="h-8 w-auto mr-2"
+                className="h-30 w-auto mr-2"
               />
               <span className="text-xl font-bold">
-                <span className="text-green-600">Green</span>
-                <span className="text-gray-800">Weave</span>
+                {/* <span className="text-green-600">Green</span>
+                <span className="text-gray-800">Weave</span> */}
               </span>
             </div>
 
