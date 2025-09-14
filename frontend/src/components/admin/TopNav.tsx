@@ -80,13 +80,22 @@ const TopNav: React.FC = () => {
           <div className="flex items-center space-x-2">
             {tabs.map((t) => {
               const isActive = (t.label === 'Tổng quan' && location.pathname === '/admin') ||
-                               (t.label === 'Hàng hóa' && location.pathname.startsWith('/admin/products'))
+                               (t.label === 'Hàng hóa' && location.pathname.startsWith('/admin/products')) ||
+                               (t.label === 'Đơn hàng' && location.pathname.startsWith('/admin/orders'))
 
               const base = `px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${isActive ? 'bg-white/20 ring-2 ring-white/50 shadow-[0_0_0_1px_rgba(255,255,255,0.25)]' : 'hover:bg-white/10'}`
 
               if (t.label === 'Tổng quan') {
                 return (
                   <NavLink key={t.label} to="/admin" className={base}>{t.label}</NavLink>
+                )
+              }
+
+              if (t.label === 'Đơn hàng') {
+                return (
+                  <NavLink key={t.label} to="/admin/orders" className={base}>
+                    {t.label}
+                  </NavLink>
                 )
               }
 
