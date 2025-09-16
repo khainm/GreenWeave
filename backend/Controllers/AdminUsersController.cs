@@ -118,5 +118,21 @@ namespace backend.Controllers
             
             return BadRequest(new { Message = "Vô hiệu hóa người dùng thất bại" });
         }
+
+        /// <summary>
+        /// Kích hoạt lại user (Admin only)
+        /// </summary>
+        [HttpPut("{userId}/activate")]
+        public async Task<ActionResult> ActivateUser(string userId)
+        {
+            var result = await _authService.ActivateUserAsync(userId);
+            
+            if (result)
+            {
+                return Ok(new { Message = "Kích hoạt người dùng thành công" });
+            }
+            
+            return BadRequest(new { Message = "Kích hoạt người dùng thất bại" });
+        }
     }
 }

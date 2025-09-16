@@ -431,6 +431,18 @@ namespace backend.Services
             }
         }
 
+        public async Task<bool> ActivateUserAsync(string userId)
+        {
+            try
+            {
+                return await _userRepository.SetUserActiveStatusAsync(userId, true);
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         // Role management operations
         public async Task<AuthResponseDto> CreateUserWithRoleAsync(CreateUserDto createUserDto)
         {
@@ -577,10 +589,10 @@ namespace backend.Services
                 }
 
                 var usersInRole = await _userManager.GetUsersInRoleAsync(role);
-                var activeUsers = usersInRole.Where(u => u.IsActive);
+                // Trả về tất cả users (bao gồm cả đã vô hiệu hóa) để admin có thể quản lý
                 var userDtos = new List<UserDto>();
 
-                foreach (var user in activeUsers)
+                foreach (var user in usersInRole)
                 {
                     userDtos.Add(await CreateUserDtoAsync(user));
                 }
