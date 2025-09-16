@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
+import AboutPage from './pages/AboutPage'
+import ContactPage from './pages/ContactPage'
 import CustomProductDesigner from './pages/CustomProductDesigner.tsx'
 import ProductsPage from './pages/ProductsPage'
 import AdminDashboard from './pages/AdminDashboard'
@@ -33,6 +35,8 @@ function App() {
         <div className="App">
           <Routes>
             <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/custom" element={<CustomProductDesigner />} />
             <Route path="/products/:id" element={<ProductDetail />} />
