@@ -81,7 +81,9 @@ const TopNav: React.FC = () => {
             {tabs.map((t) => {
               const isActive = (t.label === 'Tổng quan' && location.pathname === '/admin') ||
                                (t.label === 'Hàng hóa' && location.pathname.startsWith('/admin/products')) ||
-                               (t.label === 'Đơn hàng' && location.pathname.startsWith('/admin/orders'))
+                               (t.label === 'Đơn hàng' && location.pathname.startsWith('/admin/orders')) ||
+                               (t.label === 'Khách hàng' && location.pathname.startsWith('/admin/customers')) ||
+                               (t.label === 'Nhân Viên' && location.pathname.startsWith('/admin/staff'))
 
               const base = `px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${isActive ? 'bg-white/20 ring-2 ring-white/50 shadow-[0_0_0_1px_rgba(255,255,255,0.25)]' : 'hover:bg-white/10'}`
 
@@ -94,6 +96,22 @@ const TopNav: React.FC = () => {
               if (t.label === 'Đơn hàng') {
                 return (
                   <NavLink key={t.label} to="/admin/orders" className={base}>
+                    {t.label}
+                  </NavLink>
+                )
+              }
+
+              if (t.label === 'Khách hàng') {
+                return (
+                  <NavLink key={t.label} to="/admin/customers" className={base}>
+                    {t.label}
+                  </NavLink>
+                )
+              }
+
+              if (t.label === 'Nhân Viên') {
+                return (
+                  <NavLink key={t.label} to="/admin/staff" className={base}>
                     {t.label}
                   </NavLink>
                 )

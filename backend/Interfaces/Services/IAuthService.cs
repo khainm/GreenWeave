@@ -19,6 +19,7 @@ namespace backend.Interfaces.Services
         Task<IEnumerable<UserDto>> GetAllUsersAsync();
         Task<UserDto?> GetUserByCustomerCodeAsync(string customerCode);
         Task<bool> DeactivateUserAsync(string userId);
+        Task<bool> ActivateUserAsync(string userId);
         
         // Role management operations
         Task<AuthResponseDto> CreateUserWithRoleAsync(CreateUserDto createUserDto);

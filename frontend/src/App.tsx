@@ -11,6 +11,9 @@ import AdminEditProduct from './pages/AdminEditProduct.tsx'
 import AdminCategories from './pages/AdminCategories'
 import AdminOrdersList from './pages/AdminOrdersList'
 import AdminOrderDetail from './pages/AdminOrderDetail'
+import CustomerList from './pages/admin/CustomerList'
+import CustomerDetail from './pages/admin/CustomerDetail'
+import StaffList from './pages/admin/StaffList'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -99,6 +102,31 @@ function App() {
             <Route path="/admin/orders/:id" element={
               <ProtectedRoute requireStaff={true}>
                 <AdminOrderDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/customers" element={
+              <ProtectedRoute requireStaff={true}>
+                <CustomerList />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/customers/:customerCode" element={
+              <ProtectedRoute requireStaff={true}>
+                <CustomerDetail />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/staff" element={
+              <ProtectedRoute requireAdmin={true}>
+                <StaffList />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/customers" element={
+              <ProtectedRoute requireStaff={true}>
+                <CustomerList />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/customers/:customerCode" element={
+              <ProtectedRoute requireStaff={true}>
+                <CustomerDetail />
               </ProtectedRoute>
             } />
           </Routes>
