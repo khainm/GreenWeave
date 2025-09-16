@@ -1,4 +1,52 @@
 ﻿<Properties StartupConfiguration="{5910CE1E-0458-4DE6-8240-6DCB6EE5BB4D}|https">
-  <MonoDevelop.Ide.ItemProperties.backend FirstBuild="True" />
+  <MonoDevelop.Ide.ItemProperties.backend PreferredExecutionTarget="/Applications/Google Chrome.app" />
+  <MonoDevelop.Ide.Workbench ActiveDocument="Program.cs">
+    <Files>
+      <File FileName="Program.cs" Line="45" Column="69" />
+      <File FileName="appsettings.json" />
+      <File FileName=".env" />
+      <File FileName="Controllers/ProductsController.cs" />
+      <File FileName="Data/ApplicationDbContext.cs" />
+      <File FileName="DTOs/ProductDto.cs" />
+      <File FileName="Models/Product.cs" />
+      <File FileName="Models/ProductColor.cs" />
+      <File FileName="Models/ProductImage.cs" />
+      <File FileName="Services/CloudinaryService.cs" />
+      <File FileName="Services/ProductService.cs" />
+      <File FileName="README_API.md" />
+      <File FileName="Controllers/HealthController.cs" Line="37" Column="52" />
+      <File FileName="Controllers/CartController.cs" Line="1" Column="1" />
+      <File FileName="Repositories/ProductRepository.cs" Line="1" Column="1" />
+      <File FileName="Properties/launchSettings.json" Line="1" Column="1" />
+    </Files>
+    <Pads>
+      <Pad Id="ProjectPad">
+        <State name="__root__">
+          <Node name="backend">
+            <Node name="backend">
+              <Node name="Dependencies" expanded="True">
+                <Node name="PackageDependencies" expanded="True" />
+              </Node>
+              <Node name="Controllers" expanded="True" />
+              <Node name="DTOs" expanded="True" />
+              <Node name="Models" expanded="True" />
+              <Node name="Properties" expanded="True" />
+              <Node name="Repositories" expanded="True" />
+              <Node name="Services" expanded="True" />
+              <Node name="Program.cs" selected="True" />
+            </Node>
+          </Node>
+        </State>
+      </Pad>
+      <Pad Id="MonoDevelop.Debugger.WatchPad">
+        <State />
+      </Pad>
+    </Pads>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug" />
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
   <MultiItemStartupConfigurations />
 </Properties>

@@ -1,0 +1,3 @@
+# Keep this directory in git
+# ASP.NET Core requires wwwroot directory even for API-only applications
+# This file ensures the empty directory is tracked by git
