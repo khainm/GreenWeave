@@ -1,5 +1,5 @@
 import React from 'react';
-import ProductCard from './ProductCard';
+import OutstandingProducts from './OutstandingProducts';
 
 const FeaturedProducts: React.FC = () => {
   const products = [
@@ -64,7 +64,7 @@ const FeaturedProducts: React.FC = () => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {products.map((p, idx) => (
-            <ProductCard key={idx} {...p} />
+            <OutstandingProducts key={idx} {...p} />
           ))}
         </div>
       </div>
