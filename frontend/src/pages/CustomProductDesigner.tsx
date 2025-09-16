@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import Header from '../components/Header'
+import Header from '../components/layout/Header'
 import ProductService from '../services/productService'
 import type { Product } from '../types/product'
 

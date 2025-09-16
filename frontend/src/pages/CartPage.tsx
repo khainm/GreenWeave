@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import Header from '../components/Header'
+import Header from '../components/layout/Header'
 import { CartService, getOrCreateCartId, getCartId } from '../services/cartService'
 import type { Cart, CartItem } from '../types/cart'
 import { Link, useNavigate } from 'react-router-dom'

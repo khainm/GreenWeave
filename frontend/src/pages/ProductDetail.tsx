@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import Header from '../components/Header'
+import Header from '../components/layout/Header'
 import ProductService from '../services/productService'
 import type { Product } from '../types/product'
 import { CartService, getOrCreateCartId } from '../services/cartService'

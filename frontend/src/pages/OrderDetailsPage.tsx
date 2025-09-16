@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import Header from '../components/Header'
+import Header from '../components/layout/Header'
 import { OrderService } from '../services/orderService'
 import type { Order } from '../types/order'
 

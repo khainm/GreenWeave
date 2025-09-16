@@ -5,7 +5,7 @@ type Color = {
   hex: string;
 };
 
-export type OutstandingProductsProps = {
+export type FeaturedProductCardProps = {
   image: string;
   title: string;
   price: string; // already formatted (e.g., "128,000đ")
@@ -14,7 +14,7 @@ export type OutstandingProductsProps = {
   sectionHeader?: string; // optional heading shown above the card
 };
 
-const OutstandingProducts: React.FC<OutstandingProductsProps> = ({ image, title, price, colors = [], badge, sectionHeader }) => {
+const FeaturedProductCard: React.FC<FeaturedProductCardProps> = ({ image, title, price, colors = [], badge, sectionHeader }) => {
   return (
     <div className="group">
       {sectionHeader && (
@@ -58,6 +58,4 @@ const OutstandingProducts: React.FC<OutstandingProductsProps> = ({ image, title,
   );
 };
 
-export default OutstandingProducts;
-
-
+export default FeaturedProductCard;

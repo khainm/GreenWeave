@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ShoppingCartIcon, Bars3Icon, UserIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import MobileMenu from './MobileMenu';
-import { CartService, getCartId, getOrCreateCartId } from '../services/cartService';
-import { useAuth } from '../contexts/AuthContext';
+import MobileMenu from '../MobileMenu';
+import { CartService, getCartId, getOrCreateCartId } from '../../services/cartService';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface HeaderProps {
   activePage?: string;

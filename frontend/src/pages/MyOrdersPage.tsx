@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import Header from '../components/Header'
+import Header from '../components/layout/Header'
 import { OrderService } from '../services/orderService'
 import { formatVnd } from '../utils/format'
 import type { Order } from '../types/order'
