@@ -8,4 +8,17 @@ export default defineConfig({
   plugins: [react(),
     tailwindcss(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom'],
+          icons: ['@heroicons/react'],
+          canvas: ['konva', 'react-konva', 'use-image'],
+        }
+      }
+    },
+    chunkSizeWarningLimit: 1000
+  }
 })
