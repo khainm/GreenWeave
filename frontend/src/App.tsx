@@ -9,8 +9,14 @@ import AdminProductsList from './pages/AdminProductsList'
 import AdminAddProduct from './pages/AdminAddProduct'
 import AdminEditProduct from './pages/AdminEditProduct.tsx'
 import AdminCategories from './pages/AdminCategories'
+import AdminOrdersList from './pages/AdminOrdersList'
+import AdminOrderDetail from './pages/AdminOrderDetail'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
+import CheckoutPage from './pages/CheckoutPage'
+import OrderDetailsPage from './pages/OrderDetailsPage'
+import MyOrdersPage from './pages/MyOrdersPage'
+import PaymentPage from './pages/PaymentPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
@@ -28,6 +34,26 @@ function App() {
             <Route path="/custom" element={<CustomProductDesigner />} />
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/cart" element={<CartPage />} />
+            <Route path="/checkout" element={
+              <ProtectedRoute requireAuth={true}>
+                <CheckoutPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/orders" element={
+              <ProtectedRoute requireAuth={true}>
+                <MyOrdersPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/orders/:id" element={
+              <ProtectedRoute requireAuth={true}>
+                <OrderDetailsPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/payment/:orderId" element={
+              <ProtectedRoute requireAuth={true}>
+                <PaymentPage />
+              </ProtectedRoute>
+            } />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/profile" element={
@@ -63,6 +89,16 @@ function App() {
             <Route path="/admin/categories" element={
               <ProtectedRoute requireStaff={true}>
                 <AdminCategories />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/orders" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminOrdersList />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/orders/:id" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminOrderDetail />
               </ProtectedRoute>
             } />
           </Routes>

@@ -8,15 +8,14 @@ namespace backend.Models
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
         
-        [Required]
-        public string UserId { get; set; } = string.Empty;
+        public string? UserId { get; set; } // Allow null for anonymous carts
         
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         // Navigation properties
         [ForeignKey("UserId")]
-        public virtual User User { get; set; } = null!;
+        public virtual User? User { get; set; }
         public virtual ICollection<CartItem> Items { get; set; } = new List<CartItem>();
     }
 }

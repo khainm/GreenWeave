@@ -19,6 +19,7 @@ namespace backend.Interfaces.Repositories
         Task UpsertColorImageAsync(int productId, string colorCode, ProductImage image);
         Task AddStickersAsync(int productId, IEnumerable<ProductSticker> stickers);
         Task ClearStickersAsync(int productId);
+        Task ClearImagesAsync(int productId);
 
         // Queries for customizable products (categories with IsCustomizable = true)
         Task<IEnumerable<Product>> GetCustomizableAsync();

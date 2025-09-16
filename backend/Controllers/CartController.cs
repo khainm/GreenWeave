@@ -29,8 +29,15 @@ namespace backend.Controllers
         [HttpPost("{cartId}/items")]
         public async Task<IActionResult> AddItem(Guid cartId, [FromBody] AddCartItemRequest request)
         {
-            var item = await _service.AddItemAsync(cartId, request);
-            return Ok(new { success = true, data = item });
+            try
+            {
+                var item = await _service.AddItemAsync(cartId, request);
+                return Ok(new { success = true, data = item });
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { success = false, message = ex.Message });
+            }
         }
 
         [HttpPut("{cartId}/items/{itemId}")]
@@ -47,6 +54,22 @@ namespace backend.Controllers
             var ok = await _service.RemoveItemAsync(cartId, itemId);
             if (!ok) return NotFound(new { success = false, message = "Không tìm thấy sản phẩm trong giỏ" });
             return Ok(new { success = true });
+        }
+
+        [HttpPut("{cartId}/assign-user")]
+        public async Task<IActionResult> AssignToUser(Guid cartId, [FromBody] AssignCartToUserRequest request)
+        {
+            var cart = await _service.AssignToUserAsync(cartId, request.UserId);
+            if (cart == null) return NotFound(new { success = false, message = "Không tìm thấy giỏ hàng" });
+            return Ok(new { success = true, data = cart });
+        }
+
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetUserCart(string userId)
+        {
+            var cart = await _service.GetUserCartAsync(userId);
+            if (cart == null) return NotFound(new { success = false, message = "Không tìm thấy giỏ hàng" });
+            return Ok(new { success = true, data = cart });
         }
     }
 }

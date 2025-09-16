@@ -6,6 +6,8 @@ namespace backend.Interfaces.Repositories
     {
         Task<Cart> CreateAsync();
         Task<Cart?> GetAsync(Guid id);
+        Task<Cart?> AssignToUserAsync(Guid cartId, string userId);
+        Task<Cart?> GetUserCartAsync(string userId);
         Task<CartItem> AddItemAsync(Guid cartId, CartItem item);
         Task<CartItem?> UpdateItemQuantityAsync(Guid cartId, int itemId, int quantity);
         Task<bool> RemoveItemAsync(Guid cartId, int itemId);

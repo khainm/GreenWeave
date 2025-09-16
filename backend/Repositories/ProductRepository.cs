@@ -300,5 +300,27 @@ namespace backend.Repositories
                 throw;
             }
         }
+
+        public async Task ClearImagesAsync(int productId)
+        {
+            try
+            {
+                var images = await _context.ProductImages
+                    .Where(i => i.ProductId == productId)
+                    .ToListAsync();
+                
+                if (images.Any())
+                {
+                    _context.ProductImages.RemoveRange(images);
+                    await _context.SaveChangesAsync();
+                    _logger.LogInformation("Cleared {Count} images for product: {ProductId}", images.Count, productId);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error clearing images for product: {ProductId}", productId);
+                throw;
+            }
+        }
     }
 }

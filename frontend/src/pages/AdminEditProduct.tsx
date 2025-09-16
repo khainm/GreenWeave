@@ -87,7 +87,8 @@ const AdminEditProduct: React.FC = () => {
           selectedColor: productData.colors?.[0]?.colorCode || '#10b981',
           status: productData.status,
           images: productData.images?.sort((a, b) => a.sortOrder - b.sortOrder).map(img => img.imageUrl) || [],
-          imageFiles: []
+          imageFiles: [],
+          hasChangedImages: false
         })
       } catch (e) {
         console.error(e)
@@ -130,9 +131,21 @@ const AdminEditProduct: React.FC = () => {
         stock: form.stock,
         status: form.status,
         colors: form.colors,
-        imageUrls: form.images.filter(img => img.startsWith('http')),
-        imageFiles: form.imageFiles
+        // Nếu có thay đổi ảnh, luôn gửi imageFiles (có thể rỗng để xóa hết)
+        // Nếu không có thay đổi ảnh, gửi imageUrls để giữ nguyên
+        ...(form.hasChangedImages 
+          ? { imageFiles: form.imageFiles }
+          : { imageUrls: form.images.filter(img => img.startsWith('http')) }
+        )
       }
+
+      console.log('📤 Update payload:', {
+        hasChangedImages: form.hasChangedImages,
+        imageFilesCount: form.imageFiles.length,
+        imageUrlsCount: form.images.filter(img => img.startsWith('http')).length,
+        totalImagesCount: form.images.length,
+        willClearImages: form.hasChangedImages && form.imageFiles.length === 0
+      })
 
       await ProductService.updateProduct(productId, payload)
       navigate('/admin/products')
