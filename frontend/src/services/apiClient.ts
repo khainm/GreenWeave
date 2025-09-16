@@ -1,7 +1,39 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'  
+
+
+// API Response types
+export interface ApiResponse<T> {
+  data?: T
+  message?: string
+  success: boolean
+}
+
+export interface ApiError {
+  message: string
+  status: number
+  details?: any
+}
+
+// Invoice-specific error types
+export interface InvoiceError extends ApiError {
+  invoiceId?: number
+  orderId?: number
+}
+
+export class ApiException extends Error {
+  public status: number
+  public details?: any
+
+  constructor(message: string, status: number, details?: any) {
+    super(message)
+    this.name = 'ApiException'
+    this.status = status
+    this.details = details
+  }
+}
 
 class ApiClient {
   private axiosInstance: AxiosInstance
@@ -75,8 +107,29 @@ class ApiClient {
             window.location.href = '/login'
           }
         }
+
+        // Create standardized error response
+        const apiError: ApiError = {
+          message: error.response?.data?.message || error.message || 'An unexpected error occurred',
+          status: error.response?.status || 500,
+          details: error.response?.data
+        }
+
+        // Handle specific invoice errors
+        if (error.config?.url?.includes('/invoices')) {
+          console.error('🧾 [ApiClient] Invoice operation error:', apiError);
+          
+          // Add invoice-specific error context
+          const invoiceError: InvoiceError = {
+            ...apiError,
+            invoiceId: error.response?.data?.invoiceId,
+            orderId: error.response?.data?.orderId
+          }
+          
+          return Promise.reject(new ApiException(invoiceError.message, invoiceError.status, invoiceError))
+        }
         
-        return Promise.reject(error)
+        return Promise.reject(new ApiException(apiError.message, apiError.status, apiError))
       }
     )
   }

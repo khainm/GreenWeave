@@ -30,5 +30,6 @@ namespace backend.Models
         // Navigation properties
         public virtual ICollection<Cart> Carts { get; set; } = new List<Cart>();
         public virtual ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
+        public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 }

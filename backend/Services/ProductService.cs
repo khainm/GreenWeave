@@ -381,35 +381,46 @@ namespace backend.Services
                     }).ToList();
                 }
                 
-                // Handle new image uploads if provided
-                if (imageFiles != null && imageFiles.Any())
+                // Handle image updates - imageFiles != null means user wants to change images
+                if (imageFiles != null)
                 {
-                    for (int i = 0; i < imageFiles.Count; i++)
+                    // Clear existing images first
+                    await _productRepository.ClearImagesAsync(id);
+                    
+                    // Clear the in-memory collection to avoid conflicts
+                    existingProduct.Images.Clear();
+                    
+                    // Add new images if any
+                    if (imageFiles.Any())
                     {
-                        var file = imageFiles[i];
-                        if (file.Length > 0)
+                        for (int i = 0; i < imageFiles.Count; i++)
                         {
-                            try
+                            var file = imageFiles[i];
+                            if (file.Length > 0)
                             {
-                                var uploadResult = await _cloudinaryService.UploadImageAsync(file, "products");
-                                if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
+                                try
                                 {
-                                    existingProduct.Images.Add(new ProductImage
+                                    var uploadResult = await _cloudinaryService.UploadImageAsync(file, "products");
+                                    if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
                                     {
-                                        ProductId = id,
-                                        ImageUrl = uploadResult.SecureUrl.ToString(),
-                                        CloudinaryPublicId = uploadResult.PublicId,
-                                        SortOrder = existingProduct.Images.Count + i,
-                                        IsPrimary = existingProduct.Images.Count == 0
-                                    });
+                                        existingProduct.Images.Add(new ProductImage
+                                        {
+                                            ProductId = id,
+                                            ImageUrl = uploadResult.SecureUrl.ToString(),
+                                            CloudinaryPublicId = uploadResult.PublicId,
+                                            SortOrder = i,
+                                            IsPrimary = i == 0
+                                        });
+                                    }
                                 }
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, "Failed to upload image file {FileName} for product {ProductId}", file.FileName, id);
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError(ex, "Failed to upload image file {FileName} for product {ProductId}", file.FileName, id);
+                                }
                             }
                         }
                     }
+                    // If imageFiles is empty, images are cleared but no new ones added
                 }
                 
                 // Handle stickers update (replace all existing stickers)

@@ -32,6 +32,11 @@ namespace backend.DTOs
     {
         [Range(1, int.MaxValue)] public int Quantity { get; set; } = 1;
     }
+
+    public class AssignCartToUserRequest
+    {
+        [Required] public string UserId { get; set; } = string.Empty;
+    }
 }
 
 

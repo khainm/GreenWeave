@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react'
 import Header from '../components/Header'
 import { CartService, getOrCreateCartId, getCartId } from '../services/cartService'
 import type { Cart, CartItem } from '../types/cart'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 const CartPage: React.FC = () => {
+  const navigate = useNavigate()
   const [cart, setCart] = useState<Cart | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -79,7 +80,12 @@ const CartPage: React.FC = () => {
                 <span className="text-gray-700">Tổng</span>
                 <span className="text-xl font-bold text-green-700">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(total)}</span>
               </div>
-              <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold">Thanh toán</button>
+              <button 
+                onClick={() => navigate('/checkout')}
+                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold"
+              >
+                Thanh toán
+              </button>
             </div>
           </div>
         )}

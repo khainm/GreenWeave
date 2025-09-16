@@ -1,0 +1,557 @@
+using backend.DTOs;
+using backend.Models;
+using backend.Interfaces.Repositories;
+using backend.Interfaces.Services;
+using System.Text.Json;
+
+namespace backend.Services
+{
+    public class OrderService : IOrderService
+    {
+        private readonly IOrderRepository _orderRepository;
+        private readonly IProductRepository _productRepository;
+        private readonly IUserAddressRepository _userAddressRepository;
+        private readonly IInvoiceService _invoiceService;
+        private readonly IEmailService _emailService;
+        private readonly ILogger<OrderService> _logger;
+        
+        public OrderService(
+            IOrderRepository orderRepository,
+            IProductRepository productRepository,
+            IUserAddressRepository userAddressRepository,
+            IInvoiceService invoiceService,
+            IEmailService emailService,
+            ILogger<OrderService> logger)
+        {
+            _orderRepository = orderRepository;
+            _productRepository = productRepository;
+            _userAddressRepository = userAddressRepository;
+            _invoiceService = invoiceService;
+            _emailService = emailService;
+            _logger = logger;
+        }
+        
+        public async Task<IEnumerable<OrderResponseDto>> GetAllOrdersAsync()
+        {
+            var orders = await _orderRepository.GetAllAsync();
+            return orders.Select(MapToResponseDto);
+        }
+        
+        public async Task<OrderResponseDto?> GetOrderByIdAsync(int id)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            return order != null ? MapToResponseDto(order) : null;
+        }
+
+        public async Task<OrderResponseDto?> GetOrderByNumberAsync(string orderNumber)
+        {
+            var order = await _orderRepository.GetByOrderNumberAsync(orderNumber);
+            return order != null ? MapToResponseDto(order) : null;
+        }
+        
+        public async Task<OrderResponseDto> CreateOrderAsync(CreateOrderDto createOrderDto)
+        {
+            try
+            {
+                // Validate order items
+                if (!await ValidateOrderItemsAsync(createOrderDto.Items))
+                {
+                    throw new ArgumentException("Một hoặc nhiều sản phẩm không hợp lệ");
+                }
+
+                // Validate shipping address
+                var shippingAddress = await _userAddressRepository.GetAddressByIdAsync(
+                    Guid.Parse(createOrderDto.ShippingAddressId.ToString()), 
+                    createOrderDto.CustomerId);
+                if (shippingAddress == null)
+                {
+                    throw new ArgumentException("Địa chỉ giao hàng không hợp lệ");
+                }
+
+                // Calculate totals
+                var subtotal = await CalculateSubtotalAsync(createOrderDto.Items);
+                var total = subtotal + createOrderDto.ShippingFee - createOrderDto.Discount;
+
+                // Generate order number
+                var orderNumber = await _orderRepository.GenerateOrderNumberAsync();
+
+                // Create order
+                var order = new Order
+                {
+                    OrderNumber = orderNumber,
+                    CustomerId = createOrderDto.CustomerId,
+                    ShippingAddressId = createOrderDto.ShippingAddressId,
+                    Subtotal = subtotal,
+                    ShippingFee = createOrderDto.ShippingFee,
+                    Discount = createOrderDto.Discount,
+                    Total = total,
+                    Status = OrderStatus.Pending,
+                    Notes = createOrderDto.Notes,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                // Create order items
+                foreach (var itemDto in createOrderDto.Items)
+                {
+                    var product = await _productRepository.GetByIdAsync(itemDto.ProductId);
+                    if (product == null) continue;
+
+                    var orderItem = new OrderItem
+                    {
+                        ProductId = itemDto.ProductId,
+                        ProductName = product.Name,
+                        ProductSku = product.Sku,
+                        ProductImage = product.Images?.FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+                        Quantity = itemDto.Quantity,
+                        UnitPrice = itemDto.UnitPrice,
+                        TotalPrice = itemDto.UnitPrice * itemDto.Quantity,
+                        CustomizationData = itemDto.Customization != null ? JsonSerializer.Serialize(itemDto.Customization) : null
+                    };
+
+                    order.Items.Add(orderItem);
+                }
+
+                var createdOrder = await _orderRepository.CreateAsync(order);
+                return MapToResponseDto(createdOrder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating order");
+                throw;
+            }
+        }
+        
+        public async Task<OrderResponseDto> UpdateOrderStatusAsync(int id, UpdateOrderStatusDto updateStatusDto)
+        {
+            try
+            {
+                var order = await _orderRepository.GetByIdAsync(id);
+                if (order == null)
+                {
+                    throw new ArgumentException("Không tìm thấy đơn hàng");
+                }
+
+                if (!await CanUpdateOrderStatusAsync(id, updateStatusDto.Status))
+                {
+                    throw new ArgumentException("Không thể cập nhật trạng thái đơn hàng này");
+                }
+
+                var previousStatus = order.Status;
+                order.Status = updateStatusDto.Status;
+                order.UpdatedAt = DateTime.UtcNow;
+                order.Notes = updateStatusDto.Notes;
+
+                // Update status timestamps
+                switch (updateStatusDto.Status)
+                {
+                    case OrderStatus.Confirmed:
+                        order.ConfirmedAt = DateTime.UtcNow;
+                        break;
+                    case OrderStatus.Shipping:
+                        order.ShippedAt = DateTime.UtcNow;
+                        break;
+                    case OrderStatus.Delivered:
+                        order.DeliveredAt = DateTime.UtcNow;
+                        break;
+                    case OrderStatus.Cancelled:
+                        order.CancelledAt = DateTime.UtcNow;
+                        order.CancelReason = updateStatusDto.Notes;
+                        break;
+                }
+
+                var updatedOrder = await _orderRepository.UpdateAsync(order);
+
+                // Tự động tạo và gửi biên lai khi xác nhận đơn hàng
+                if (updateStatusDto.Status == OrderStatus.Confirmed && previousStatus != OrderStatus.Confirmed)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Creating invoice for confirmed order: {OrderId}", id);
+                        await _invoiceService.ProcessOrderConfirmationAsync(id);
+                        _logger.LogInformation("Invoice created and sent successfully for order: {OrderId}", id);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to create/send invoice for order: {OrderId}", id);
+                        // Không throw exception để không ảnh hưởng đến việc cập nhật trạng thái đơn hàng
+                    }
+                }
+
+                // Gửi email thông báo cập nhật trạng thái (trừ trường hợp confirmed vì đã gửi trong invoice)
+                if (updateStatusDto.Status != OrderStatus.Confirmed)
+                {
+                    try
+                    {
+                        await _emailService.SendOrderStatusUpdateEmailAsync(
+                            updatedOrder.Customer.Email ?? string.Empty,
+                            updatedOrder.Customer.FullName ?? updatedOrder.Customer.Email ?? string.Empty,
+                            updatedOrder.OrderNumber,
+                            updateStatusDto.Status.ToString().ToLower()
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to send status update email for order: {OrderId}", id);
+                        // Không throw exception
+                    }
+                }
+
+                return MapToResponseDto(updatedOrder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order status for order {OrderId}", id);
+                throw;
+            }
+        }
+        
+        public async Task<bool> DeleteOrderAsync(int id)
+        {
+            try
+            {
+                var order = await _orderRepository.GetByIdAsync(id);
+                if (order == null) return false;
+
+                // Only allow deletion of pending orders
+                if (order.Status != OrderStatus.Pending)
+                {
+                    throw new InvalidOperationException("Chỉ có thể xóa đơn hàng ở trạng thái chờ xác nhận");
+                }
+
+                return await _orderRepository.DeleteAsync(id);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting order {OrderId}", id);
+                throw;
+            }
+        }
+
+        public async Task<OrderListResponseDto> GetFilteredOrdersAsync(OrderFilterDto filter)
+        {
+            try
+            {
+                var (orders, total) = await _orderRepository.GetFilteredAsync(
+                    filter.Status,
+                    filter.Search,
+                    filter.DateFrom,
+                    filter.DateTo,
+                    filter.CustomerId,
+                    filter.Page,
+                    filter.PageSize);
+
+                var totalPages = (int)Math.Ceiling((double)total / filter.PageSize);
+
+                return new OrderListResponseDto
+                {
+                    Orders = orders.Select(MapToResponseDto).ToList(),
+                    Total = total,
+                    Page = filter.Page,
+                    PageSize = filter.PageSize,
+                    TotalPages = totalPages
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting filtered orders");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<OrderResponseDto>> GetOrdersByCustomerIdAsync(string customerId)
+        {
+            var orders = await _orderRepository.GetByCustomerIdAsync(customerId);
+            return orders.Select(MapToResponseDto);
+        }
+
+        public async Task<OrderStatsDto> GetOrderStatsAsync()
+        {
+            try
+            {
+                var totalOrders = await _orderRepository.GetTotalOrdersAsync();
+                var pendingOrders = await _orderRepository.GetOrdersByStatusAsync(OrderStatus.Pending);
+                var processingOrders = await _orderRepository.GetOrdersByStatusAsync(OrderStatus.Processing);
+                var shippingOrders = await _orderRepository.GetOrdersByStatusAsync(OrderStatus.Shipping);
+                var deliveredOrders = await _orderRepository.GetOrdersByStatusAsync(OrderStatus.Delivered);
+                var cancelledOrders = await _orderRepository.GetOrdersByStatusAsync(OrderStatus.Cancelled);
+                var totalRevenue = await _orderRepository.GetTotalRevenueAsync();
+                var todayOrders = await _orderRepository.GetTodayOrdersAsync();
+
+                return new OrderStatsDto
+                {
+                    TotalOrders = totalOrders,
+                    PendingOrders = pendingOrders,
+                    ProcessingOrders = processingOrders,
+                    ShippingOrders = shippingOrders,
+                    DeliveredOrders = deliveredOrders,
+                    CancelledOrders = cancelledOrders,
+                    TotalRevenue = totalRevenue,
+                    TodayOrders = todayOrders
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting order statistics");
+                throw;
+            }
+        }
+
+        public async Task<bool> CanUpdateOrderStatusAsync(int orderId, OrderStatus newStatus)
+        {
+            try
+            {
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null) return false;
+
+                var currentStatus = order.Status;
+
+                // Define valid status transitions
+                var validTransitions = new Dictionary<OrderStatus, List<OrderStatus>>
+                {
+                    { OrderStatus.Pending, new List<OrderStatus> { OrderStatus.Confirmed, OrderStatus.Cancelled } },
+                    { OrderStatus.Confirmed, new List<OrderStatus> { OrderStatus.Processing, OrderStatus.Cancelled } },
+                    { OrderStatus.Processing, new List<OrderStatus> { OrderStatus.Shipping, OrderStatus.Cancelled } },
+                    { OrderStatus.Shipping, new List<OrderStatus> { OrderStatus.Delivered, OrderStatus.Returned } },
+                    { OrderStatus.Delivered, new List<OrderStatus> { OrderStatus.Returned } },
+                    { OrderStatus.Cancelled, new List<OrderStatus>() },
+                    { OrderStatus.Returned, new List<OrderStatus>() }
+                };
+
+                return validTransitions.ContainsKey(currentStatus) && 
+                       validTransitions[currentStatus].Contains(newStatus);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking if order status can be updated");
+                return false;
+            }
+        }
+
+        public async Task<decimal> CalculateOrderTotalAsync(CreateOrderDto createOrderDto)
+        {
+            var subtotal = await CalculateSubtotalAsync(createOrderDto.Items);
+            return subtotal + createOrderDto.ShippingFee - createOrderDto.Discount;
+        }
+
+        public async Task<bool> ValidateOrderItemsAsync(List<CreateOrderItemDto> items)
+        {
+            try
+            {
+                foreach (var item in items)
+                {
+                    var product = await _productRepository.GetByIdAsync(item.ProductId);
+                    if (product == null || product.Status != "active")
+                    {
+                        return false;
+                    }
+
+                    if (product.Stock < item.Quantity)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error validating order items");
+                return false;
+            }
+        }
+
+        private async Task<decimal> CalculateSubtotalAsync(List<CreateOrderItemDto> items)
+        {
+            decimal subtotal = 0;
+            
+            foreach (var item in items)
+            {
+                var product = await _productRepository.GetByIdAsync(item.ProductId);
+                if (product != null)
+                {
+                    subtotal += item.UnitPrice * item.Quantity;
+                }
+            }
+
+            return subtotal;
+        }
+
+        private static OrderResponseDto MapToResponseDto(Order order)
+        {
+            return new OrderResponseDto
+            {
+                Id = order.Id,
+                OrderNumber = order.OrderNumber,
+                CustomerId = order.CustomerId,
+                Customer = new CustomerInfoDto
+                {
+                    Id = order.Customer.Id,
+                    Email = order.Customer.Email ?? string.Empty,
+                    FullName = order.Customer.FullName,
+                    PhoneNumber = order.Customer.PhoneNumber
+                },
+                ShippingAddress = new UserAddressDto
+                {
+                    Id = order.ShippingAddress.Id,
+                    FullName = order.ShippingAddress.FullName,
+                    PhoneNumber = order.ShippingAddress.PhoneNumber,
+                    AddressLine = order.ShippingAddress.AddressLine,
+                    Ward = order.ShippingAddress.Ward ?? string.Empty,
+                    District = order.ShippingAddress.District,
+                    Province = order.ShippingAddress.Province,
+                    IsDefault = order.ShippingAddress.IsDefault
+                },
+                Items = order.Items.Select(item => new OrderItemResponseDto
+                {
+                    Id = item.Id,
+                    ProductId = item.ProductId,
+                    ProductName = item.ProductName,
+                    ProductSku = item.ProductSku,
+                    ProductImage = item.ProductImage,
+                    Quantity = item.Quantity,
+                    UnitPrice = item.UnitPrice,
+                    TotalPrice = item.TotalPrice,
+                    Customization = !string.IsNullOrEmpty(item.CustomizationData) 
+                        ? JsonSerializer.Deserialize<object>(item.CustomizationData) 
+                        : null
+                }).ToList(),
+                Subtotal = order.Subtotal,
+                ShippingFee = order.ShippingFee,
+                Discount = order.Discount,
+                Total = order.Total,
+                Status = order.Status.ToString(),
+                PaymentStatus = order.PaymentStatus.ToString(),
+                Notes = order.Notes,
+                CreatedAt = order.CreatedAt,
+                UpdatedAt = order.UpdatedAt,
+                ConfirmedAt = order.ConfirmedAt,
+                PaidAt = order.PaidAt,
+                ShippedAt = order.ShippedAt,
+                DeliveredAt = order.DeliveredAt,
+                CancelledAt = order.CancelledAt,
+                CancelReason = order.CancelReason,
+                ApprovedBy = order.ApprovedBy,
+                ApprovedAt = order.ApprovedAt
+            };
+        }
+
+        // Admin approval workflow methods
+        public async Task<OrderResponseDto?> ApproveOrderAsync(int orderId, string adminId)
+        {
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null) return null;
+
+            // Only allow approval of pending orders
+            if (order.Status != OrderStatus.Pending)
+            {
+                throw new InvalidOperationException($"Không thể duyệt đơn hàng với trạng thái {order.Status}");
+            }
+
+            order.Status = OrderStatus.Confirmed;
+            order.ApprovedBy = adminId;
+            order.ApprovedAt = DateTime.UtcNow;
+            order.ConfirmedAt = DateTime.UtcNow;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            var updatedOrder = await _orderRepository.UpdateAsync(order);
+            
+            // TODO: Send confirmation email to customer
+            // try
+            // {
+            //     await _emailService.SendOrderConfirmationAsync(updatedOrder);
+            // }
+            // catch (Exception ex)
+            // {
+            //     _logger.LogError(ex, "Failed to send order confirmation email for order {OrderId}", orderId);
+            // }
+
+            return MapToResponseDto(updatedOrder);
+        }
+
+        public async Task<OrderResponseDto?> RejectOrderAsync(int orderId, string adminId, string reason)
+        {
+            var order = await _orderRepository.GetByIdAsync(orderId);
+            if (order == null) return null;
+
+            // Only allow rejection of pending orders
+            if (order.Status != OrderStatus.Pending)
+            {
+                throw new InvalidOperationException($"Không thể từ chối đơn hàng với trạng thái {order.Status}");
+            }
+
+            order.Status = OrderStatus.Cancelled;
+            order.ApprovedBy = adminId;
+            order.ApprovedAt = DateTime.UtcNow;
+            order.CancelledAt = DateTime.UtcNow;
+            order.CancelReason = reason;
+            order.UpdatedAt = DateTime.UtcNow;
+
+            var updatedOrder = await _orderRepository.UpdateAsync(order);
+
+            // TODO: Send rejection email to customer
+            // try
+            // {
+            //     await _emailService.SendOrderRejectionAsync(updatedOrder, reason);
+            // }
+            // catch (Exception ex)
+            // {
+            //     _logger.LogError(ex, "Failed to send order rejection email for order {OrderId}", orderId);
+            // }
+
+            return MapToResponseDto(updatedOrder);
+        }
+
+        public async Task<IEnumerable<OrderResponseDto>> GetPendingOrdersAsync()
+        {
+            var orders = await _orderRepository.GetOrdersWithStatusAsync(OrderStatus.Pending);
+            return orders.Select(MapToResponseDto);
+        }
+
+        public async Task<OrderResponseDto> ProcessPaymentAsync(int orderId, string customerId)
+        {
+            try
+            {
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null)
+                {
+                    throw new ArgumentException("Không tìm thấy đơn hàng");
+                }
+
+                // Kiểm tra quyền sở hữu đơn hàng
+                if (order.CustomerId != customerId)
+                {
+                    throw new UnauthorizedAccessException("Bạn không có quyền thanh toán đơn hàng này");
+                }
+
+                // Kiểm tra trạng thái đơn hàng
+                if (order.Status == OrderStatus.Cancelled || order.Status == OrderStatus.Returned)
+                {
+                    throw new ArgumentException("Không thể thanh toán đơn hàng đã hủy hoặc đã trả");
+                }
+
+                // Kiểm tra trạng thái thanh toán
+                if (order.PaymentStatus == PaymentStatus.Paid)
+                {
+                    throw new ArgumentException("Đơn hàng đã được thanh toán");
+                }
+
+                // Cập nhật trạng thái thanh toán
+                order.PaymentStatus = PaymentStatus.Paid;
+                order.PaidAt = DateTime.UtcNow;
+                order.UpdatedAt = DateTime.UtcNow;
+
+                await _orderRepository.UpdateAsync(order);
+
+                _logger.LogInformation("Payment processed successfully for order: {OrderId}", orderId);
+
+                return MapToResponseDto(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing payment for order: {OrderId}", orderId);
+                throw;
+            }
+        }
+    }
+}

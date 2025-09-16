@@ -22,6 +22,18 @@ namespace backend.Services
             return cart == null ? null : ToDto(cart);
         }
 
+        public async Task<CartDto?> AssignToUserAsync(Guid cartId, string userId)
+        {
+            var cart = await _repo.AssignToUserAsync(cartId, userId);
+            return cart == null ? null : ToDto(cart);
+        }
+
+        public async Task<CartDto?> GetUserCartAsync(string userId)
+        {
+            var cart = await _repo.GetUserCartAsync(userId);
+            return cart == null ? null : ToDto(cart);
+        }
+
         public async Task<CartItemDto> AddItemAsync(Guid cartId, AddCartItemRequest request)
         {
             var item = new CartItem

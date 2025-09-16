@@ -116,15 +116,39 @@ const ProductDetail: React.FC = () => {
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold"
                   onClick={async () => {
                     if (!product) return
-                    const cartId = await getOrCreateCartId()
-                    await CartService.addItem(cartId, { productId: product.id, quantity, unitPrice: product.price, colorCode: selectedColor || undefined })
-                    // Emit a simple event so Header can refresh count later if needed
-                    window.dispatchEvent(new CustomEvent('cart:updated'))
+                    try {
+                      const cartId = await getOrCreateCartId()
+                      await CartService.addItem(cartId, { productId: product.id, quantity, unitPrice: product.price, colorCode: selectedColor || undefined })
+                      // Emit a simple event so Header can refresh count later if needed
+                      window.dispatchEvent(new CustomEvent('cart:updated'))
+                      // Show success message
+                      alert('Đã thêm sản phẩm vào giỏ hàng!')
+                    } catch (error: any) {
+                      console.error('Error adding to cart:', error)
+                      alert('Không thể thêm vào giỏ hàng: ' + (error.message || 'Lỗi không xác định'))
+                    }
                   }}
                 >
                   Thêm vào giỏ
                 </button>
-                <button className="px-4 py-3 rounded-xl border border-gray-300">Mua ngay</button>
+                <button 
+                  className="px-4 py-3 rounded-xl border border-gray-300 hover:bg-gray-50"
+                  onClick={async () => {
+                    if (!product) return
+                    try {
+                      // Add to cart first
+                      const cartId = await getOrCreateCartId()
+                      await CartService.addItem(cartId, { productId: product.id, quantity, unitPrice: product.price, colorCode: selectedColor || undefined })
+                      // Navigate to checkout
+                      window.location.href = '/checkout'
+                    } catch (error: any) {
+                      console.error('Error adding to cart:', error)
+                      alert('Không thể thêm vào giỏ hàng: ' + (error.message || 'Lỗi không xác định'))
+                    }
+                  }}
+                >
+                  Mua ngay
+                </button>
               </div>
             </div>
           </div>

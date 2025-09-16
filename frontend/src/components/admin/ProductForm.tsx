@@ -13,6 +13,7 @@ export type ProductFormValues = {
   status: 'active' | 'inactive'
   images: string[]
   imageFiles: File[]
+  hasChangedImages?: boolean // Flag để track khi có thay đổi ảnh
 }
 
 type ProductFormProps = {
@@ -54,11 +55,37 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
       reader.onload = () => resolve(reader.result as string)
       reader.onerror = reject
     })))
-    setValues(prev => ({ ...prev, images: [...prev.images, ...previews], imageFiles: newImageFiles }))
+    setValues(prev => ({ 
+      ...prev, 
+      images: [...prev.images, ...previews], 
+      imageFiles: newImageFiles,
+      hasChangedImages: true
+    }))
   }
 
   const removeImageByIndex = (index: number) => {
-    setValues(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }))
+    setValues(prev => {
+      const removedImage = prev.images[index]
+      const newImages = prev.images.filter((_, i) => i !== index)
+      
+      // Nếu xóa ảnh mới (base64), cần xóa cả file tương ứng
+      let newImageFiles = prev.imageFiles
+      if (removedImage.startsWith('data:')) {
+        // Đếm số ảnh base64 trước vị trí hiện tại để tìm index trong imageFiles
+        const base64IndexBefore = prev.images
+          .slice(0, index)
+          .filter(img => img.startsWith('data:')).length
+        
+        newImageFiles = prev.imageFiles.filter((_, i) => i !== base64IndexBefore)
+      }
+      
+      return { 
+        ...prev, 
+        images: newImages,
+        imageFiles: newImageFiles,
+        hasChangedImages: true
+      }
+    })
   }
 
   const makePrimaryImage = (index: number) => {

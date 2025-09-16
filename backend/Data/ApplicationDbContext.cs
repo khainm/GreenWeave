@@ -18,6 +18,9 @@ namespace backend.Data
         public DbSet<Cart> Carts { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<UserAddress> UserAddresses { get; set; }
+        public DbSet<Order> Orders { get; set; }
+        public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<Invoice> Invoices { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -176,7 +179,7 @@ namespace backend.Data
             modelBuilder.Entity<Cart>(entity =>
             {
                 entity.HasKey(c => c.Id);
-                entity.Property(c => c.UserId).IsRequired();
+                entity.Property(c => c.UserId).IsRequired(false); // Allow null for anonymous carts
                 entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
                 
@@ -184,7 +187,7 @@ namespace backend.Data
                 entity.HasOne(c => c.User)
                     .WithMany(u => u.Carts)
                     .HasForeignKey(c => c.UserId)
-                    .OnDelete(DeleteBehavior.Cascade);
+                    .OnDelete(DeleteBehavior.SetNull); // Set to null instead of cascading delete
             });
 
             // Configure CartItem
@@ -199,7 +202,65 @@ namespace backend.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Configure UserAddress
+            // Configure Order
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.HasKey(o => o.Id);
+                entity.Property(o => o.OrderNumber).IsRequired().HasMaxLength(20);
+                entity.HasIndex(o => o.OrderNumber).IsUnique();
+                entity.Property(o => o.CustomerId).IsRequired();
+                entity.Property(o => o.Subtotal).HasColumnType("decimal(18,2)");
+                entity.Property(o => o.ShippingFee).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+                entity.Property(o => o.Discount).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+                entity.Property(o => o.Total).HasColumnType("decimal(18,2)");
+                entity.Property(o => o.Notes).HasMaxLength(500);
+                entity.Property(o => o.CancelReason).HasMaxLength(500);
+                entity.Property(o => o.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(o => o.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Convert enum to string
+                entity.Property(o => o.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(20);
+                
+                // Relationship with User (Customer)
+                entity.HasOne(o => o.Customer)
+                    .WithMany(u => u.Orders)
+                    .HasForeignKey(o => o.CustomerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                    
+                // Relationship with UserAddress (ShippingAddress)
+                entity.HasOne(o => o.ShippingAddress)
+                    .WithMany()
+                    .HasForeignKey(o => o.ShippingAddressId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure OrderItem
+            modelBuilder.Entity<OrderItem>(entity =>
+            {
+                entity.HasKey(oi => oi.Id);
+                entity.Property(oi => oi.ProductName).IsRequired().HasMaxLength(200);
+                entity.Property(oi => oi.ProductSku).IsRequired().HasMaxLength(50);
+                entity.Property(oi => oi.UnitPrice).HasColumnType("decimal(18,2)");
+                entity.Property(oi => oi.TotalPrice).HasColumnType("decimal(18,2)");
+                entity.Property(oi => oi.ProductImage).HasMaxLength(500);
+                entity.Property(oi => oi.CustomizationData).HasMaxLength(2000);
+                
+                // Relationship with Order
+                entity.HasOne(oi => oi.Order)
+                    .WithMany(o => o.Items)
+                    .HasForeignKey(oi => oi.OrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                    
+                // Relationship with Product
+                entity.HasOne(oi => oi.Product)
+                    .WithMany()
+                    .HasForeignKey(oi => oi.ProductId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure UserAddress - Updated, removed duplicate
             modelBuilder.Entity<UserAddress>(entity =>
             {
                 entity.HasKey(ua => ua.Id);
@@ -211,7 +272,7 @@ namespace backend.Data
                 entity.Property(ua => ua.District).IsRequired().HasMaxLength(100);
                 entity.Property(ua => ua.Province).IsRequired().HasMaxLength(100);
                 entity.Property(ua => ua.PostalCode).HasMaxLength(10);
-                entity.Property(ua => ua.AddressType).HasMaxLength(20).HasDefaultValue("Home");
+                entity.Property(ua => ua.AddressType).IsRequired().HasMaxLength(20).HasDefaultValue("Home");
                 entity.Property(ua => ua.IsDefault).HasDefaultValue(false);
                 entity.Property(ua => ua.IsActive).HasDefaultValue(true);
                 entity.Property(ua => ua.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
@@ -222,6 +283,37 @@ namespace backend.Data
                     .WithMany(u => u.Addresses)
                     .HasForeignKey(ua => ua.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure Invoice
+            modelBuilder.Entity<Invoice>(entity =>
+            {
+                entity.HasKey(i => i.Id);
+                entity.Property(i => i.InvoiceNumber).IsRequired().HasMaxLength(20);
+                entity.HasIndex(i => i.InvoiceNumber).IsUnique();
+                entity.Property(i => i.CustomerEmail).IsRequired().HasMaxLength(255);
+                entity.Property(i => i.CustomerName).IsRequired().HasMaxLength(100);
+                entity.Property(i => i.CustomerPhone).HasMaxLength(15);
+                entity.Property(i => i.Subtotal).HasColumnType("decimal(18,2)");
+                entity.Property(i => i.ShippingFee).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+                entity.Property(i => i.Discount).HasColumnType("decimal(18,2)").HasDefaultValue(0);
+                entity.Property(i => i.Total).HasColumnType("decimal(18,2)");
+                entity.Property(i => i.FilePath).HasMaxLength(500);
+                entity.Property(i => i.FileName).HasMaxLength(100);
+                entity.Property(i => i.ErrorMessage).HasMaxLength(500);
+                entity.Property(i => i.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(i => i.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Convert enum to string
+                entity.Property(i => i.Status)
+                    .HasConversion<string>()
+                    .HasMaxLength(20);
+                
+                // Relationship with Order
+                entity.HasOne(i => i.Order)
+                    .WithOne()
+                    .HasForeignKey<Invoice>(i => i.OrderId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }
