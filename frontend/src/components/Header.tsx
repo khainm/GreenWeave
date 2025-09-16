@@ -89,7 +89,7 @@ const Header: React.FC<HeaderProps> = () => {
             {/* Logo */}
             <div className="flex items-center">
               <img 
-                src="/src/assets/logo-no-background.png" 
+                src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png" 
                 alt="GreenWeave" 
                 className="h-30 w-auto mr-2"
               />
