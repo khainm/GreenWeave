@@ -72,6 +72,36 @@ const CustomerList: React.FC = () => {
     }
   }
 
+  // Reset filters về dữ liệu gốc
+  const resetToOriginalData = () => {
+    setFilteredCustomers(customers)
+    setFilters({})
+    setCurrentPage(1)
+  }
+
+  // Export toàn bộ dữ liệu
+  const exportAllData = () => {
+    const csvContent = [
+      ['Tên', 'Email', 'Mã KH', 'Số điện thoại', 'Địa chỉ', 'Vai trò', 'Trạng thái', 'Ngày tạo'],
+      ...customers.map(customer => [
+        customer.fullName,
+        customer.email,
+        customer.customerCode,
+        customer.phoneNumber || '',
+        customer.address || '',
+        customer.roles.join(', '),
+        customer.isActive ? 'Hoạt động' : 'Vô hiệu hóa',
+        new Date(customer.createdAt).toLocaleDateString('vi-VN')
+      ])
+    ].map(row => row.join(',')).join('\n')
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `customers_${new Date().toISOString().split('T')[0]}.csv`
+    link.click()
+  }
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('vi-VN')
   }
@@ -249,12 +279,18 @@ const CustomerList: React.FC = () => {
               </select>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end space-x-2">
               <button
-                onClick={() => setFilters({})}
-                className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                onClick={resetToOriginalData}
+                className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
               >
-                Xóa bộ lọc
+                Reset dữ liệu
+              </button>
+              <button
+                onClick={exportAllData}
+                className="flex-1 px-4 py-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
+              >
+                Export CSV
               </button>
             </div>
           </div>
@@ -264,7 +300,7 @@ const CustomerList: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
-              Danh sách khách hàng ({filteredCustomers.length})
+              Danh sách khách hàng ({filteredCustomers.length}/{customers.length})
             </h2>
           </div>
 
