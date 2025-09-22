@@ -31,6 +31,7 @@ const ProductTableRow: React.FC<ProductTableRowProps> = ({
       <td className="py-4 px-6 font-semibold text-gray-900">{product.name}</td>
       <td className="py-4 px-6 text-gray-600">{product.category}</td>
       <td className="py-4 px-6 text-gray-700">{product.stock}</td>
+      <td className="py-4 px-6 text-gray-700">{product.weight} g</td>
       <td className="py-4 px-6">
         {productType === 'custom' ? (
           <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 text-xs font-semibold flex items-center gap-1">

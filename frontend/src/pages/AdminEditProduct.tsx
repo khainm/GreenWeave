@@ -34,6 +34,7 @@ const AdminEditProduct: React.FC = () => {
     price: 0,
     originalPrice: 0,
     stock: 0,
+    weight: 500,
     colors: ['#10b981'],
     selectedColor: '#10b981',
     status: 'active',
@@ -83,6 +84,7 @@ const AdminEditProduct: React.FC = () => {
           price: productData.price,
           originalPrice: productData.originalPrice || 0,
           stock: productData.stock,
+          weight: productData.weight > 0 ? productData.weight : 500, // Default to 500 if weight is 0
           colors: productData.colors?.map(c => c.colorCode) || ['#10b981'],
           selectedColor: productData.colors?.[0]?.colorCode || '#10b981',
           status: productData.status,
@@ -121,6 +123,13 @@ const AdminEditProduct: React.FC = () => {
     setError(null)
 
     try {
+      // Debug logging
+      console.log('🔍 AdminEditProduct - Form values:', {
+        name: form.name,
+        weight: form.weight,
+        weightType: typeof form.weight
+      })
+      
       const payload: CreateProductRequest = {
         name: form.name,
         sku: form.sku,
@@ -129,6 +138,7 @@ const AdminEditProduct: React.FC = () => {
         price: form.price,
         originalPrice: form.originalPrice > 0 ? form.originalPrice : undefined,
         stock: form.stock,
+        weight: form.weight,
         status: form.status,
         colors: form.colors,
         // Nếu có thay đổi ảnh, luôn gửi imageFiles (có thể rỗng để xóa hết)
@@ -138,6 +148,8 @@ const AdminEditProduct: React.FC = () => {
           : { imageUrls: form.images.filter(img => img.startsWith('http')) }
         )
       }
+      
+      console.log('🔍 AdminEditProduct - Payload:', payload)
 
       console.log('📤 Update payload:', {
         hasChangedImages: form.hasChangedImages,

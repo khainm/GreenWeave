@@ -21,6 +21,8 @@ namespace backend.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<Invoice> Invoices { get; set; }
+        public DbSet<ShippingRequest> ShippingRequests { get; set; }
+        public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -104,6 +106,9 @@ namespace backend.Data
                     
                 entity.Property(p => p.OriginalPrice)
                     .HasColumnType("decimal(18,2)");
+                    
+                entity.Property(p => p.Weight)
+                    .HasColumnType("decimal(10,3)");
                     
                 entity.Property(p => p.Status)
                     .IsRequired()

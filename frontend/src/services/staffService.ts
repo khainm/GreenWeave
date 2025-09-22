@@ -17,11 +17,16 @@ export class StaffService {
    * Lấy danh sách nhân viên (Admin + Staff roles)
    */
   static async getAllStaff(): Promise<Staff[]> {
-    const [admins, staff] = await Promise.all([
-      apiClient.get<Staff[]>(`${this.BASE_PATH}/by-role/Admin`),
-      apiClient.get<Staff[]>(`${this.BASE_PATH}/by-role/Staff`)
-    ])
-    return [...admins, ...staff]
+    try {
+      // Lấy tất cả users và filter những ai có role Admin hoặc Staff
+      const allUsers = await apiClient.get<Staff[]>(`${this.BASE_PATH}`)
+      return allUsers.filter(user => 
+        user.roles.some(role => ['Admin', 'Staff'].includes(role))
+      )
+    } catch (error) {
+      console.error('Error fetching staff:', error)
+      return []
+    }
   }
 
   /**
@@ -102,7 +107,8 @@ export class StaffService {
    * Tìm kiếm và lọc nhân viên
    */
   static async searchStaff(filters: StaffFilters): Promise<StaffListResponse> {
-    let staff = await this.getAllStaff()
+    try {
+      let staff = await this.getAllStaff()
 
     // Lọc theo tìm kiếm
     if (filters.search) {
@@ -138,11 +144,20 @@ export class StaffService {
       )
     }
 
-    return {
-      data: staff,
-      total: staff.length,
-      page: 1,
-      pageSize: staff.length
+      return {
+        data: staff,
+        total: staff.length,
+        page: 1,
+        pageSize: staff.length
+      }
+    } catch (error) {
+      console.error('Error searching staff:', error)
+      return {
+        data: [],
+        total: 0,
+        page: 1,
+        pageSize: 0
+      }
     }
   }
 

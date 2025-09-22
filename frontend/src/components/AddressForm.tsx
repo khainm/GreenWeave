@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UserIcon, PhoneIcon, MapPinIcon } from '@heroicons/react/24/outline';
-import type { UserAddress, CreateUserAddressRequest, UpdateUserAddressRequest, Province, District, Ward } from '../types/userAddress';
-import { ADDRESS_TYPES, VIETNAM_PROVINCES } from '../types/userAddress';
+import type { UserAddress, CreateUserAddressRequest, UpdateUserAddressRequest } from '../types/userAddress';
+import { ADDRESS_TYPES } from '../types/userAddress';
+import ViettelPostAddressService, { type AddressDto } from '../services/viettelPostAddressService';
 
 interface AddressFormProps {
   address?: UserAddress;
@@ -30,12 +31,22 @@ const AddressForm: React.FC<AddressFormProps> = ({
     isDefault: false
   });
 
-  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
-  const [selectedDistrict, setSelectedDistrict] = useState<District | null>(null);
-  const [availableDistricts, setAvailableDistricts] = useState<District[]>([]);
-  const [availableWards, setAvailableWards] = useState<Ward[]>([]);
+  const [provinces, setProvinces] = useState<AddressDto[]>([]);
+  const [districts, setDistricts] = useState<AddressDto[]>([]);
+  const [wards, setWards] = useState<AddressDto[]>([]);
+  const [selectedProvinceId, setSelectedProvinceId] = useState<number | null>(null);
+  const [selectedDistrictId, setSelectedDistrictId] = useState<number | null>(null);
+  const [selectedWardId, setSelectedWardId] = useState<number | null>(null);
+  const [isLoadingProvinces, setIsLoadingProvinces] = useState(false);
+  const [isLoadingDistricts, setIsLoadingDistricts] = useState(false);
+  const [isLoadingWards, setIsLoadingWards] = useState(false);
 
-  // Initialize form data
+  // Load provinces on component mount
+  useEffect(() => {
+    loadProvinces();
+  }, []);
+
+  // Initialize form data when address changes
   useEffect(() => {
     if (address) {
       setFormData({
@@ -49,21 +60,49 @@ const AddressForm: React.FC<AddressFormProps> = ({
         addressType: address.addressType,
         isDefault: address.isDefault
       });
-
-      // Set province and district for cascading dropdowns
-      const province = VIETNAM_PROVINCES.find(p => p.name === address.province);
-      if (province) {
-        setSelectedProvince(province);
-        setAvailableDistricts(province.districts);
-        
-        const district = province.districts.find(d => d.name === address.district);
-        if (district) {
-          setSelectedDistrict(district);
-          setAvailableWards(district.wards);
-        }
-      }
     }
   }, [address]);
+
+  // Load provinces from Viettel Post API
+  const loadProvinces = async () => {
+    try {
+      setIsLoadingProvinces(true);
+      const provincesData = await ViettelPostAddressService.getProvinces();
+      setProvinces(provincesData);
+    } catch (error) {
+      console.error('Error loading provinces:', error);
+    } finally {
+      setIsLoadingProvinces(false);
+    }
+  };
+
+  // Load districts when province is selected
+  const loadDistricts = async (provinceId: number) => {
+    try {
+      setIsLoadingDistricts(true);
+      const districtsData = await ViettelPostAddressService.getDistricts(provinceId);
+      setDistricts(districtsData);
+    } catch (error) {
+      console.error('Error loading districts:', error);
+    } finally {
+      setIsLoadingDistricts(false);
+    }
+  };
+
+  // Load wards when district is selected
+  const loadWards = async (districtId: number) => {
+    try {
+      console.log('🔍 [AddressForm] Loading wards for districtId:', districtId);
+      setIsLoadingWards(true);
+      const wardsData = await ViettelPostAddressService.getWards(districtId);
+      console.log('✅ [AddressForm] Received wards data:', wardsData);
+      setWards(wardsData);
+    } catch (error) {
+      console.error('❌ [AddressForm] Error loading wards:', error);
+    } finally {
+      setIsLoadingWards(false);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -75,34 +114,55 @@ const AddressForm: React.FC<AddressFormProps> = ({
     }));
   };
 
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const provinceName = e.target.value;
-    const province = VIETNAM_PROVINCES.find(p => p.name === provinceName);
+  const handleProvinceChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const provinceId = parseInt(e.target.value);
+    const province = provinces.find(p => p.id === provinceId);
     
-    setSelectedProvince(province || null);
-    setAvailableDistricts(province?.districts || []);
-    setAvailableWards([]);
-    setSelectedDistrict(null);
+    setSelectedProvinceId(provinceId);
+    setDistricts([]);
+    setWards([]);
+    setSelectedDistrictId(null);
+    setSelectedWardId(null);
     
     setFormData(prev => ({
       ...prev,
-      province: provinceName,
+      province: province?.name || '',
       district: '',
       ward: ''
     }));
+
+    if (provinceId > 0) {
+      await loadDistricts(provinceId);
+    }
   };
 
-  const handleDistrictChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const districtName = e.target.value;
-    const district = availableDistricts.find(d => d.name === districtName);
+  const handleDistrictChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const districtId = parseInt(e.target.value);
+    const district = districts.find(d => d.id === districtId);
     
-    setSelectedDistrict(district || null);
-    setAvailableWards(district?.wards || []);
+    setSelectedDistrictId(districtId);
+    setSelectedWardId(null);
+    setWards([]);
     
     setFormData(prev => ({
       ...prev,
-      district: districtName,
+      district: district?.name || '',
       ward: ''
+    }));
+
+    if (districtId > 0) {
+      await loadWards(districtId);
+    }
+  };
+
+  const handleWardChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const wardId = parseInt(e.target.value);
+    const ward = wards.find(w => w.id === wardId);
+    
+    setSelectedWardId(wardId);
+    setFormData(prev => ({
+      ...prev,
+      ward: ward?.name || ''
     }));
   };
 
@@ -264,13 +324,14 @@ const AddressForm: React.FC<AddressFormProps> = ({
             id="province"
             name="province"
             required
-            value={formData.province}
+            value={selectedProvinceId || ''}
             onChange={handleProvinceChange}
-            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+            disabled={isLoadingProvinces}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">Chọn tỉnh/thành phố</option>
-            {VIETNAM_PROVINCES.map((province) => (
-              <option key={province.code} value={province.name}>
+            <option value="">{isLoadingProvinces ? 'Đang tải...' : 'Chọn tỉnh/thành phố'}</option>
+            {provinces.map((province, index) => (
+              <option key={province.id || `province-${index}`} value={province.id}>
                 {province.name}
               </option>
             ))}
@@ -286,14 +347,14 @@ const AddressForm: React.FC<AddressFormProps> = ({
             id="district"
             name="district"
             required
-            value={formData.district}
+            value={selectedDistrictId || ''}
             onChange={handleDistrictChange}
-            disabled={!selectedProvince}
-            className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 disabled:bg-gray-50 disabled:text-gray-500"
+            disabled={!selectedProvinceId || isLoadingDistricts}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">Chọn quận/huyện</option>
-            {availableDistricts.map((district) => (
-              <option key={district.code} value={district.name}>
+            <option value="">{isLoadingDistricts ? 'Đang tải...' : 'Chọn quận/huyện'}</option>
+            {districts.map((district, index) => (
+              <option key={district.id || `district-${index}`} value={district.id}>
                 {district.name}
               </option>
             ))}
@@ -308,14 +369,19 @@ const AddressForm: React.FC<AddressFormProps> = ({
           <select
             id="ward"
             name="ward"
-            value={formData.ward}
-            onChange={handleInputChange}
-            disabled={!selectedDistrict}
-            className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 disabled:bg-gray-50 disabled:text-gray-500"
+            value={selectedWardId || ''}
+            onChange={handleWardChange}
+            disabled={!selectedDistrictId || isLoadingWards}
+            title={`selectedDistrictId: ${selectedDistrictId}, isLoadingWards: ${isLoadingWards}, wardsCount: ${wards.length}`}
+            className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <option value="">Chọn phường/xã</option>
-            {availableWards.map((ward) => (
-              <option key={ward.code} value={ward.name}>
+            <option value="">{isLoadingWards ? 'Đang tải...' : 'Chọn phường/xã'}</option>
+            {(() => {
+              console.log('🔍 [AddressForm] Rendering wards:', wards, 'Count:', wards.length);
+              return null;
+            })()}
+            {wards.map((ward, index) => (
+              <option key={ward.id || `ward-${index}`} value={ward.id}>
                 {ward.name}
               </option>
             ))}

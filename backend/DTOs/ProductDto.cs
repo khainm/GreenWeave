@@ -31,6 +31,10 @@ namespace backend.DTOs
         public int Stock { get; set; }
         
         [Required]
+        [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
+        public decimal Weight { get; set; }
+        
+        [Required]
         public string Status { get; set; } = "active";
         
         public List<string> Colors { get; set; } = new();
@@ -65,6 +69,7 @@ namespace backend.DTOs
         public decimal Price { get; set; }
         public decimal? OriginalPrice { get; set; }
         public int Stock { get; set; }
+        public decimal Weight { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }

@@ -19,6 +19,7 @@ const AdminAddProduct: React.FC = () => {
     price: 0,
     originalPrice: 0,
     stock: 0,
+    weight: 500,
     colors: ['#10b981'],
     selectedColor: '#10b981',
     status: 'active',
@@ -66,6 +67,13 @@ const AdminAddProduct: React.FC = () => {
     setError(null)
 
     try {
+      // Debug logging
+      console.log('🔍 AdminAddProduct - Form values:', {
+        name: form.name,
+        weight: form.weight,
+        weightType: typeof form.weight
+      })
+      
       const productData: CreateProductRequest = {
         name: form.name,
         sku: form.sku,
@@ -74,11 +82,14 @@ const AdminAddProduct: React.FC = () => {
         price: form.price,
         originalPrice: form.originalPrice > 0 ? form.originalPrice : undefined,
         stock: form.stock,
+        weight: form.weight,
         status: form.status,
         colors: form.colors,
         imageUrls: form.images.filter(img => img.startsWith('http')), // Chỉ lấy URL
         imageFiles: form.imageFiles
       }
+      
+      console.log('🔍 AdminAddProduct - ProductData:', productData)
 
       const createdProduct = await ProductService.createProduct(productData)
       console.log('Product created successfully:', createdProduct)

@@ -172,6 +172,41 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 
+// Add Shipping configuration
+builder.Services.Configure<ShippingConfiguration>(
+    builder.Configuration.GetSection(ShippingConfiguration.SectionName));
+
+// Add HttpClient for shipping providers
+builder.Services.AddHttpClient<ViettelPostShippingProvider>();
+builder.Services.AddHttpClient<ViettelPostAddressService>();
+
+// Add Shipping repositories
+builder.Services.AddScoped<IShippingRequestRepository, ShippingRequestRepository>();
+builder.Services.AddScoped<IShippingTransactionRepository, ShippingTransactionRepository>();
+
+// Add Shipping providers
+builder.Services.AddScoped<ViettelPostShippingProvider>();
+builder.Services.AddScoped<IShippingProvider>(sp => sp.GetRequiredService<ViettelPostShippingProvider>());
+
+// Add Viettel Post Address service
+builder.Services.AddScoped<IViettelPostAddressService, ViettelPostAddressService>();
+// Future providers can be added here:
+// builder.Services.AddScoped<IShippingProvider, GHNShippingProvider>();
+// builder.Services.AddScoped<IShippingProvider, GHTKShippingProvider>();
+
+// Register collection of shipping providers for ShippingService
+builder.Services.AddScoped<IEnumerable<IShippingProvider>>(serviceProvider =>
+{
+    return new List<IShippingProvider>
+    {
+        serviceProvider.GetRequiredService<ViettelPostShippingProvider>()
+        // Add more providers here when implemented
+    };
+});
+
+// Add Shipping service
+builder.Services.AddScoped<IShippingService, ShippingService>();
+
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
 {

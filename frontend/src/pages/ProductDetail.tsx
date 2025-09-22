@@ -101,21 +101,65 @@ const ProductDetail: React.FC = () => {
                 </div>
               )}
 
-              {/* Quantity */}
-              <div className="mt-6">
-                <div className="text-sm text-gray-700 mb-2">Số lượng</div>
-                <div className="inline-flex items-center border rounded-lg">
-                  <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="px-3 py-2 text-gray-700">-</button>
-                  <input value={quantity} onChange={e => setQuantity(Math.max(1, Number(e.target.value) || 1))} className="w-12 text-center outline-none" />
-                  <button onClick={() => setQuantity(q => q + 1)} className="px-3 py-2 text-gray-700">+</button>
+              {/* Product Info */}
+              <div className="mt-6 space-y-4">
+                {/* Stock Info */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Tồn kho</span>
+                    <span className="font-semibold text-gray-900">{product.stock} sản phẩm</span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-sm text-gray-600">Khối lượng</span>
+                    <span className="font-semibold text-gray-900">{product.weight} gram</span>
+                  </div>
+                </div>
+
+                {/* Quantity */}
+                <div>
+                  <div className="text-sm text-gray-700 mb-2">Số lượng</div>
+                  <div className="inline-flex items-center border rounded-lg">
+                    <button 
+                      onClick={() => setQuantity(q => Math.max(1, q - 1))} 
+                      className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-l-lg"
+                      disabled={quantity <= 1}
+                    >
+                      -
+                    </button>
+                    <input 
+                      value={quantity} 
+                      onChange={e => setQuantity(Math.max(1, Math.min(product.stock, Number(e.target.value) || 1)))} 
+                      className="w-12 text-center outline-none" 
+                      max={product.stock}
+                    />
+                    <button 
+                      onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} 
+                      className="px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-r-lg"
+                      disabled={quantity >= product.stock}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {quantity > product.stock && (
+                    <p className="text-red-500 text-xs mt-1">Số lượng không được vượt quá tồn kho</p>
+                  )}
                 </div>
               </div>
 
               <div className="mt-6 flex gap-3">
                 <button
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-xl font-semibold"
+                  className={`flex-1 px-4 py-3 rounded-xl font-semibold ${
+                    product.stock === 0 
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                      : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}
+                  disabled={product.stock === 0}
                   onClick={async () => {
-                    if (!product) return
+                    if (!product || product.stock === 0) return
+                    if (quantity > product.stock) {
+                      alert(`Số lượng không được vượt quá ${product.stock} sản phẩm`)
+                      return
+                    }
                     try {
                       const cartId = await getOrCreateCartId()
                       await CartService.addItem(cartId, { productId: product.id, quantity, unitPrice: product.price, colorCode: selectedColor || undefined })
@@ -129,12 +173,21 @@ const ProductDetail: React.FC = () => {
                     }
                   }}
                 >
-                  Thêm vào giỏ
+                  {product.stock === 0 ? 'Hết hàng' : 'Thêm vào giỏ'}
                 </button>
                 <button 
-                  className="px-4 py-3 rounded-xl border border-gray-300 hover:bg-gray-50"
+                  className={`px-4 py-3 rounded-xl border ${
+                    product.stock === 0 
+                      ? 'border-gray-300 text-gray-400 cursor-not-allowed' 
+                      : 'border-gray-300 hover:bg-gray-50'
+                  }`}
+                  disabled={product.stock === 0}
                   onClick={async () => {
-                    if (!product) return
+                    if (!product || product.stock === 0) return
+                    if (quantity > product.stock) {
+                      alert(`Số lượng không được vượt quá ${product.stock} sản phẩm`)
+                      return
+                    }
                     try {
                       // Add to cart first
                       const cartId = await getOrCreateCartId()

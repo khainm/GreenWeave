@@ -2,6 +2,7 @@ using backend.DTOs;
 using backend.Models;
 using backend.Interfaces.Repositories;
 using backend.Interfaces.Services;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
 namespace backend.Services
@@ -14,6 +15,7 @@ namespace backend.Services
         private readonly IInvoiceService _invoiceService;
         private readonly IEmailService _emailService;
         private readonly ILogger<OrderService> _logger;
+        private readonly ShippingConfiguration _shippingConfig;
         
         public OrderService(
             IOrderRepository orderRepository,
@@ -21,7 +23,8 @@ namespace backend.Services
             IUserAddressRepository userAddressRepository,
             IInvoiceService invoiceService,
             IEmailService emailService,
-            ILogger<OrderService> logger)
+            ILogger<OrderService> logger,
+            IOptions<ShippingConfiguration> shippingConfig)
         {
             _orderRepository = orderRepository;
             _productRepository = productRepository;
@@ -29,6 +32,7 @@ namespace backend.Services
             _invoiceService = invoiceService;
             _emailService = emailService;
             _logger = logger;
+            _shippingConfig = shippingConfig.Value;
         }
         
         public async Task<IEnumerable<OrderResponseDto>> GetAllOrdersAsync()
@@ -53,6 +57,8 @@ namespace backend.Services
         {
             try
             {
+                _logger.LogInformation("Creating order in Production mode");
+
                 // Validate order items
                 if (!await ValidateOrderItemsAsync(createOrderDto.Items))
                 {
@@ -552,6 +558,15 @@ namespace backend.Services
                 _logger.LogError(ex, "Error processing payment for order: {OrderId}", orderId);
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Get shipping provider (always ViettelPost in production)
+        /// </summary>
+        private ShippingProvider GetShippingProvider()
+        {
+            _logger.LogInformation("Using ViettelPost in Production mode");
+            return ShippingProvider.ViettelPost;
         }
     }
 }

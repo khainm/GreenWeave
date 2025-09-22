@@ -141,10 +141,62 @@ namespace backend.Controllers
         {
             try
             {
+                _logger.LogInformation("CreateProduct request received: Name={Name}, Weight={Weight}", request.Name, request.Weight);
+                
+                // Debug: Log all form values
+                if (Request.Form != null)
+                {
+                    _logger.LogInformation("=== FORM DATA DEBUG ===");
+                    foreach (var key in Request.Form.Keys)
+                    {
+                        _logger.LogInformation("Form field: {Key} = {Value}", key, Request.Form[key]);
+                    }
+                    _logger.LogInformation("=== END FORM DATA ===");
+                }
+                
+                // Debug: Log the bound request object
+                _logger.LogInformation("=== BOUND REQUEST DEBUG ===");
+                _logger.LogInformation("Name: {Name}", request.Name);
+                _logger.LogInformation("Sku: {Sku}", request.Sku);
+                _logger.LogInformation("Category: {Category}", request.Category);
+                _logger.LogInformation("Price: {Price}", request.Price);
+                _logger.LogInformation("Stock: {Stock}", request.Stock);
+                _logger.LogInformation("Weight: {Weight}", request.Weight);
+                _logger.LogInformation("Status: {Status}", request.Status);
+                _logger.LogInformation("=== END BOUND REQUEST ===");
+                
                 if (!ModelState.IsValid)
                 {
+                    _logger.LogWarning("ModelState is invalid: {Errors}", string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
                 }
+                
+                // Manual binding for Weight if not bound correctly
+                var weight = request.Weight;
+                _logger.LogInformation("Initial request.Weight: {Weight}", weight);
+                
+                if (weight == 0 && Request.Form?.ContainsKey("Weight") == true)
+                {
+                    var weightFromForm = Request.Form["Weight"];
+                    _logger.LogInformation("Found Weight in form: {WeightFromForm}", weightFromForm);
+                    
+                    if (decimal.TryParse(weightFromForm, out var parsedWeight))
+                    {
+                        weight = parsedWeight;
+                        _logger.LogInformation("Successfully parsed Weight from form: {Weight}", weight);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to parse Weight from form: {WeightFromForm}", weightFromForm);
+                    }
+                }
+                else if (weight == 0)
+                {
+                    _logger.LogWarning("Weight is 0 and not found in form data");
+                }
+                
+                _logger.LogInformation("Final weight value: {Weight}", weight);
+                
                 
                 var createProductDto = new CreateProductDto
                 {
@@ -155,11 +207,13 @@ namespace backend.Controllers
                     Price = request.Price,
                     OriginalPrice = request.OriginalPrice,
                     Stock = request.Stock,
+                    Weight = weight,
                     Status = request.Status,
                     Colors = request.Colors ?? new List<string>(),
                     ImageUrls = request.ImageUrls,
                     ColorImageMap = null, // mapping sẽ đi qua file upload theo chuẩn hiện tại
-                    StickerUrls = request.StickerUrls
+                    StickerUrls = request.StickerUrls,
+                    Stickers = request.Stickers
                 };
                 
 // Bind ColorImages from form data manually
@@ -242,10 +296,62 @@ namespace backend.Controllers
         {
             try
             {
+                _logger.LogInformation("UpdateProduct request received: ID={Id}, Name={Name}, Weight={Weight}", id, request.Name, request.Weight);
+                
+                // Debug: Log all form values
+                if (Request.Form != null)
+                {
+                    _logger.LogInformation("=== FORM DATA DEBUG ===");
+                    foreach (var key in Request.Form.Keys)
+                    {
+                        _logger.LogInformation("Form field: {Key} = {Value}", key, Request.Form[key]);
+                    }
+                    _logger.LogInformation("=== END FORM DATA ===");
+                }
+                
+                // Debug: Log the bound request object
+                _logger.LogInformation("=== BOUND REQUEST DEBUG ===");
+                _logger.LogInformation("Name: {Name}", request.Name);
+                _logger.LogInformation("Sku: {Sku}", request.Sku);
+                _logger.LogInformation("Category: {Category}", request.Category);
+                _logger.LogInformation("Price: {Price}", request.Price);
+                _logger.LogInformation("Stock: {Stock}", request.Stock);
+                _logger.LogInformation("Weight: {Weight}", request.Weight);
+                _logger.LogInformation("Status: {Status}", request.Status);
+                _logger.LogInformation("=== END BOUND REQUEST ===");
+                
                 if (!ModelState.IsValid)
                 {
+                    _logger.LogWarning("ModelState is invalid: {Errors}", string.Join(", ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
                     return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
                 }
+                
+                // Manual binding for Weight if not bound correctly
+                var weight = request.Weight;
+                _logger.LogInformation("Initial request.Weight: {Weight}", weight);
+                
+                if (weight == 0 && Request.Form?.ContainsKey("Weight") == true)
+                {
+                    var weightFromForm = Request.Form["Weight"];
+                    _logger.LogInformation("Found Weight in form: {WeightFromForm}", weightFromForm);
+                    
+                    if (decimal.TryParse(weightFromForm, out var parsedWeight))
+                    {
+                        weight = parsedWeight;
+                        _logger.LogInformation("Successfully parsed Weight from form: {Weight}", weight);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Failed to parse Weight from form: {WeightFromForm}", weightFromForm);
+                    }
+                }
+                else if (weight == 0)
+                {
+                    _logger.LogWarning("Weight is 0 and not found in form data");
+                }
+                
+                _logger.LogInformation("Final weight value: {Weight}", weight);
+                
                 
                 var updateProductDto = new CreateProductDto
                 {
@@ -256,6 +362,7 @@ namespace backend.Controllers
                     Price = request.Price,
                     OriginalPrice = request.OriginalPrice,
                     Stock = request.Stock,
+                    Weight = weight, // Use the parsed weight value
                     Status = request.Status,
                     Colors = request.Colors ?? new List<string>(),
                     ImageUrls = request.ImageUrls,
@@ -416,6 +523,14 @@ namespace backend.Controllers
         [Required(ErrorMessage = "Số lượng tồn kho là bắt buộc")]
         [Range(0, int.MaxValue, ErrorMessage = "Số lượng tồn kho phải lớn hơn hoặc bằng 0")]
         public int Stock { get; set; }
+        
+        /// <summary>
+        /// Khối lượng sản phẩm (gram)
+        /// </summary>
+        /// <example>500</example>
+        [Required(ErrorMessage = "Khối lượng là bắt buộc")]
+        [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
+        public decimal Weight { get; set; }
         
         /// <summary>
         /// Trạng thái sản phẩm

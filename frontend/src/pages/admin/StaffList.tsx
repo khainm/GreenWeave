@@ -77,6 +77,7 @@ const StaffList: React.FC = () => {
         loadData() // Reload data
       } catch (error) {
         console.error('Error activating staff:', error)
+        alert('Có lỗi xảy ra khi kích hoạt nhân viên!')
       }
     }
   }

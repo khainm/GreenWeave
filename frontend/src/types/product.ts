@@ -28,6 +28,7 @@ export interface Product {
   price: number
   originalPrice?: number
   stock: number
+  weight: number
   status: 'active' | 'inactive'
   createdAt: string
   updatedAt: string
@@ -44,6 +45,7 @@ export interface CreateProductRequest {
   price: number
   originalPrice?: number
   stock: number
+  weight: number
   status: 'active' | 'inactive'
   colors?: string[]
   imageUrls?: string[]

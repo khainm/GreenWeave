@@ -18,6 +18,7 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
     sku: '',
     category: '',
     price: 0,
+    weight: 500,
     description: '',
     selectedColor: '#ffffff' as string,
   })
@@ -77,6 +78,7 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
         sku: initialProduct.sku,
         category: initialProduct.category,
         price: initialProduct.price,
+        weight: initialProduct.weight,
         description: initialProduct.description || '',
         selectedColor: initialProduct.colors?.[0]?.colorCode || '#ffffff'
       })
@@ -115,6 +117,7 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
         sku: '',
         category: '',
         price: 0,
+        weight: 500,
         description: '',
         selectedColor: '#ffffff'
       })
@@ -285,6 +288,7 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
         price: customForm.price,
         originalPrice: undefined,
         stock: 0,
+        weight: customForm.weight,
         status: 'active',
         colors: colors,
         imageFiles: imageFiles, // Ảnh chung từ máy tính
@@ -421,15 +425,29 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Giá bán (đ)</label>
-                  <input
-                    type="number"
-                    value={customForm.price}
-                    onChange={(e) => setCustomForm(prev => ({ ...prev, price: Number(e.target.value || 0) }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="0"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Giá bán (đ)</label>
+                    <input
+                      type="number"
+                      value={customForm.price}
+                      onChange={(e) => setCustomForm(prev => ({ ...prev, price: Number(e.target.value || 0) }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Khối lượng (gram)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={customForm.weight}
+                      onChange={(e) => setCustomForm(prev => ({ ...prev, weight: Number(e.target.value || 500) }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      placeholder="500"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hình ảnh sản phẩm</label>

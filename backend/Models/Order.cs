@@ -72,6 +72,20 @@ namespace backend.Models
         public string? ApprovedBy { get; set; }
         public DateTime? ApprovedAt { get; set; }
 
+        // Shipping fields
+        public ShippingProvider ShippingProvider { get; set; } = ShippingProvider.ViettelPost;
+        
+        [StringLength(100)]
+        public string? ShippingCode { get; set; }
+        
+        public ShippingStatus ShippingStatus { get; set; } = ShippingStatus.PendingPickup;
+        
+        /// <summary>
+        /// Shipping tracking history and status updates from provider (JSON format)
+        /// </summary>
+        [Column(TypeName = "nvarchar(max)")]
+        public string? ShippingHistory { get; set; }
+
         // Navigation properties
         [ForeignKey("CustomerId")]
         public virtual User Customer { get; set; } = null!;
@@ -80,5 +94,7 @@ namespace backend.Models
         public virtual UserAddress ShippingAddress { get; set; } = null!;
 
         public virtual ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
+        
+        public virtual ShippingRequest? ShippingRequest { get; set; }
     }
 }

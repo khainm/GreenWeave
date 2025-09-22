@@ -80,6 +80,7 @@ namespace backend.Services
                     Price = createProductDto.Price,
                     OriginalPrice = createProductDto.OriginalPrice,
                     Stock = createProductDto.Stock,
+                    Weight = createProductDto.Weight,
                     Status = createProductDto.Status
                 };
                 
@@ -366,6 +367,7 @@ namespace backend.Services
                 existingProduct.Price = updateProductDto.Price;
                 existingProduct.OriginalPrice = updateProductDto.OriginalPrice;
                 existingProduct.Stock = updateProductDto.Stock;
+                existingProduct.Weight = updateProductDto.Weight;
                 existingProduct.Status = updateProductDto.Status;
                 
                 // Update colors (replace all)
@@ -645,6 +647,7 @@ namespace backend.Services
                 Price = product.Price,
                 OriginalPrice = product.OriginalPrice,
                 Stock = product.Stock,
+                Weight = product.Weight,
                 Status = product.Status,
                 CreatedAt = product.CreatedAt,
                 UpdatedAt = product.UpdatedAt,

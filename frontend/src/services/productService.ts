@@ -11,7 +11,15 @@ export class ProductService {
     formData.append('Category', productData.category)
     formData.append('Price', productData.price.toString())
     formData.append('Stock', productData.stock.toString())
+    formData.append('Weight', productData.weight.toString())
     formData.append('Status', productData.status)
+    
+    // Debug logging
+    console.log('🔍 ProductService - buildFormData:', {
+      name: productData.name,
+      weight: productData.weight,
+      weightType: typeof productData.weight
+    })
     if (productData.description) formData.append('Description', productData.description)
     if (productData.originalPrice) formData.append('OriginalPrice', productData.originalPrice.toString())
     if (productData.colors?.length) {

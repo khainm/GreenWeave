@@ -76,6 +76,16 @@ export interface Order {
   deliveredAt?: string
   cancelledAt?: string
   cancelReason?: string
+  // Shipping-related fields
+  shippingProvider: string
+  shippingCode?: string
+  shippingStatus?: string
+  shippingHistory?: Array<{
+    timestamp: string;
+    status: string;
+    description: string;
+    location?: string;
+  }>
   // Invoice-related fields
   hasInvoice?: boolean
   invoiceId?: number

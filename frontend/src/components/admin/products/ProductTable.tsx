@@ -33,6 +33,7 @@ const ProductTable: React.FC<ProductTableProps> = ({
     { key: 'name', label: 'Tên hàng hóa' },
     { key: 'category', label: 'Danh mục' },
     { key: 'stock', label: 'Tồn kho' },
+    { key: 'weight', label: 'Khối lượng (g)' },
     { key: 'productType', label: 'Loại sản phẩm' },
     { key: 'isCustomizable', label: 'Tuỳ chỉnh' },
     { key: 'price', label: 'Giá bán' },

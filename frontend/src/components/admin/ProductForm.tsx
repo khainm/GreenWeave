@@ -8,6 +8,7 @@ export type ProductFormValues = {
   price: number
   originalPrice: number
   stock: number
+  weight: number
   colors: string[]
   selectedColor: string
   status: 'active' | 'inactive'
@@ -179,7 +180,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Giá bán (VND) *</label>
           <input
@@ -201,6 +202,9 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
             placeholder="199000"
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Tồn kho *</label>
           <input
@@ -209,6 +213,19 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
             onChange={(e) => setValues(prev => ({ ...prev, stock: Number(e.target.value) }))}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
             placeholder="100"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Khối lượng (gram) *</label>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            value={values.weight}
+            onChange={(e) => setValues(prev => ({ ...prev, weight: Number(e.target.value) }))}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            placeholder="500"
             required
           />
         </div>

@@ -40,27 +40,40 @@ const AdminProductsList: React.FC = () => {
   // SKU auto-generate moved inside modal. Keep no-op effect to avoid refactoring other logic.
 
   // Fetch products from API
+  const fetchData = async () => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      const [prods, cats] = await Promise.all([
+        ProductService.getAllProducts(),
+        CategoryService.list().catch(() => [])
+      ])
+      setProducts(prods)
+      const meta: Record<string, { isCustomizable: boolean }> = {}
+      cats.forEach(c => { meta[c.name] = { isCustomizable: c.isCustomizable } })
+      setCategoryMeta(meta)
+    } catch (err) {
+      console.error('Error fetching products:', err)
+      setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setIsLoading(true)
-        setError(null)
-        const [prods, cats] = await Promise.all([
-          ProductService.getAllProducts(),
-          CategoryService.list().catch(() => [])
-        ])
-        setProducts(prods)
-        const meta: Record<string, { isCustomizable: boolean }> = {}
-        cats.forEach(c => { meta[c.name] = { isCustomizable: c.isCustomizable } })
-        setCategoryMeta(meta)
-      } catch (err) {
-        console.error('Error fetching products:', err)
-        setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.')
-      } finally {
-        setIsLoading(false)
+    fetchData()
+  }, [])
+
+  // Refresh data when component becomes visible (e.g., when navigating back from add/edit)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchData()
       }
     }
-    fetchData()
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
   // Hàm xóa sản phẩm
@@ -155,6 +168,16 @@ const AdminProductsList: React.FC = () => {
                 productType={productType}
                 setProductType={setProductType}
               />
+              <button
+                onClick={fetchData}
+                disabled={isLoading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              >
+                <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {isLoading ? 'Đang tải...' : 'Làm mới'}
+              </button>
               <ProductActions onOpenCustomModal={openCustomModal} />
             </div>
           </div>

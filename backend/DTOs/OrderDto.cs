@@ -28,6 +28,23 @@ namespace backend.DTOs
         public string? CancelReason { get; set; }
         public string? ApprovedBy { get; set; }
         public DateTime? ApprovedAt { get; set; }
+        
+        // Shipping fields
+        public string ShippingProvider { get; set; } = string.Empty;
+        public string? ShippingCode { get; set; }
+        public string ShippingStatus { get; set; } = string.Empty;
+        public List<ShippingHistoryEvent>? ShippingHistory { get; set; }
+    }
+
+    /// <summary>
+    /// Shipping history event for display
+    /// </summary>
+    public class ShippingHistoryEvent
+    {
+        public DateTime Timestamp { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public string? Location { get; set; }
     }
 
     public class OrderItemResponseDto
@@ -68,6 +85,17 @@ namespace backend.DTOs
 
         [MaxLength(500)]
         public string? Notes { get; set; }
+
+        /// <summary>
+        /// Shipping provider for this order
+        /// </summary>
+        public ShippingProvider ShippingProvider { get; set; } = ShippingProvider.ViettelPost;
+
+        /// <summary>
+        /// Service ID for the selected shipping provider (e.g., "VCN" for Viettel Post)
+        /// </summary>
+        [StringLength(50)]
+        public string? ShippingServiceId { get; set; }
     }
 
     public class CreateOrderItemDto

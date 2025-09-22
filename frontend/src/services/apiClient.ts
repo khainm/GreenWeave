@@ -1,7 +1,8 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'  
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7146'  
+//const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7146' 
 
 
 // API Response types
@@ -136,6 +137,14 @@ class ApiClient {
 
   private unwrapResponse<T>(response: AxiosResponse<any>): T {
     const payload = response.data
+    // For Viettel Post address APIs and shipping APIs, don't unwrap the data property
+    // because we need the full response structure with success, message, data, errors
+    if (response.config?.url?.includes('/viettelpostaddress/') || 
+        response.config?.url?.includes('/shipping/')) {
+      return payload as T
+    }
+    
+    // For other APIs, unwrap data property as before
     if (payload && typeof payload === 'object' && 'data' in payload) {
       return (payload as any).data as T
     }

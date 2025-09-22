@@ -38,6 +38,10 @@ namespace backend.Models
         public int Stock { get; set; }
         
         [Required]
+        [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
+        public decimal Weight { get; set; } // Khối lượng sản phẩm (gram)
+        
+        [Required]
         [MaxLength(20)]
         public string Status { get; set; } = "active"; // active, inactive
         

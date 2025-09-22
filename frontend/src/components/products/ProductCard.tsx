@@ -79,6 +79,25 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, selectedColor, onCol
           <span className="text-green-600 font-bold text-lg">
             {formatPrice(product.price)}
           </span>
+          {product.originalPrice && product.originalPrice > product.price && (
+            <span className="text-gray-400 line-through ml-2 text-sm">
+              {formatPrice(product.originalPrice)}
+            </span>
+          )}
+        </div>
+
+        {/* Stock Info */}
+        <div className="mb-3 text-sm text-gray-600">
+          <div className="flex items-center justify-between">
+            <span>Tồn kho:</span>
+            <span className={`font-semibold ${product.stock === 0 ? 'text-red-500' : product.stock < 10 ? 'text-orange-500' : 'text-green-600'}`}>
+              {product.stock === 0 ? 'Hết hàng' : `${product.stock} sản phẩm`}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Khối lượng:</span>
+            <span className="font-semibold text-gray-700">{product.weight} gram</span>
+          </div>
         </div>
         
         {/* Color Options */}
