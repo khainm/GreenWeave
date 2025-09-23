@@ -17,6 +17,7 @@ namespace backend.DTOs
         public decimal Total { get; set; }
         public string Status { get; set; } = string.Empty;
         public string PaymentStatus { get; set; } = string.Empty;
+        public string PaymentMethod { get; set; } = string.Empty;
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
@@ -96,6 +97,11 @@ namespace backend.DTOs
         /// </summary>
         [StringLength(50)]
         public string? ShippingServiceId { get; set; }
+
+        /// <summary>
+        /// Payment method for this order
+        /// </summary>
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
     }
 
     public class CreateOrderItemDto

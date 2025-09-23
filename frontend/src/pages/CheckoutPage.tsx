@@ -8,7 +8,8 @@ import type {
   ShippingOption, 
   CalculateShippingFeeRequest,
   UserAddress,
-  CartItem
+  CartItem,
+  PaymentMethod
 } from '../types';
 import OrderService from '../services/orderService';
 import { userAddressService } from '../services/userAddressService';
@@ -25,6 +26,7 @@ const CheckoutPage: React.FC = () => {
   const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingOption | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [orderNotes, setOrderNotes] = useState<string>('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CashOnDelivery');
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -153,7 +155,8 @@ const CheckoutPage: React.FC = () => {
         discount: 0,
         notes: orderNotes,
         shippingProvider: selectedShippingOption.provider,
-        shippingServiceId: selectedShippingOption.serviceId
+        shippingServiceId: selectedShippingOption.serviceId,
+        paymentMethod: paymentMethod
       };
 
       const order = await OrderService.createOrder(orderData);
@@ -337,6 +340,93 @@ const CheckoutPage: React.FC = () => {
               </div>
             )}
 
+            {/* Payment Method */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h2 className="text-lg font-semibold mb-4">Phương thức thanh toán</h2>
+              
+              <div className="space-y-3">
+                {/* Cash on Delivery */}
+                <label className={`
+                  relative flex items-start p-4 border rounded-lg cursor-pointer transition-all
+                  ${paymentMethod === 'CashOnDelivery'
+                    ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
+                    : 'border-gray-200 hover:border-gray-300'
+                  }
+                `}>
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value="CashOnDelivery"
+                    checked={paymentMethod === 'CashOnDelivery'}
+                    onChange={() => setPaymentMethod('CashOnDelivery')}
+                    className="sr-only"
+                  />
+                  
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium text-gray-900">Thanh toán khi nhận hàng (COD)</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Bạn sẽ thanh toán bằng tiền mặt khi nhận hàng. ViettelPost sẽ thu hộ và chuyển tiền về tài khoản của chúng tôi.
+                    </p>
+                  </div>
+                  
+                  {/* Custom radio indicator */}
+                  <div className={`
+                    w-4 h-4 rounded-full border-2 transition-all
+                    ${paymentMethod === 'CashOnDelivery'
+                      ? 'border-green-500 bg-green-500'
+                      : 'border-gray-300'
+                    }
+                  `}>
+                    {paymentMethod === 'CashOnDelivery' && (
+                      <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
+                </label>
+
+                {/* Bank Transfer */}
+                <label className={`
+                  relative flex items-start p-4 border rounded-lg cursor-pointer transition-all
+                  ${paymentMethod === 'BankTransfer'
+                    ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
+                    : 'border-gray-200 hover:border-gray-300'
+                  }
+                `}>
+                  <input
+                    type="radio"
+                    name="payment-method"
+                    value="BankTransfer"
+                    checked={paymentMethod === 'BankTransfer'}
+                    onChange={() => setPaymentMethod('BankTransfer')}
+                    className="sr-only"
+                  />
+                  
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-medium text-gray-900">Thanh toán chuyển khoản</h3>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Bạn sẽ chuyển khoản trước qua cổng thanh toán. Sau khi xác nhận thanh toán, chúng tôi sẽ giao hàng cho bạn.
+                    </p>
+                  </div>
+                  
+                  {/* Custom radio indicator */}
+                  <div className={`
+                    w-4 h-4 rounded-full border-2 transition-all
+                    ${paymentMethod === 'BankTransfer'
+                      ? 'border-green-500 bg-green-500'
+                      : 'border-gray-300'
+                    }
+                  `}>
+                    {paymentMethod === 'BankTransfer' && (
+                      <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                    )}
+                  </div>
+                </label>
+              </div>
+            </div>
+
             {/* Order Notes */}
             <div className="bg-white p-6 rounded-lg shadow">
               <h2 className="text-lg font-semibold mb-4">Ghi chú đơn hàng</h2>
@@ -411,6 +501,24 @@ const CheckoutPage: React.FC = () => {
                 <span>Tổng cộng:</span>
                 <span className="text-green-600">{total.toLocaleString('vi-VN')}đ</span>
               </div>
+            </div>
+
+            {/* Payment Method Info */}
+            <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-sm font-medium text-gray-700">Phương thức thanh toán:</span>
+              </div>
+              <p className="text-sm text-gray-600">
+                {paymentMethod === 'CashOnDelivery' 
+                  ? 'Thanh toán khi nhận hàng (COD)' 
+                  : 'Thanh toán chuyển khoản'
+                }
+              </p>
+              {paymentMethod === 'CashOnDelivery' && (
+                <p className="text-xs text-gray-500 mt-1">
+                  ViettelPost sẽ thu hộ {total.toLocaleString('vi-VN')}đ khi giao hàng
+                </p>
+              )}
             </div>
 
             {/* Submit Button */}

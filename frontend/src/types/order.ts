@@ -54,6 +54,10 @@ export type PaymentStatus =
   | 'Failed'       // Thanh toán thất bại
   | 'Refunded'     // Đã hoàn tiền
 
+export type PaymentMethod = 
+  | 'CashOnDelivery'  // Thanh toán khi nhận hàng (COD)
+  | 'BankTransfer'    // Thanh toán chuyển khoản
+
 export interface Order {
   id: number
   orderNumber: string
@@ -67,6 +71,7 @@ export interface Order {
   total: number
   status: OrderStatus
   paymentStatus: PaymentStatus
+  paymentMethod: PaymentMethod
   notes?: string
   createdAt: string
   updatedAt: string
@@ -137,6 +142,7 @@ export interface CreateOrderRequest {
   shippingFee?: number
   discount?: number
   notes?: string
+  paymentMethod?: PaymentMethod
 }
 
 export interface OrderStats {

@@ -92,6 +92,10 @@ namespace backend.Services
                     Discount = createOrderDto.Discount,
                     Total = total,
                     Status = OrderStatus.Pending,
+                    PaymentMethod = createOrderDto.PaymentMethod,
+                    PaymentStatus = createOrderDto.PaymentMethod == PaymentMethod.BankTransfer 
+                        ? PaymentStatus.Pending 
+                        : PaymentStatus.Pending, // COD cũng là pending cho đến khi giao hàng
                     Notes = createOrderDto.Notes,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -428,6 +432,7 @@ namespace backend.Services
                 Total = order.Total,
                 Status = order.Status.ToString(),
                 PaymentStatus = order.PaymentStatus.ToString(),
+                PaymentMethod = order.PaymentMethod.ToString(),
                 Notes = order.Notes,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt,

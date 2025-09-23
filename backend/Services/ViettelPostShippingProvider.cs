@@ -102,18 +102,32 @@ namespace backend.Services
                         
                         if (services != null && services.Count > 0)
                         {
+                            // Service mapping for user-friendly names
+                            // Only for the 3 specific services we want to display
+                            var serviceMapping = new Dictionary<string, (string Name, string Description)>
+                            {
+                                { "SHT", ("Chuyển phát hỏa tốc", "Giao hàng hỏa tốc") },
+                                { "SCN", ("Chuyển phát nhanh", "Giao hàng nhanh") },
+                                { "STK", ("Chuyển phát tiêu chuẩn", "Giao hàng tiêu chuẩn") }
+                            };
+                            
                             // Find the requested service or use the first one
                             var selectedService = services.FirstOrDefault(s => s.MA_DV_CHINH == (request.ServiceId ?? _config.DefaultServiceId)) ?? services.First();
                             
                             _logger.LogInformation("Selected service: {ServiceCode} - {ServiceName}, Price: {Price}", 
                                 selectedService.MA_DV_CHINH, selectedService.TEN_DICHVU, selectedService.GIA_CUOC);
                             
+                            // Get user-friendly name
+                            var friendlyName = serviceMapping.ContainsKey(selectedService.MA_DV_CHINH) 
+                                ? serviceMapping[selectedService.MA_DV_CHINH].Name 
+                                : selectedService.TEN_DICHVU;
+                            
                             return new FeeResult
                             {
                                 IsSuccess = true,
                                 Fee = selectedService.GIA_CUOC,
                                 ServiceId = selectedService.MA_DV_CHINH,
-                                ServiceName = selectedService.TEN_DICHVU,
+                                ServiceName = friendlyName,
                                 EstimatedDeliveryDays = ParseDeliveryTime(selectedService.THOI_GIAN),
                                 AdditionalData = new Dictionary<string, object>
                                 {
@@ -180,6 +194,19 @@ namespace backend.Services
                     throw new InvalidOperationException("Complete address information (ProvinceId, DistrictId, WardId) is required for creating shipment");
                 }
 
+                // Calculate total weight and dimensions
+                var totalWeight = order.Items.Sum(i => i.Product.Weight * i.Quantity);
+                var totalPrice = order.Items.Sum(i => i.Product.Price * i.Quantity);
+                
+                // Create LIST_ITEM for detailed product information
+                var listItems = order.Items.Select(item => new
+                {
+                    PRODUCT_NAME = item.Product.Name,
+                    PRODUCT_PRICE = (int)item.Product.Price,
+                    PRODUCT_WEIGHT = (int)item.Product.Weight,
+                    PRODUCT_QUANTITY = item.Quantity
+                }).ToArray();
+
                 var payload = new
                 {
                     ORDER_NUMBER = order.OrderNumber,
@@ -193,6 +220,8 @@ namespace backend.Services
                     SENDER_WARD = fromAddress?.WardId ?? _config.DefaultPickupAddress.WardId,
                     SENDER_DISTRICT = fromAddress?.DistrictId ?? _config.DefaultPickupAddress.DistrictId,
                     SENDER_PROVINCE = fromAddress?.ProvinceId ?? _config.DefaultPickupAddress.ProvinceId,
+                    SENDER_LATITUDE = 0,
+                    SENDER_LONGITUDE = 0,
                     RECEIVER_FULLNAME = toAddress?.Name,
                     RECEIVER_ADDRESS = toAddress?.AddressDetail,
                     RECEIVER_PHONE = toAddress?.Phone,
@@ -200,30 +229,32 @@ namespace backend.Services
                     RECEIVER_WARD = toAddress?.WardId ?? throw new InvalidOperationException("WardId is required for creating shipment"),
                     RECEIVER_DISTRICT = toAddress?.DistrictId ?? await GetDistrictIdAsync(toAddress?.District ?? "", toAddress?.ProvinceId ?? await GetProvinceIdAsync(toAddress?.Province ?? "")),
                     RECEIVER_PROVINCE = toAddress?.ProvinceId ?? await GetProvinceIdAsync(toAddress?.Province ?? ""),
+                    RECEIVER_LATITUDE = 0,
+                    RECEIVER_LONGITUDE = 0,
                     PRODUCT_NAME = $"Đơn hàng {order.OrderNumber}",
                     PRODUCT_DESCRIPTION = $"Đơn hàng GreenWeave #{order.OrderNumber}",
                     PRODUCT_QUANTITY = order.Items.Sum(i => i.Quantity),
-                    PRODUCT_WEIGHT = shippingRequest.Weight,
+                    PRODUCT_PRICE = (int)totalPrice,
+                    PRODUCT_WEIGHT = (int)totalWeight,
                     PRODUCT_LENGTH = 0,
                     PRODUCT_WIDTH = 0,
                     PRODUCT_HEIGHT = 0,
                     PRODUCT_TYPE = "HH",
-                    ORDER_PAYMENT = 1, // Người gửi thanh toán
-                    ORDER_SERVICE = "NONE",
+                    ORDER_PAYMENT = order.PaymentMethod == PaymentMethod.CashOnDelivery ? 3 : 1, // 3 = COD, 1 = Người gửi thanh toán
+                    ORDER_SERVICE = "VCN", // Dịch vụ chuyển phát nhanh
                     ORDER_SERVICE_ADD = "",
                     ORDER_VOUCHER = "",
                     ORDER_NOTE = shippingRequest.Note ?? "",
-                    MONEY_COLLECTION = shippingRequest.CodAmount,
-                    MONEY_TOTALFEE = shippingRequest.Fee,
+                    MONEY_COLLECTION = order.PaymentMethod == PaymentMethod.CashOnDelivery ? (int)shippingRequest.CodAmount : 0,
+                    MONEY_TOTALFEE = 0,
                     MONEY_FEECOD = 0,
                     MONEY_FEEVAS = 0,
                     MONEY_FEEINSURRANCE = 0,
-                    MONEY_FEE = shippingRequest.Fee,
+                    MONEY_FEE = 0,
                     MONEY_FEEOTHER = 0,
                     MONEY_TOTALVAT = 0,
-                    MONEY_TOTAL = shippingRequest.Fee,
-                    NATIONAL_TYPE = 1,
-                    ORDER_SPECIAL = ""
+                    MONEY_TOTAL = 0,
+                    LIST_ITEM = listItems
                 };
 
                 _httpClient.DefaultRequestHeaders.Clear();
@@ -585,8 +616,14 @@ namespace backend.Services
                             {
                                 var shippingOptions = new List<ShippingOptionDto>();
                                 
-                                // Only show the 3 main services: SHT, SCN, STK
-                                var mainServices = new[] { "SHT", "SCN", "STK" };
+                                // Map ViettelPost service codes to user-friendly names
+                                // Only for the 3 specific services we want to display
+                                var serviceMapping = new Dictionary<string, (string Name, string Description)>
+                                {
+                                    { "SHT", ("Chuyển phát hỏa tốc", "Giao hàng hỏa tốc") },
+                                    { "SCN", ("Chuyển phát nhanh", "Giao hàng nhanh") },
+                                    { "STK", ("Chuyển phát tiêu chuẩn", "Giao hàng tiêu chuẩn") }
+                                };
                                 
                                 _logger.LogInformation("🔍 [API DEBUG] All services from ViettelPost API:");
                                 foreach (var service in services)
@@ -595,19 +632,24 @@ namespace backend.Services
                                         service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC, service.THOI_GIAN);
                                 }
                                 
-                                _logger.LogInformation("🌐 [COMPARISON] Expected from website:");
-                                _logger.LogInformation("  📦 SHT: Chuyển phát hỏa tốc - 38000 VND - 1.5 ngày");
-                                _logger.LogInformation("  📦 SCN: Chuyển phát nhanh - 24001 VND - 2 ngày");
-                                _logger.LogInformation("  📦 STK: Chuyển phát tiêu chuẩn - 23501 VND - 2.5 ngày");
+                                _logger.LogInformation("🌐 [SERVICE MAPPING] Available services:");
+                                foreach (var mapping in serviceMapping)
+                                {
+                                    _logger.LogInformation("  📦 {ServiceCode}: {ServiceName} - {Description}", 
+                                        mapping.Key, mapping.Value.Name, mapping.Value.Description);
+                                }
                                 
                                 foreach (var service in services)
                                 {
                                     _logger.LogInformation("Processing service: {ServiceCode} - {ServiceName}, Price: {Price}", 
                                         service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC);
                                     
-                                    // Only include main services
-                                    if (mainServices.Contains(service.MA_DV_CHINH))
+                                    // Only include the 3 specific services: SHT, SCN, STK
+                                    var allowedServices = new[] { "SHT", "SCN", "STK" };
+                                    if (allowedServices.Contains(service.MA_DV_CHINH))
                                     {
+                                        try
+                                        {
                                         var deliveryDays = ParseDeliveryTime(service.THOI_GIAN);
                                         _logger.LogInformation("🔍 [DELIVERY TIME DEBUG] Service {ServiceCode}: {ServiceName}", 
                                             service.MA_DV_CHINH, service.TEN_DICHVU);
@@ -616,17 +658,28 @@ namespace backend.Services
                                         _logger.LogInformation("📅 Parsed delivery days: {DeliveryDays}", deliveryDays);
                                         _logger.LogInformation("🎯 Using actual API name: {ActualName}", service.TEN_DICHVU);
                                         
+                                        // Get user-friendly name if mapping exists, otherwise use original name
+                                        var friendlyName = serviceMapping.ContainsKey(service.MA_DV_CHINH) 
+                                            ? serviceMapping[service.MA_DV_CHINH].Name 
+                                            : service.TEN_DICHVU;
+                                        
                                         shippingOptions.Add(new ShippingOptionDto
                                         {
                                             Provider = ShippingProvider.ViettelPost,
                                             ProviderName = "Viettel Post",
                                             ServiceId = service.MA_DV_CHINH,
-                                            ServiceName = service.TEN_DICHVU, // Use actual name from API
+                                            ServiceName = friendlyName,
                                             Fee = service.GIA_CUOC,
                                             EstimatedDeliveryDays = deliveryDays,
                                             IsAvailable = true,
                                             ErrorMessage = null
                                         });
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            _logger.LogWarning(ex, "Error processing service {ServiceCode}: {ServiceName}", 
+                                                service.MA_DV_CHINH, service.TEN_DICHVU);
+                                        }
                                     }
                                 }
                                 

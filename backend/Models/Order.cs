@@ -22,6 +22,12 @@ namespace backend.Models
         Refunded = 4     // Đã hoàn tiền
     }
 
+    public enum PaymentMethod
+    {
+        CashOnDelivery = 1,  // Thanh toán khi nhận hàng (COD)
+        BankTransfer = 2     // Thanh toán chuyển khoản
+    }
+
     public class Order
     {
         [Key]
@@ -52,6 +58,8 @@ namespace backend.Models
         public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
         public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
+
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
 
         [StringLength(500)]
         public string? Notes { get; set; }
