@@ -7,6 +7,7 @@ const tabs = [
   { label: 'Đơn hàng' },
   { label: 'Khách hàng' },
   { label: 'Nhân Viên' },
+  { label: 'Kho hàng' },
   { label: 'Báo cáo', badge: 'Mới' },
   { label: 'Bán online' }
 ]
@@ -83,7 +84,8 @@ const TopNav: React.FC = () => {
                                (t.label === 'Hàng hóa' && location.pathname.startsWith('/admin/products')) ||
                                (t.label === 'Đơn hàng' && location.pathname.startsWith('/admin/orders')) ||
                                (t.label === 'Khách hàng' && location.pathname.startsWith('/admin/customers')) ||
-                               (t.label === 'Nhân Viên' && location.pathname.startsWith('/admin/staff'))
+                               (t.label === 'Nhân Viên' && location.pathname.startsWith('/admin/staff')) ||
+                               (t.label === 'Kho hàng' && location.pathname.startsWith('/admin/warehouses'))
 
               const base = `px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${isActive ? 'bg-white/20 ring-2 ring-white/50 shadow-[0_0_0_1px_rgba(255,255,255,0.25)]' : 'hover:bg-white/10'}`
 
@@ -116,6 +118,7 @@ const TopNav: React.FC = () => {
                   </NavLink>
                 )
               }
+              // Thêm vận đơn chỗ này 
 
               if (t.label === 'Hàng hóa') {
                 return (
@@ -148,6 +151,11 @@ const TopNav: React.FC = () => {
                             <div className="border-l border-gray-200 pl-8">
                               <div className="text-xl font-semibold mb-6">Kho hàng</div>
                               <ul className="space-y-6 text-gray-800">
+                                <li>
+                                  <Link to="/admin/warehouses" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsGoodsOpen(false)}>
+                                    Quản lý kho hàng
+                                  </Link>
+                                </li>
                                 <li><button className="hover:text-[#0a68ff] transition-colors">Kiểm kho</button></li>
                               </ul>
                             </div>
@@ -156,6 +164,14 @@ const TopNav: React.FC = () => {
                       </div>
                     )}
                   </div>
+                )
+              }
+
+              if (t.label === 'Kho hàng') {
+                return (
+                  <NavLink key={t.label} to="/admin/warehouses" className={base}>
+                    {t.label}
+                  </NavLink>
                 )
               }
 

@@ -207,6 +207,10 @@ builder.Services.AddScoped<IEnumerable<IShippingProvider>>(serviceProvider =>
 // Add Shipping service
 builder.Services.AddScoped<IShippingService, ShippingService>();
 
+// Add Warehouse services
+builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
+builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
 {
@@ -258,7 +262,11 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// Disable HTTPS redirection in development to avoid issues with localhost
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseRouting();
 

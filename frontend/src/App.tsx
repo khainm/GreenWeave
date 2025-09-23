@@ -16,6 +16,7 @@ import AdminOrderDetail from './pages/AdminOrderDetail'
 import CustomerList from './pages/admin/CustomerList'
 import CustomerDetail from './pages/admin/CustomerDetail'
 import StaffList from './pages/admin/StaffList'
+import AdminWarehousePage from './pages/admin/AdminWarehousePage'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -123,20 +124,15 @@ function App() {
                 <StaffList />
               </ProtectedRoute>
             } />
-            <Route path="/admin/customers" element={
-              <ProtectedRoute requireStaff={true}>
-                <CustomerList />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/customers/:customerCode" element={
-              <ProtectedRoute requireStaff={true}>
-                <CustomerDetail />
+            <Route path="/admin/warehouses" element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminWarehousePage />
               </ProtectedRoute>
             } />
           </Routes>
-        </div>
-      </Router>
-    </AuthProvider>
+          </div>
+        </Router>
+      </AuthProvider>
   )
 }
 

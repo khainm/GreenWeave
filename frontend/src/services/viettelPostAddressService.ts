@@ -29,16 +29,16 @@ export class ViettelPostAddressService {
   static async getProvinces(): Promise<AddressDto[]> {
     try {
       console.log('🔍 [ViettelPostAddressService] Calling getProvinces...');
-      const data = await apiClient.get<AddressApiResponse<AddressDto[]>>('/api/viettelpostaddress/provinces');
-      console.log('🔍 [ViettelPostAddressService] Received data:', data);
+      const response = await apiClient.get<AddressApiResponse<AddressDto[]>>('/api/viettelpostaddress/provinces');
+      console.log('🔍 [ViettelPostAddressService] Received response:', response);
       
-      if (data?.success && data?.data) {
-        console.log('✅ [ViettelPostAddressService] Success! Returning provinces:', data.data);
-        return data.data;
+      if (response?.success && response?.data) {
+        console.log('✅ [ViettelPostAddressService] Success! Returning provinces:', response.data);
+        return response.data;
       }
       
-      console.error('❌ [ViettelPostAddressService] API returned success=false or no data:', data);
-      throw new Error(data?.message || 'Failed to get provinces');
+      console.error('❌ [ViettelPostAddressService] API returned success=false or no data:', response);
+      throw new Error(response?.message || 'Failed to get provinces');
     } catch (error) {
       console.error('❌ [ViettelPostAddressService] Error getting provinces:', error);
       throw new Error('Không thể lấy danh sách tỉnh/thành phố');
@@ -51,18 +51,18 @@ export class ViettelPostAddressService {
   static async getDistricts(provinceId: number): Promise<AddressDto[]> {
     try {
       console.log('🔍 [ViettelPostAddressService] Calling getDistricts with provinceId:', provinceId);
-      const data = await apiClient.get<AddressApiResponse<AddressDto[]>>(
+      const response = await apiClient.get<AddressApiResponse<AddressDto[]>>(
         `/api/viettelpostaddress/districts?provinceId=${provinceId}`
       );
-      console.log('🔍 [ViettelPostAddressService] Received districts data:', data);
+      console.log('🔍 [ViettelPostAddressService] Received districts response:', response);
       
-      if (data?.success && data?.data) {
-        console.log('✅ [ViettelPostAddressService] Success! Returning districts:', data.data);
-        return data.data;
+      if (response?.success && response?.data) {
+        console.log('✅ [ViettelPostAddressService] Success! Returning districts:', response.data);
+        return response.data;
       }
       
-      console.error('❌ [ViettelPostAddressService] API returned success=false or no data:', data);
-      throw new Error(data?.message || 'Failed to get districts');
+      console.error('❌ [ViettelPostAddressService] API returned success=false or no data:', response);
+      throw new Error(response?.message || 'Failed to get districts');
     } catch (error) {
       console.error('❌ [ViettelPostAddressService] Error getting districts:', error);
       throw new Error('Không thể lấy danh sách quận/huyện');
@@ -74,15 +74,21 @@ export class ViettelPostAddressService {
    */
   static async getWards(districtId: number): Promise<AddressDto[]> {
     try {
-      const data = await apiClient.get<AddressApiResponse<AddressDto[]>>(
+      console.log('🔍 [ViettelPostAddressService] Calling getWards with districtId:', districtId);
+      const response = await apiClient.get<AddressApiResponse<AddressDto[]>>(
         `/api/viettelpostaddress/wards?districtId=${districtId}`
       );
-      if (data?.success && data?.data) {
-        return data.data;
+      console.log('🔍 [ViettelPostAddressService] Received wards response:', response);
+      
+      if (response?.success && response?.data) {
+        console.log('✅ [ViettelPostAddressService] Success! Returning wards:', response.data);
+        return response.data;
       }
-      throw new Error(data?.message || 'Failed to get wards');
+      
+      console.error('❌ [ViettelPostAddressService] API returned success=false or no data:', response);
+      throw new Error(response?.message || 'Failed to get wards');
     } catch (error) {
-      console.error('Error getting wards:', error);
+      console.error('❌ [ViettelPostAddressService] Error getting wards:', error);
       throw new Error('Không thể lấy danh sách phường/xã');
     }
   }

@@ -355,7 +355,7 @@ const OrderDetailsPage: React.FC = () => {
                     Địa chỉ giao hàng
                   </h3>
                   <p className="text-gray-600">
-                    {order.shippingAddress.address}
+                    {order.shippingAddress.addressLine}
                     {order.shippingAddress.ward && `, ${order.shippingAddress.ward}`}
                     , {order.shippingAddress.district}, {order.shippingAddress.province}
                   </p>

@@ -37,6 +37,9 @@ namespace backend.Services
             
             _logger.LogInformation("ViettelPostShippingProvider initialized in Production mode with base URL: {BaseUrl}", 
                 _config.BaseUrl);
+            
+            // Tự động đăng ký kho hàng khi khởi tạo
+            _ = Task.Run(async () => await RegisterDefaultInventoryAsync());
         }
 
         public Task<bool> IsAvailableAsync()
@@ -102,32 +105,21 @@ namespace backend.Services
                         
                         if (services != null && services.Count > 0)
                         {
-                            // Service mapping for user-friendly names
-                            // Only for the 3 specific services we want to display
-                            var serviceMapping = new Dictionary<string, (string Name, string Description)>
-                            {
-                                { "SHT", ("Chuyển phát hỏa tốc", "Giao hàng hỏa tốc") },
-                                { "SCN", ("Chuyển phát nhanh", "Giao hàng nhanh") },
-                                { "STK", ("Chuyển phát tiêu chuẩn", "Giao hàng tiêu chuẩn") }
-                            };
-                            
                             // Find the requested service or use the first one
                             var selectedService = services.FirstOrDefault(s => s.MA_DV_CHINH == (request.ServiceId ?? _config.DefaultServiceId)) ?? services.First();
                             
                             _logger.LogInformation("Selected service: {ServiceCode} - {ServiceName}, Price: {Price}", 
                                 selectedService.MA_DV_CHINH, selectedService.TEN_DICHVU, selectedService.GIA_CUOC);
                             
-                            // Get user-friendly name
-                            var friendlyName = serviceMapping.ContainsKey(selectedService.MA_DV_CHINH) 
-                                ? serviceMapping[selectedService.MA_DV_CHINH].Name 
-                                : selectedService.TEN_DICHVU;
+                            // Use the service name directly from API
+                            var serviceName = selectedService.TEN_DICHVU;
                             
                             return new FeeResult
                             {
                                 IsSuccess = true,
                                 Fee = selectedService.GIA_CUOC,
                                 ServiceId = selectedService.MA_DV_CHINH,
-                                ServiceName = friendlyName,
+                                ServiceName = serviceName,
                                 EstimatedDeliveryDays = ParseDeliveryTime(selectedService.THOI_GIAN),
                                 AdditionalData = new Dictionary<string, object>
                                 {
@@ -210,7 +202,7 @@ namespace backend.Services
                 var payload = new
                 {
                     ORDER_NUMBER = order.OrderNumber,
-                    GROUPADDRESS_ID = 0,
+                    GROUPADDRESS_ID = _config.DefaultPickupAddress.GroupAddressId ?? 0,
                     CUS_ID = 0,
                     DELIVERY_DATE = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"),
                     SENDER_FULLNAME = fromAddress?.Name ?? _config.DefaultPickupAddress.Name,
@@ -453,7 +445,12 @@ namespace backend.Services
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
-                var response = await _httpClient.GetAsync("/v2/categories/listService");
+                // Gọi API listService với TYPE = 2
+                var requestBody = new { TYPE = 2 };
+                var jsonContent = JsonSerializer.Serialize(requestBody);
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                
+                var response = await _httpClient.PostAsync("/v2/categories/listService", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 _logger.LogInformation("Viettel Post services response: {Response}", responseContent);
@@ -617,13 +614,8 @@ namespace backend.Services
                                 var shippingOptions = new List<ShippingOptionDto>();
                                 
                                 // Map ViettelPost service codes to user-friendly names
-                                // Only for the 3 specific services we want to display
-                                var serviceMapping = new Dictionary<string, (string Name, string Description)>
-                                {
-                                    { "SHT", ("Chuyển phát hỏa tốc", "Giao hàng hỏa tốc") },
-                                    { "SCN", ("Chuyển phát nhanh", "Giao hàng nhanh") },
-                                    { "STK", ("Chuyển phát tiêu chuẩn", "Giao hàng tiêu chuẩn") }
-                                };
+                                // Use all services returned by API with TYPE = 2
+                                _logger.LogInformation("📦 [SERVICES] Using all services from API response");
                                 
                                 _logger.LogInformation("🔍 [API DEBUG] All services from ViettelPost API:");
                                 foreach (var service in services)
@@ -632,54 +624,40 @@ namespace backend.Services
                                         service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC, service.THOI_GIAN);
                                 }
                                 
-                                _logger.LogInformation("🌐 [SERVICE MAPPING] Available services:");
-                                foreach (var mapping in serviceMapping)
-                                {
-                                    _logger.LogInformation("  📦 {ServiceCode}: {ServiceName} - {Description}", 
-                                        mapping.Key, mapping.Value.Name, mapping.Value.Description);
-                                }
-                                
                                 foreach (var service in services)
                                 {
                                     _logger.LogInformation("Processing service: {ServiceCode} - {ServiceName}, Price: {Price}", 
                                         service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC);
                                     
-                                    // Only include the 3 specific services: SHT, SCN, STK
-                                    var allowedServices = new[] { "SHT", "SCN", "STK" };
-                                    if (allowedServices.Contains(service.MA_DV_CHINH))
+                                    try
                                     {
-                                        try
-                                        {
                                         var deliveryDays = ParseDeliveryTime(service.THOI_GIAN);
                                         _logger.LogInformation("🔍 [DELIVERY TIME DEBUG] Service {ServiceCode}: {ServiceName}", 
                                             service.MA_DV_CHINH, service.TEN_DICHVU);
                                         _logger.LogInformation("💰 Price: {Price} VND", service.GIA_CUOC);
                                         _logger.LogInformation("⏰ Raw time string: '{TimeString}'", service.THOI_GIAN);
                                         _logger.LogInformation("📅 Parsed delivery days: {DeliveryDays}", deliveryDays);
-                                        _logger.LogInformation("🎯 Using actual API name: {ActualName}", service.TEN_DICHVU);
+                                        _logger.LogInformation("🎯 Using API service name: {ServiceName}", service.TEN_DICHVU);
                                         
-                                        // Get user-friendly name if mapping exists, otherwise use original name
-                                        var friendlyName = serviceMapping.ContainsKey(service.MA_DV_CHINH) 
-                                            ? serviceMapping[service.MA_DV_CHINH].Name 
-                                            : service.TEN_DICHVU;
+                                        // Use the service name directly from API
+                                        var serviceName = service.TEN_DICHVU;
                                         
                                         shippingOptions.Add(new ShippingOptionDto
                                         {
                                             Provider = ShippingProvider.ViettelPost,
                                             ProviderName = "Viettel Post",
                                             ServiceId = service.MA_DV_CHINH,
-                                            ServiceName = friendlyName,
+                                            ServiceName = serviceName,
                                             Fee = service.GIA_CUOC,
                                             EstimatedDeliveryDays = deliveryDays,
                                             IsAvailable = true,
                                             ErrorMessage = null
                                         });
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            _logger.LogWarning(ex, "Error processing service {ServiceCode}: {ServiceName}", 
-                                                service.MA_DV_CHINH, service.TEN_DICHVU);
-                                        }
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger.LogWarning(ex, "Error processing service {ServiceCode}: {ServiceName}", 
+                                            service.MA_DV_CHINH, service.TEN_DICHVU);
                                     }
                                 }
                                 
@@ -694,14 +672,11 @@ namespace backend.Services
                                         option.ServiceId, option.ServiceName, option.Fee, option.EstimatedDeliveryDays);
                                 }
                                 
-                                // Sort by service priority: SHT (hỏa tốc) first, then SCN (nhanh), then STK (tiêu chuẩn)
-                                var sortedOptions = shippingOptions.OrderBy(o => o.ServiceId switch
-                                {
-                                    "SHT" => 1, // Hỏa tốc - nhanh nhất
-                                    "SCN" => 2, // Nhanh - nhanh thứ 2
-                                    "STK" => 3, // Tiêu chuẩn - chậm nhất
-                                    _ => 4
-                                }).ToList();
+                                // Sort by price (cheapest first) and then by delivery time
+                                var sortedOptions = shippingOptions
+                                    .OrderBy(o => o.Fee)
+                                    .ThenBy(o => o.EstimatedDeliveryDays)
+                                    .ToList();
                                 
                                 // Log after sorting
                                 _logger.LogInformation("🔀 [SORTING DEBUG] After sorting:");
@@ -874,13 +849,8 @@ namespace backend.Services
 
         private static string GetServiceDisplayName(string serviceCode)
         {
-            return serviceCode switch
-            {
-                "SHT" => "Chuyển phát hỏa tốc",
-                "SCN" => "Chuyển phát nhanh", 
-                "STK" => "Chuyển phát tiêu chuẩn",
-                _ => "Dịch vụ vận chuyển"
-            };
+            // Return the service code as display name since we're using API names directly
+            return serviceCode;
         }
 
         private static int ParseDeliveryTime(string timeString)
@@ -964,6 +934,138 @@ namespace backend.Services
                 700 => "Đã hủy",
                 _ => "Không xác định"
             };
+        }
+
+        /// <summary>
+        /// Tự động đăng ký kho hàng mặc định từ config
+        /// </summary>
+        private async Task RegisterDefaultInventoryAsync()
+        {
+            try
+            {
+                _logger.LogInformation("🔄 [AUTO-REGISTER] Starting automatic inventory registration...");
+                
+                var request = new RegisterInventoryRequest
+                {
+                    Phone = _config.DefaultPickupAddress.Phone,
+                    Name = _config.DefaultPickupAddress.Name,
+                    Address = _config.DefaultPickupAddress.AddressDetail,
+                    WardsId = _config.DefaultPickupAddress.WardId
+                };
+
+                _logger.LogInformation("📦 [AUTO-REGISTER] Registering default inventory: {Name} - {Address}", 
+                    request.Name, request.Address);
+
+                var result = await RegisterInventoryAsync(request);
+                
+                if (result.IsSuccess)
+                {
+                    _logger.LogInformation("✅ [AUTO-REGISTER] Successfully registered default inventory with GROUPADDRESS_ID: {GroupAddressId}", 
+                        result.GroupAddressId);
+                    
+                    // Lưu GROUPADDRESS_ID vào config hoặc cache để sử dụng sau này
+                    _config.DefaultPickupAddress.GroupAddressId = result.GroupAddressId;
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ [AUTO-REGISTER] Failed to register default inventory: {Error}", 
+                        result.ErrorMessage);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ [AUTO-REGISTER] Error during automatic inventory registration");
+            }
+        }
+
+        /// <summary>
+        /// Đăng ký kho hàng với ViettelPost
+        /// </summary>
+        public async Task<RegisterInventoryResult> RegisterInventoryAsync(RegisterInventoryRequest request)
+        {
+            try
+            {
+                await EnsureAuthenticatedAsync();
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+
+                var payload = new
+                {
+                    PHONE = request.Phone,
+                    NAME = request.Name,
+                    ADDRESS = request.Address,
+                    WARDS_ID = request.WardsId
+                };
+
+                var jsonContent = JsonSerializer.Serialize(payload);
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                _logger.LogInformation("Registering inventory with ViettelPost: {Payload}", jsonContent);
+
+                var response = await _httpClient.PostAsync("/v2/user/registerInventory", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("ViettelPost registerInventory response: {Response}", responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    _logger.LogInformation("🔍 [DEBUG] Parsing response: {ResponseContent}", responseContent);
+                    
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    var result = JsonSerializer.Deserialize<ViettelPostRegisterInventoryResponse>(responseContent, options);
+                    
+                    _logger.LogInformation("🔍 [DEBUG] Parsed result: Status={Status}, Error={Error}, DataCount={DataCount}", 
+                        result?.Status, result?.Error, result?.Data?.Count);
+                    
+                    if (result?.Status == 200 && result.Data != null && result.Data.Count > 0)
+                    {
+                        // Lấy kho mới nhất (đầu tiên trong danh sách)
+                        var latestWarehouse = result.Data.First();
+                        
+                        _logger.LogInformation("🔍 [DEBUG] Latest warehouse: GroupAddressId={GroupAddressId}, Name={Name}", 
+                            latestWarehouse.groupaddressId, latestWarehouse.name);
+                        
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = true,
+                            GroupAddressId = latestWarehouse.groupaddressId,
+                            Message = "Đăng ký kho hàng thành công"
+                        };
+                    }
+                    else
+                    {
+                        _logger.LogWarning("🔍 [DEBUG] Failed conditions: Status={Status}, DataNull={DataNull}, DataCount={DataCount}", 
+                            result?.Status, result?.Data == null, result?.Data?.Count);
+                        
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
+                        };
+                    }
+                }
+                else
+                {
+                    return new RegisterInventoryResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = $"Lỗi API: {response.StatusCode} - {responseContent}"
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering inventory with ViettelPost");
+                return new RegisterInventoryResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = $"Lỗi: {ex.Message}"
+                };
+            }
         }
     }
 
@@ -1084,6 +1186,28 @@ namespace backend.Services
         public bool Error { get; set; }
         public string Message { get; set; } = string.Empty;
         public object? Data { get; set; }
+    }
+
+    public class ViettelPostRegisterInventoryResponse
+    {
+        public int Status { get; set; }
+        public bool Error { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public List<ViettelPostRegisterInventoryData>? Data { get; set; }
+    }
+
+    public class ViettelPostRegisterInventoryData
+    {
+        public int groupaddressId { get; set; }
+        public int cusId { get; set; }
+        public string name { get; set; } = string.Empty;
+        public string phone { get; set; } = string.Empty;
+        public string address { get; set; } = string.Empty;
+        public int provinceId { get; set; }
+        public int districtId { get; set; }
+        public int wardsId { get; set; }
+        public object? postId { get; set; }
+        public object? merchant { get; set; }
     }
     #endregion
 }

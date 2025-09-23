@@ -23,6 +23,7 @@ namespace backend.Data
         public DbSet<Invoice> Invoices { get; set; }
         public DbSet<ShippingRequest> ShippingRequests { get; set; }
         public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
+        public DbSet<Warehouse> Warehouses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -319,6 +320,22 @@ namespace backend.Data
                     .WithOne()
                     .HasForeignKey<Invoice>(i => i.OrderId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Warehouse configuration
+            modelBuilder.Entity<Warehouse>(entity =>
+            {
+                entity.HasKey(w => w.Id);
+                entity.Property(w => w.Name).IsRequired().HasMaxLength(100);
+                entity.Property(w => w.Phone).IsRequired().HasMaxLength(15);
+                entity.Property(w => w.AddressDetail).IsRequired().HasMaxLength(200);
+                entity.Property(w => w.ProvinceName).HasMaxLength(100);
+                entity.Property(w => w.DistrictName).HasMaxLength(100);
+                entity.Property(w => w.WardName).HasMaxLength(100);
+                entity.Property(w => w.Notes).HasMaxLength(500);
+                
+                entity.HasIndex(w => w.IsDefault).HasFilter("IsDefault = 1 AND IsActive = 1");
+                entity.HasIndex(w => w.IsActive);
             });
         }
     }

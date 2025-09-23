@@ -310,9 +310,12 @@ const AddressForm: React.FC<AddressFormProps> = ({
               value={formData.addressLine}
               onChange={handleInputChange}
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
-              placeholder="Số nhà, tên đường, tòa nhà..."
+              placeholder="Thôn/Xóm, số nhà, tên đường, tòa nhà..."
             />
           </div>
+          <p className="mt-1 text-xs text-gray-500">
+            Chỉ cần nhập địa chỉ chi tiết, tỉnh/huyện/xã sẽ được tự động điền từ dropdown bên dưới
+          </p>
         </div>
 
         {/* Province */}

@@ -74,6 +74,13 @@ namespace backend.Interfaces.Services
         /// <param name="request">Fee calculation request</param>
         /// <returns>List of shipping options with fees</returns>
         Task<List<ShippingOptionDto>> GetShippingOptionsAsync(CalculateShippingFeeRequest request);
+
+        /// <summary>
+        /// Register inventory/warehouse with the shipping provider
+        /// </summary>
+        /// <param name="request">Inventory registration request</param>
+        /// <returns>Registration result</returns>
+        Task<RegisterInventoryResult> RegisterInventoryAsync(RegisterInventoryRequest request);
     }
 
     /// <summary>

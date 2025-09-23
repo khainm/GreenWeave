@@ -32,7 +32,7 @@ export interface ShippingAddress {
   id: number
   fullName: string
   phoneNumber: string
-  address: string
+  addressLine: string
   ward: string
   district: string
   province: string

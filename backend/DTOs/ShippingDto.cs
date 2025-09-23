@@ -243,4 +243,33 @@ namespace backend.DTOs
         public string? Location { get; set; }
         public Dictionary<string, object> RawData { get; set; } = new();
     }
+
+    /// <summary>
+    /// Request to register inventory/warehouse with shipping provider
+    /// </summary>
+    public class RegisterInventoryRequest
+    {
+        [Required]
+        public string Phone { get; set; } = string.Empty;
+
+        [Required]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        public string Address { get; set; } = string.Empty;
+
+        [Required]
+        public int WardsId { get; set; }
+    }
+
+    /// <summary>
+    /// Result of inventory registration
+    /// </summary>
+    public class RegisterInventoryResult
+    {
+        public bool IsSuccess { get; set; }
+        public int? GroupAddressId { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
+    }
 }

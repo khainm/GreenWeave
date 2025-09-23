@@ -393,7 +393,7 @@ const AdminOrderDetailPage: React.FC = () => {
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">
-                          {order.shippingAddress.address}
+                          {order.shippingAddress.addressLine}
                           {order.shippingAddress.ward && `, ${order.shippingAddress.ward}`}
                           , {order.shippingAddress.district}, {order.shippingAddress.province}
                         </p>

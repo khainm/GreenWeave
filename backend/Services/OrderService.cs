@@ -13,6 +13,7 @@ namespace backend.Services
         private readonly IProductRepository _productRepository;
         private readonly IUserAddressRepository _userAddressRepository;
         private readonly IInvoiceService _invoiceService;
+        private readonly IShippingService _shippingService;
         private readonly IEmailService _emailService;
         private readonly ILogger<OrderService> _logger;
         private readonly ShippingConfiguration _shippingConfig;
@@ -22,6 +23,7 @@ namespace backend.Services
             IProductRepository productRepository,
             IUserAddressRepository userAddressRepository,
             IInvoiceService invoiceService,
+            IShippingService shippingService,
             IEmailService emailService,
             ILogger<OrderService> logger,
             IOptions<ShippingConfiguration> shippingConfig)
@@ -30,6 +32,7 @@ namespace backend.Services
             _productRepository = productRepository;
             _userAddressRepository = userAddressRepository;
             _invoiceService = invoiceService;
+            _shippingService = shippingService;
             _emailService = emailService;
             _logger = logger;
             _shippingConfig = shippingConfig.Value;
@@ -172,18 +175,45 @@ namespace backend.Services
 
                 var updatedOrder = await _orderRepository.UpdateAsync(order);
 
-                // Tự động tạo và gửi biên lai khi xác nhận đơn hàng
+                // Tự động tạo shipment và invoice khi xác nhận đơn hàng
                 if (updateStatusDto.Status == OrderStatus.Confirmed && previousStatus != OrderStatus.Confirmed)
                 {
                     try
                     {
+                        _logger.LogInformation("Processing confirmed order: {OrderId}", id);
+                        
+                        // 1. Tạo shipment với ViettelPost
+                        if (order.ShippingRequest != null)
+                        {
+                            _logger.LogInformation("Creating shipment for order: {OrderId}", id);
+                            var shipmentResult = await _shippingService.CreateShipmentAsync(new CreateShipmentRequest
+                            {
+                                OrderId = id,
+                                Provider = order.ShippingProvider,
+                                ServiceId = order.ShippingRequest.ServiceId,
+                                Note = order.Notes
+                            });
+                            
+                            if (shipmentResult.IsSuccess)
+                            {
+                                _logger.LogInformation("Shipment created successfully for order: {OrderId}, Tracking: {TrackingCode}", 
+                                    id, shipmentResult.TrackingCode);
+                            }
+                            else
+                            {
+                                _logger.LogWarning("Failed to create shipment for order: {OrderId}, Error: {Error}", 
+                                    id, shipmentResult.ErrorMessage);
+                            }
+                        }
+                        
+                        // 2. Tạo và gửi invoice
                         _logger.LogInformation("Creating invoice for confirmed order: {OrderId}", id);
                         await _invoiceService.ProcessOrderConfirmationAsync(id);
                         _logger.LogInformation("Invoice created and sent successfully for order: {OrderId}", id);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Failed to create/send invoice for order: {OrderId}", id);
+                        _logger.LogError(ex, "Failed to process confirmed order: {OrderId}", id);
                         // Không throw exception để không ảnh hưởng đến việc cập nhật trạng thái đơn hàng
                     }
                 }
