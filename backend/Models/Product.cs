@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace backend.Models
 {
@@ -35,11 +36,17 @@ namespace backend.Models
         
         [Required]
         [Range(0, int.MaxValue)]
-        public int Stock { get; set; }
+        public int Stock { get; set; } // Tổng stock (tính từ ProductWarehouseStock)
         
         [Required]
         [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
         public decimal Weight { get; set; } // Khối lượng sản phẩm (gram)
+        
+        // Primary warehouse (kho chính lưu trữ sản phẩm)
+        public Guid? PrimaryWarehouseId { get; set; }
+        
+        [MaxLength(100)]
+        public string? PrimaryWarehouseName { get; set; }
         
         [Required]
         [MaxLength(20)]
@@ -52,5 +59,9 @@ namespace backend.Models
         public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
         public ICollection<ProductColor> Colors { get; set; } = new List<ProductColor>();
         public ICollection<ProductSticker> Stickers { get; set; } = new List<ProductSticker>();
+        public ICollection<ProductWarehouseStock> WarehouseStocks { get; set; } = new List<ProductWarehouseStock>();
+        
+        [ForeignKey("PrimaryWarehouseId")]
+        public virtual Warehouse? PrimaryWarehouse { get; set; }
     }
 }

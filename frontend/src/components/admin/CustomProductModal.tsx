@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import type { Product, CreateProductRequest } from '../../types/product'
 import ProductService from '../../services/productService'
 import CategoryService from '../../services/categoryService'
+import warehouseService from '../../services/warehouseService'
 
 type Props = {
   open: boolean
@@ -21,10 +22,12 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
     weight: 500,
     description: '',
     selectedColor: '#ffffff' as string,
+    primaryWarehouseId: '' as string,
   })
   const [images, setImages] = useState<string[]>([])
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [categories, setCategories] = useState<Array<{ name: string; isCustomizable: boolean }>>([])
+  const [warehouses, setWarehouses] = useState<Array<{ id: string; name: string }>>([])
   const [colors, setColors] = useState<string[]>(['#ffffff', '#000000'])
   const [pendingColor, setPendingColor] = useState<string>('#10b981')
   const [stickerLibrary, setStickerLibrary] = useState<string[]>([])
@@ -47,6 +50,11 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
     CategoryService.list().then(list => {
       setCategories(list?.map((c: any) => ({ name: c.name, isCustomizable: c.isCustomizable })) || [])
     }).catch(() => setCategories([]))
+
+    // load warehouses
+    warehouseService.getAllWarehouses().then(response => {
+      setWarehouses(response.warehouses?.map((w: any) => ({ id: w.id, name: w.name })) || [])
+    }).catch(() => setWarehouses([]))
   }, [open])
 
   // Helper function để phân biệt sticker từ file vs URL
@@ -80,7 +88,8 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
         price: initialProduct.price,
         weight: initialProduct.weight,
         description: initialProduct.description || '',
-        selectedColor: initialProduct.colors?.[0]?.colorCode || '#ffffff'
+        selectedColor: initialProduct.colors?.[0]?.colorCode || '#ffffff',
+        primaryWarehouseId: initialProduct.primaryWarehouseId || ''
       })
       setImages(initialProduct.images?.map(img => img.imageUrl) || [])
       setColors(initialProduct.colors?.map(c => c.colorCode) || ['#ffffff', '#000000'])
@@ -119,7 +128,8 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
         price: 0,
         weight: 500,
         description: '',
-        selectedColor: '#ffffff'
+        selectedColor: '#ffffff',
+        primaryWarehouseId: ''
       })
       setImages([])
       setColors(['#ffffff', '#000000'])
@@ -290,6 +300,7 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
         stock: 0,
         weight: customForm.weight,
         status: 'active',
+        primaryWarehouseId: customForm.primaryWarehouseId || undefined,
         colors: colors,
         imageFiles: imageFiles, // Ảnh chung từ máy tính
         stickerFiles: stickerFiles, // File stickers từ máy tính (sẽ upload lên Cloudinary)
@@ -449,6 +460,27 @@ const CustomProductModal: React.FC<Props> = ({ open, onClose, onCreated, initial
                     />
                   </div>
                 </div>
+                
+                {/* Warehouse Selection */}
+                {warehouses.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Kho lưu trữ</label>
+                    <select
+                      value={customForm.primaryWarehouseId}
+                      onChange={(e) => setCustomForm(prev => ({ ...prev, primaryWarehouseId: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">Chọn kho lưu trữ (tùy chọn)</option>
+                      {warehouses.map(warehouse => (
+                        <option key={warehouse.id} value={warehouse.id}>
+                          {warehouse.name}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">Sản phẩm sẽ được lưu trữ tại kho đã chọn</p>
+                  </div>
+                )}
+                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Hình ảnh sản phẩm</label>
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">

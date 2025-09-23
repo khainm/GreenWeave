@@ -30,6 +30,8 @@ export interface Product {
   stock: number
   weight: number
   status: 'active' | 'inactive'
+  primaryWarehouseId?: string
+  primaryWarehouseName?: string
   createdAt: string
   updatedAt: string
   images: ProductImage[]
@@ -47,6 +49,7 @@ export interface CreateProductRequest {
   stock: number
   weight: number
   status: 'active' | 'inactive'
+  primaryWarehouseId?: string
   colors?: string[]
   imageUrls?: string[]
   imageFiles?: File[]

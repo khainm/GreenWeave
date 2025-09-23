@@ -15,6 +15,7 @@ namespace backend.Services
         private readonly IInvoiceService _invoiceService;
         private readonly IShippingService _shippingService;
         private readonly IEmailService _emailService;
+        private readonly IWarehouseSelectionService _warehouseSelectionService;
         private readonly ILogger<OrderService> _logger;
         private readonly ShippingConfiguration _shippingConfig;
         
@@ -25,6 +26,7 @@ namespace backend.Services
             IInvoiceService invoiceService,
             IShippingService shippingService,
             IEmailService emailService,
+            IWarehouseSelectionService warehouseSelectionService,
             ILogger<OrderService> logger,
             IOptions<ShippingConfiguration> shippingConfig)
         {
@@ -34,6 +36,7 @@ namespace backend.Services
             _invoiceService = invoiceService;
             _shippingService = shippingService;
             _emailService = emailService;
+            _warehouseSelectionService = warehouseSelectionService;
             _logger = logger;
             _shippingConfig = shippingConfig.Value;
         }
@@ -81,6 +84,26 @@ namespace backend.Services
                 var subtotal = await CalculateSubtotalAsync(createOrderDto.Items);
                 var total = subtotal + createOrderDto.ShippingFee - createOrderDto.Discount;
 
+                // Select optimal warehouse for order fulfillment
+                var shippingAddressDto = new UserAddressDto
+                {
+                    Province = shippingAddress.Province,
+                    District = shippingAddress.District,
+                    Ward = shippingAddress.Ward,
+                    AddressLine = shippingAddress.AddressLine
+                };
+                
+                var selectedWarehouse = await _warehouseSelectionService.SelectOptimalWarehouseAsync(
+                    createOrderDto.Items, shippingAddressDto);
+
+                if (selectedWarehouse == null)
+                {
+                    throw new InvalidOperationException("Không có kho nào đủ hàng để thực hiện đơn hàng này");
+                }
+
+                _logger.LogInformation("Selected warehouse {WarehouseName} (ID: {WarehouseId}) for new order", 
+                    selectedWarehouse.WarehouseName, selectedWarehouse.WarehouseId);
+
                 // Generate order number
                 var orderNumber = await _orderRepository.GenerateOrderNumberAsync();
 
@@ -99,6 +122,8 @@ namespace backend.Services
                     PaymentStatus = createOrderDto.PaymentMethod == PaymentMethod.BankTransfer 
                         ? PaymentStatus.Pending 
                         : PaymentStatus.Pending, // COD cũng là pending cho đến khi giao hàng
+                    FulfillmentWarehouseId = selectedWarehouse.WarehouseId,
+                    FulfillmentWarehouseName = selectedWarehouse.WarehouseName,
                     Notes = createOrderDto.Notes,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -133,6 +158,130 @@ namespace backend.Services
                 _logger.LogError(ex, "Error creating order");
                 throw;
             }
+        }
+
+        public async Task<OrderResponseDto> CreateOrderByAdminAsync(AdminCreateOrderDto adminCreateOrderDto)
+        {
+            try
+            {
+                _logger.LogInformation("Creating order by admin");
+
+                // Validate order items
+                if (!await ValidateOrderItemsAsync(adminCreateOrderDto.Items))
+                {
+                    throw new ArgumentException("Một hoặc nhiều sản phẩm không hợp lệ");
+                }
+
+                // Create or find customer
+                var customerId = await CreateOrFindCustomerAsync(adminCreateOrderDto.CustomerInfo);
+
+                // Create shipping address
+                var shippingAddressId = await CreateShippingAddressAsync(customerId, adminCreateOrderDto.ShippingAddress);
+
+                // Calculate totals
+                var subtotal = await CalculateSubtotalAsync(adminCreateOrderDto.Items);
+                var total = subtotal + adminCreateOrderDto.ShippingFee - adminCreateOrderDto.Discount;
+
+                // Select optimal warehouse for order fulfillment
+                var shippingAddressDto = new UserAddressDto
+                {
+                    Province = adminCreateOrderDto.ShippingAddress.Province,
+                    District = adminCreateOrderDto.ShippingAddress.District,
+                    Ward = adminCreateOrderDto.ShippingAddress.Ward,
+                    AddressLine = adminCreateOrderDto.ShippingAddress.AddressLine
+                };
+
+                var selectedWarehouse = await _warehouseSelectionService.SelectOptimalWarehouseAsync(
+                    adminCreateOrderDto.Items, shippingAddressDto);
+
+                if (selectedWarehouse == null)
+                {
+                    throw new ArgumentException("Không tìm thấy kho phù hợp để thực hiện đơn hàng");
+                }
+
+                // Generate order number
+                var orderNumber = await _orderRepository.GenerateOrderNumberAsync();
+
+                // Create order
+                var order = new Order
+                {
+                    OrderNumber = orderNumber,
+                    CustomerId = customerId,
+                    ShippingAddressId = shippingAddressId,
+                    Subtotal = subtotal,
+                    ShippingFee = adminCreateOrderDto.ShippingFee,
+                    Discount = adminCreateOrderDto.Discount,
+                    Total = total,
+                    Status = OrderStatus.Pending,
+                    PaymentMethod = adminCreateOrderDto.PaymentMethod,
+                    PaymentStatus = adminCreateOrderDto.PaymentMethod == PaymentMethod.BankTransfer 
+                        ? PaymentStatus.Pending 
+                        : PaymentStatus.Pending, // COD cũng là pending cho đến khi giao hàng
+                    FulfillmentWarehouseId = selectedWarehouse.WarehouseId,
+                    FulfillmentWarehouseName = selectedWarehouse.WarehouseName,
+                    Notes = adminCreateOrderDto.Notes,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                // Create order items
+                foreach (var itemDto in adminCreateOrderDto.Items)
+                {
+                    var product = await _productRepository.GetByIdAsync(itemDto.ProductId);
+                    if (product == null) continue;
+
+                    var orderItem = new OrderItem
+                    {
+                        ProductId = itemDto.ProductId,
+                        ProductName = product.Name,
+                        ProductSku = product.Sku,
+                        ProductImage = product.Images?.FirstOrDefault(i => i.IsPrimary)?.ImageUrl,
+                        Quantity = itemDto.Quantity,
+                        UnitPrice = itemDto.UnitPrice,
+                        TotalPrice = itemDto.UnitPrice * itemDto.Quantity,
+                        CustomizationData = itemDto.Customization != null ? JsonSerializer.Serialize(itemDto.Customization) : null
+                    };
+
+                    order.Items.Add(orderItem);
+                }
+
+                var createdOrder = await _orderRepository.CreateAsync(order);
+                return MapToResponseDto(createdOrder);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating order by admin");
+                throw;
+            }
+        }
+
+        private Task<string> CreateOrFindCustomerAsync(AdminCustomerInfoDto customerInfo)
+        {
+            // For now, create a temporary customer ID
+            // In a real system, you might want to create a customer record
+            return Task.FromResult($"temp-customer-{Guid.NewGuid()}");
+        }
+
+        private async Task<Guid> CreateShippingAddressAsync(string customerId, AdminShippingAddressDto shippingAddress)
+        {
+            // Create a temporary address
+            var address = new UserAddress
+            {
+                Id = Guid.NewGuid(),
+                UserId = customerId,
+                FullName = shippingAddress.FullName,
+                PhoneNumber = shippingAddress.Phone,
+                Province = shippingAddress.Province,
+                District = shippingAddress.District,
+                Ward = shippingAddress.Ward,
+                AddressLine = shippingAddress.AddressLine,
+                IsDefault = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            await _userAddressRepository.CreateAddressAsync(address);
+            return address.Id;
         }
         
         public async Task<OrderResponseDto> UpdateOrderStatusAsync(int id, UpdateOrderStatusDto updateStatusDto)
@@ -463,6 +612,8 @@ namespace backend.Services
                 Status = order.Status.ToString(),
                 PaymentStatus = order.PaymentStatus.ToString(),
                 PaymentMethod = order.PaymentMethod.ToString(),
+                FulfillmentWarehouseId = order.FulfillmentWarehouseId?.ToString(),
+                FulfillmentWarehouseName = order.FulfillmentWarehouseName,
                 Notes = order.Notes,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt,

@@ -55,7 +55,7 @@ namespace backend.Controllers
         /// <param name="provinceId">ID của tỉnh/thành phố</param>
         /// <returns>Danh sách quận/huyện</returns>
         [HttpGet("districts")]
-         [AllowAnonymous]
+        [AllowAnonymous]
         public async Task<ActionResult<AddressApiResponse<List<AddressDto>>>> GetDistricts([FromQuery] int provinceId)
         {
             try
@@ -91,7 +91,7 @@ namespace backend.Controllers
         /// <param name="districtId">ID của quận/huyện</param>
         /// <returns>Danh sách phường/xã</returns>
         [HttpGet("wards")]
-         [AllowAnonymous]
+        [AllowAnonymous]
         public async Task<ActionResult<AddressApiResponse<List<AddressDto>>>> GetWards([FromQuery] int districtId)
         {
             try
@@ -127,7 +127,7 @@ namespace backend.Controllers
         /// <param name="provinceId">ID của tỉnh/thành phố</param>
         /// <returns>Thông tin tỉnh/thành phố với quận/huyện và phường/xã</returns>
         [HttpGet("province-with-districts")]
-         [AllowAnonymous]
+        [AllowAnonymous]
         public async Task<ActionResult<AddressApiResponse<ProvinceWithDistrictsDto>>> GetProvinceWithDistricts([FromQuery] int provinceId)
         {
             try
@@ -169,7 +169,7 @@ namespace backend.Controllers
         /// <param name="wardId">ID của phường/xã</param>
         /// <returns>Kết quả kiểm tra địa chỉ</returns>
         [HttpGet("check-address-warning")]
-         [AllowAnonymous]
+        [AllowAnonymous]
         public async Task<ActionResult<AddressWarningResult>> CheckAddressWarning([FromQuery] int wardId)
         {
             try

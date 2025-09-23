@@ -103,6 +103,13 @@ export class OrderService {
   }
 
   /**
+   * Tạo đơn hàng từ admin với thông tin khách hàng mới
+   */
+  static async createOrderByAdmin(request: any): Promise<Order> {
+    return await apiClient.post<Order>(`${this.BASE_PATH}/admin`, request)
+  }
+
+  /**
    * Xóa đơn hàng (chỉ với đơn hàng chưa xác nhận)
    */
   static async deleteOrder(id: number): Promise<void> {

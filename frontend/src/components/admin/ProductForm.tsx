@@ -12,6 +12,7 @@ export type ProductFormValues = {
   colors: string[]
   selectedColor: string
   status: 'active' | 'inactive'
+  primaryWarehouseId?: string
   images: string[]
   imageFiles: File[]
   hasChangedImages?: boolean // Flag để track khi có thay đổi ảnh
@@ -26,6 +27,7 @@ type ProductFormProps = {
   onRegenerateSku?: () => void
   categoryOptions?: { label: string; value: string; isCustomizable?: boolean }[]
   categoryIsCustomizable?: boolean
+  warehouseOptions?: { label: string; value: string }[]
 }
 
 const popularColors = [
@@ -43,7 +45,7 @@ const popularColors = [
   { name: 'Xanh ngọc', value: '#06b6d4' }
 ]
 
-const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitting, onSubmit, enableSkuRegenerate, onRegenerateSku, categoryOptions, categoryIsCustomizable }) => {
+const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitting, onSubmit, enableSkuRegenerate, onRegenerateSku, categoryOptions, categoryIsCustomizable, warehouseOptions }) => {
   const [isDragOver, setIsDragOver] = useState(false)
 
   const handleFiles = async (files: FileList | null) => {
@@ -230,6 +232,26 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
           />
         </div>
       </div>
+
+      {/* Warehouse Selection */}
+      {warehouseOptions && warehouseOptions.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Kho lưu trữ</label>
+          <select
+            value={values.primaryWarehouseId || ''}
+            onChange={(e) => setValues(prev => ({ ...prev, primaryWarehouseId: e.target.value || undefined }))}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          >
+            <option value="">Chọn kho lưu trữ (tùy chọn)</option>
+            {warehouseOptions.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">Sản phẩm sẽ được lưu trữ tại kho đã chọn</p>
+        </div>
+      )}
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">Hình ảnh sản phẩm</label>

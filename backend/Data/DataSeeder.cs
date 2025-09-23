@@ -21,6 +21,7 @@ namespace backend.Data
 
             // Seed Users
             await SeedUsersAsync(userManager);
+
         }
 
         private static async Task SeedRolesAsync(RoleManager<IdentityRole> roleManager)
@@ -142,6 +143,7 @@ namespace backend.Data
                 }
             }
         }
+
 
     }
 }

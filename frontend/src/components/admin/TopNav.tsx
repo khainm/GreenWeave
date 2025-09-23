@@ -21,16 +21,28 @@ const Icon = ({ children }: { children: React.ReactNode }) => (
 const TopNav: React.FC = () => {
   const location = useLocation()
   const [isGoodsOpen, setIsGoodsOpen] = useState(false)
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false)
   const goodsRef = useRef<HTMLDivElement | null>(null)
+  const ordersRef = useRef<HTMLDivElement | null>(null)
+  const goodsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const ordersTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (goodsRef.current && !goodsRef.current.contains(e.target as Node)) {
         setIsGoodsOpen(false)
       }
+      if (ordersRef.current && !ordersRef.current.contains(e.target as Node)) {
+        setIsOrdersOpen(false)
+      }
     }
     document.addEventListener('click', onClick)
-    return () => document.removeEventListener('click', onClick)
+    return () => {
+      document.removeEventListener('click', onClick)
+      // Cleanup timeouts
+      if (goodsTimeoutRef.current) clearTimeout(goodsTimeoutRef.current)
+      if (ordersTimeoutRef.current) clearTimeout(ordersTimeoutRef.current)
+    }
   }, [])
 
   return (
@@ -97,9 +109,66 @@ const TopNav: React.FC = () => {
 
               if (t.label === 'Đơn hàng') {
                 return (
-                  <NavLink key={t.label} to="/admin/orders" className={base}>
-                    {t.label}
-                  </NavLink>
+                  <div
+                    key={t.label}
+                    className="relative"
+                    onMouseEnter={() => setIsOrdersOpen(true)}
+                    onMouseLeave={() => {
+                      // Delay đóng dropdown để tránh đóng khi di chuột vào dropdown
+                      ordersTimeoutRef.current = setTimeout(() => {
+                        setIsOrdersOpen(false)
+                      }, 100)
+                    }}
+                    ref={ordersRef}
+                  >
+                    <button className={base} aria-haspopup="true" aria-expanded={isOrdersOpen} onClick={() => setIsOrdersOpen((v) => !v)}>
+                      {t.label}
+                    </button>
+                    {isOrdersOpen && (
+                      <div 
+                        className="absolute left-0 top-12 z-40"
+                        onMouseEnter={() => {
+                          // Clear timeout khi di chuột vào dropdown
+                          if (ordersTimeoutRef.current) {
+                            clearTimeout(ordersTimeoutRef.current)
+                            ordersTimeoutRef.current = null
+                          }
+                          setIsOrdersOpen(true)
+                        }}
+                        onMouseLeave={() => {
+                          // Delay đóng dropdown
+                          ordersTimeoutRef.current = setTimeout(() => {
+                            setIsOrdersOpen(false)
+                          }, 100)
+                        }}
+                      >
+                        {/* Bridge để tránh mất hover */}
+                        <div className="h-2 w-full"></div>
+                        <div className="bg-white text-gray-900 rounded-2xl shadow-[0_20px_40px_rgba(13,110,253,0.15)] w-[720px] p-6 border border-blue-100">
+                          <div className="grid grid-cols-2 gap-8">
+                            <div>
+                              <div className="text-xl font-semibold mb-6">Đơn hàng</div>
+                              <ul className="space-y-6 text-gray-800">
+                                <li><Link to="/admin/orders" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsOrdersOpen(false)}>Danh sách đơn hàng</Link></li>
+                                <li><Link to="/admin/orders/create" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsOrdersOpen(false)}>Tạo đơn hàng thường</Link></li>
+                                <li><Link to="/admin/orders/create-custom" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsOrdersOpen(false)}>Tạo đơn hàng custom</Link></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Vận đơn</button></li>
+                              </ul>
+                            </div>
+                            <div className="border-l border-gray-200 pl-8">
+                              <div className="text-xl font-semibold mb-6">Thống kê</div>
+                              <ul className="space-y-6 text-gray-800">
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Báo cáo doanh thu</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Đơn hàng chờ xử lý</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Đơn hàng đang giao</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Đơn hàng hoàn thành</button></li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )
               }
 
@@ -126,15 +195,38 @@ const TopNav: React.FC = () => {
                     key={t.label}
                     className="relative"
                     onMouseEnter={() => setIsGoodsOpen(true)}
-                    onMouseLeave={() => setIsGoodsOpen(false)}
+                    onMouseLeave={() => {
+                      // Delay đóng dropdown để tránh đóng khi di chuột vào dropdown
+                      goodsTimeoutRef.current = setTimeout(() => {
+                        setIsGoodsOpen(false)
+                      }, 100)
+                    }}
                     ref={goodsRef}
                   >
                     <button className={base} aria-haspopup="true" aria-expanded={isGoodsOpen} onClick={() => setIsGoodsOpen((v) => !v)}>
                       {t.label}
                     </button>
                     {isGoodsOpen && (
-                      <div className="absolute left-0 top-10 z-40">
-                        <div className="mt-2 bg-white text-gray-900 rounded-2xl shadow-[0_20px_40px_rgba(13,110,253,0.15)] w-[720px] p-6 border border-blue-100">
+                      <div 
+                        className="absolute left-0 top-12 z-40"
+                        onMouseEnter={() => {
+                          // Clear timeout khi di chuột vào dropdown
+                          if (goodsTimeoutRef.current) {
+                            clearTimeout(goodsTimeoutRef.current)
+                            goodsTimeoutRef.current = null
+                          }
+                          setIsGoodsOpen(true)
+                        }}
+                        onMouseLeave={() => {
+                          // Delay đóng dropdown
+                          goodsTimeoutRef.current = setTimeout(() => {
+                            setIsGoodsOpen(false)
+                          }, 100)
+                        }}
+                      >
+                        {/* Bridge để tránh mất hover */}
+                        <div className="h-2 w-full"></div>
+                        <div className="bg-white text-gray-900 rounded-2xl shadow-[0_20px_40px_rgba(13,110,253,0.15)] w-[720px] p-6 border border-blue-100">
                           <div className="grid grid-cols-2 gap-8">
                             <div>
                               <div className="text-xl font-semibold mb-6">Hàng hóa</div>
@@ -154,6 +246,11 @@ const TopNav: React.FC = () => {
                                 <li>
                                   <Link to="/admin/warehouses" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsGoodsOpen(false)}>
                                     Quản lý kho hàng
+                                  </Link>
+                                </li>
+                                <li>
+                                  <Link to="/admin/warehouse-stock" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsGoodsOpen(false)}>
+                                    Quản lý stock
                                   </Link>
                                 </li>
                                 <li><button className="hover:text-[#0a68ff] transition-colors">Kiểm kho</button></li>

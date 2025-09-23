@@ -38,8 +38,8 @@ namespace backend.Services
             _logger.LogInformation("ViettelPostShippingProvider initialized in Production mode with base URL: {BaseUrl}", 
                 _config.BaseUrl);
             
-            // Tự động đăng ký kho hàng khi khởi tạo
-            _ = Task.Run(async () => await RegisterDefaultInventoryAsync());
+            // Tự động đăng ký kho hàng khi khởi tạo (tạm thời tắt để tránh lỗi)
+            // _ = Task.Run(async () => await RegisterDefaultInventoryAsync());
         }
 
         public Task<bool> IsAvailableAsync()
@@ -983,89 +983,126 @@ namespace backend.Services
         /// </summary>
         public async Task<RegisterInventoryResult> RegisterInventoryAsync(RegisterInventoryRequest request)
         {
-            try
+            const int maxRetries = 3;
+            const int delayMs = 2000; // 2 seconds
+
+            for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
-                await EnsureAuthenticatedAsync();
-
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
-
-                var payload = new
+                try
                 {
-                    PHONE = request.Phone,
-                    NAME = request.Name,
-                    ADDRESS = request.Address,
-                    WARDS_ID = request.WardsId
-                };
+                    await EnsureAuthenticatedAsync();
 
-                var jsonContent = JsonSerializer.Serialize(payload);
-                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+                    _httpClient.DefaultRequestHeaders.Clear();
+                    _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
-                _logger.LogInformation("Registering inventory with ViettelPost: {Payload}", jsonContent);
-
-                var response = await _httpClient.PostAsync("/v2/user/registerInventory", content);
-                var responseContent = await response.Content.ReadAsStringAsync();
-
-                _logger.LogInformation("ViettelPost registerInventory response: {Response}", responseContent);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("🔍 [DEBUG] Parsing response: {ResponseContent}", responseContent);
-                    
-                    var options = new JsonSerializerOptions
+                    var payload = new
                     {
-                        PropertyNameCaseInsensitive = true
+                        PHONE = request.Phone,
+                        NAME = request.Name,
+                        ADDRESS = request.Address,
+                        WARDS_ID = request.WardsId
                     };
-                    var result = JsonSerializer.Deserialize<ViettelPostRegisterInventoryResponse>(responseContent, options);
-                    
-                    _logger.LogInformation("🔍 [DEBUG] Parsed result: Status={Status}, Error={Error}, DataCount={DataCount}", 
-                        result?.Status, result?.Error, result?.Data?.Count);
-                    
-                    if (result?.Status == 200 && result.Data != null && result.Data.Count > 0)
+
+                    var jsonContent = JsonSerializer.Serialize(payload);
+                    var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                    _logger.LogInformation("Registering inventory with ViettelPost (attempt {Attempt}/{MaxRetries}): {Payload}", 
+                        attempt, maxRetries, jsonContent);
+
+                    var response = await _httpClient.PostAsync("/v2/user/registerInventory", content);
+                    var responseContent = await response.Content.ReadAsStringAsync();
+
+                    _logger.LogInformation("ViettelPost registerInventory response (attempt {Attempt}): {Response}", 
+                        attempt, responseContent);
+
+                    if (response.IsSuccessStatusCode)
                     {
-                        // Lấy kho mới nhất (đầu tiên trong danh sách)
-                        var latestWarehouse = result.Data.First();
+                        _logger.LogInformation("🔍 [DEBUG] Parsing response: {ResponseContent}", responseContent);
                         
-                        _logger.LogInformation("🔍 [DEBUG] Latest warehouse: GroupAddressId={GroupAddressId}, Name={Name}", 
-                            latestWarehouse.groupaddressId, latestWarehouse.name);
-                        
-                        return new RegisterInventoryResult
+                        var options = new JsonSerializerOptions
                         {
-                            IsSuccess = true,
-                            GroupAddressId = latestWarehouse.groupaddressId,
-                            Message = "Đăng ký kho hàng thành công"
+                            PropertyNameCaseInsensitive = true
                         };
+                        var result = JsonSerializer.Deserialize<ViettelPostRegisterInventoryResponse>(responseContent, options);
+                        
+                        _logger.LogInformation("🔍 [DEBUG] Parsed result: Status={Status}, Error={Error}, DataCount={DataCount}", 
+                            result?.Status, result?.Error, result?.Data?.Count);
+                        
+                        if (result?.Status == 200 && result.Data != null && result.Data.Count > 0)
+                        {
+                            // Lấy kho mới nhất (đầu tiên trong danh sách)
+                            var latestWarehouse = result.Data.First();
+                            
+                            _logger.LogInformation("🔍 [DEBUG] Latest warehouse: GroupAddressId={GroupAddressId}, Name={Name}", 
+                                latestWarehouse.groupaddressId, latestWarehouse.name);
+                            
+                            return new RegisterInventoryResult
+                            {
+                                IsSuccess = true,
+                                GroupAddressId = latestWarehouse.groupaddressId,
+                                Message = "Đăng ký kho hàng thành công"
+                            };
+                        }
+                        else
+                        {
+                            _logger.LogWarning("🔍 [DEBUG] Failed conditions: Status={Status}, DataNull={DataNull}, DataCount={DataCount}", 
+                                result?.Status, result?.Data == null, result?.Data?.Count);
+                            
+                            return new RegisterInventoryResult
+                            {
+                                IsSuccess = false,
+                                ErrorMessage = result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
+                            };
+                        }
                     }
                     else
                     {
-                        _logger.LogWarning("🔍 [DEBUG] Failed conditions: Status={Status}, DataNull={DataNull}, DataCount={DataCount}", 
-                            result?.Status, result?.Data == null, result?.Data?.Count);
-                        
                         return new RegisterInventoryResult
                         {
                             IsSuccess = false,
-                            ErrorMessage = result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
+                            ErrorMessage = $"Lỗi API: {response.StatusCode} - {responseContent}"
                         };
                     }
                 }
-                else
+                catch (TaskCanceledException ex) when (attempt < maxRetries)
                 {
+                    _logger.LogWarning("⚠️ [RETRY] Attempt {Attempt} failed with timeout, retrying in {DelayMs}ms: {Error}", 
+                        attempt, delayMs, ex.Message);
+                    
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(delayMs * attempt); // Exponential backoff
+                        continue;
+                    }
+                }
+                catch (HttpRequestException ex) when (attempt < maxRetries)
+                {
+                    _logger.LogWarning("⚠️ [RETRY] Attempt {Attempt} failed with HTTP error, retrying in {DelayMs}ms: {Error}", 
+                        attempt, delayMs, ex.Message);
+                    
+                    if (attempt < maxRetries)
+                    {
+                        await Task.Delay(delayMs * attempt); // Exponential backoff
+                        continue;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ [FINAL] Attempt {Attempt} failed with unexpected error", attempt);
                     return new RegisterInventoryResult
                     {
                         IsSuccess = false,
-                        ErrorMessage = $"Lỗi API: {response.StatusCode} - {responseContent}"
+                        ErrorMessage = $"Lỗi không mong đợi: {ex.Message}"
                     };
                 }
             }
-            catch (Exception ex)
+
+            // Nếu tất cả retry đều thất bại
+            return new RegisterInventoryResult
             {
-                _logger.LogError(ex, "Error registering inventory with ViettelPost");
-                return new RegisterInventoryResult
-                {
-                    IsSuccess = false,
-                    ErrorMessage = $"Lỗi: {ex.Message}"
-                };
-            }
+                IsSuccess = false,
+                ErrorMessage = $"Đăng ký kho hàng thất bại sau {maxRetries} lần thử"
+            };
         }
     }
 

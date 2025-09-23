@@ -18,6 +18,11 @@ namespace backend.DTOs
         public string Status { get; set; } = string.Empty;
         public string PaymentStatus { get; set; } = string.Empty;
         public string PaymentMethod { get; set; } = string.Empty;
+        
+        // Warehouse fields
+        public string? FulfillmentWarehouseId { get; set; }
+        public string? FulfillmentWarehouseName { get; set; }
+        
         public string? Notes { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
@@ -109,6 +114,8 @@ namespace backend.DTOs
         [Required]
         public int ProductId { get; set; }
 
+        public string ProductName { get; set; } = string.Empty;
+
         [Required]
         [Range(1, int.MaxValue, ErrorMessage = "Số lượng phải lớn hơn 0")]
         public int Quantity { get; set; }
@@ -118,6 +125,88 @@ namespace backend.DTOs
         public decimal UnitPrice { get; set; }
 
         public object? Customization { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for admin creating orders with customer information
+    /// </summary>
+    public class AdminCreateOrderDto
+    {
+        [Required]
+        [MinLength(1, ErrorMessage = "Đơn hàng phải có ít nhất 1 sản phẩm")]
+        public List<CreateOrderItemDto> Items { get; set; } = new();
+
+        [Required]
+        public AdminCustomerInfoDto CustomerInfo { get; set; } = new();
+
+        [Required]
+        public AdminShippingAddressDto ShippingAddress { get; set; } = new();
+
+        public decimal ShippingFee { get; set; } = 0;
+        public decimal Discount { get; set; } = 0;
+
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+
+        /// <summary>
+        /// Payment method for this order
+        /// </summary>
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
+
+        /// <summary>
+        /// Shipping provider for this order
+        /// </summary>
+        public ShippingProvider ShippingProvider { get; set; } = ShippingProvider.ViettelPost;
+
+        /// <summary>
+        /// Service ID for the selected shipping provider (e.g., "VCN" for Viettel Post)
+        /// </summary>
+        [StringLength(50)]
+        public string? ShippingServiceId { get; set; }
+    }
+
+    public class AdminCustomerInfoDto
+    {
+        [Required]
+        [StringLength(100)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required]
+        [Phone]
+        [StringLength(20)]
+        public string Phone { get; set; } = string.Empty;
+
+        [EmailAddress]
+        [StringLength(100)]
+        public string? Email { get; set; }
+    }
+
+    public class AdminShippingAddressDto
+    {
+        [Required]
+        [StringLength(100)]
+        public string FullName { get; set; } = string.Empty;
+
+        [Required]
+        [Phone]
+        [StringLength(20)]
+        public string Phone { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(100)]
+        public string Province { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(100)]
+        public string District { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(100)]
+        public string Ward { get; set; } = string.Empty;
+
+        [Required]
+        [StringLength(500)]
+        public string AddressLine { get; set; } = string.Empty;
     }
 
     public class UpdateOrderStatusDto

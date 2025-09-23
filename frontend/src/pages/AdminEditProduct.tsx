@@ -4,6 +4,7 @@ import TopNav from '../components/admin/TopNav'
 import { type ProductFormValues } from '../components/admin/ProductForm'
 import ProductService from '../services/productService'
 import CategoryService from '../services/categoryService'
+import warehouseService from '../services/warehouseService'
 import type { CreateProductRequest, Product } from '../types/product'
 import CustomProductModal from '../components/admin/CustomProductModal'
 import {
@@ -22,6 +23,7 @@ const AdminEditProduct: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable: boolean }[]>([])
+  const [warehouseOptions, setWarehouseOptions] = useState<{ label: string; value: string }[]>([])
   const [product, setProduct] = useState<Product | null>(null)
   const [isCustomProduct, setIsCustomProduct] = useState(false)
   const [showCustomModal, setShowCustomModal] = useState(false)
@@ -44,8 +46,9 @@ const AdminEditProduct: React.FC = () => {
   // local drag state removed after form extraction
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadData = async () => {
       try {
+        // Load categories
         const cats = await CategoryService.list()
         const options = cats
           .filter(c => c.status === 'active')
@@ -58,11 +61,19 @@ const AdminEditProduct: React.FC = () => {
         const meta: Record<string, { isCustomizable: boolean }> = {}
         cats.forEach(c => { meta[c.name] = { isCustomizable: c.isCustomizable } })
         setCategoryMeta(meta)
+
+        // Load warehouses
+        const warehouseResponse = await warehouseService.getAllWarehouses()
+        const warehouseOpts = warehouseResponse.warehouses?.map((w: any) => ({ 
+          label: w.name, 
+          value: w.id 
+        })) || []
+        setWarehouseOptions(warehouseOpts)
       } catch (e) {
-        // silently ignore for now
+        console.error('Error loading data:', e)
       }
     }
-    loadCategories()
+    loadData()
   }, [])
 
   useEffect(() => {
@@ -88,6 +99,7 @@ const AdminEditProduct: React.FC = () => {
           colors: productData.colors?.map(c => c.colorCode) || ['#10b981'],
           selectedColor: productData.colors?.[0]?.colorCode || '#10b981',
           status: productData.status,
+          primaryWarehouseId: productData.primaryWarehouseId,
           images: productData.images?.sort((a, b) => a.sortOrder - b.sortOrder).map(img => img.imageUrl) || [],
           imageFiles: [],
           hasChangedImages: false
@@ -140,6 +152,7 @@ const AdminEditProduct: React.FC = () => {
         stock: form.stock,
         weight: form.weight,
         status: form.status,
+        primaryWarehouseId: form.primaryWarehouseId,
         colors: form.colors,
         // Nếu có thay đổi ảnh, luôn gửi imageFiles (có thể rỗng để xóa hết)
         // Nếu không có thay đổi ảnh, gửi imageUrls để giữ nguyên
@@ -191,6 +204,7 @@ const AdminEditProduct: React.FC = () => {
             isSaving={isSaving}
             error={error}
             categoryOptions={categoryOptions}
+            warehouseOptions={warehouseOptions}
             onSubmit={handleSubmit}
           />
 

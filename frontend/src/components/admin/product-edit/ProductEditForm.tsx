@@ -8,6 +8,7 @@ interface ProductEditFormProps {
   isSaving: boolean
   error: string | null
   categoryOptions: { label: string; value: string; isCustomizable: boolean }[]
+  warehouseOptions: { label: string; value: string }[]
   onSubmit: (e: React.FormEvent) => Promise<void>
 }
 
@@ -17,6 +18,7 @@ const ProductEditForm: React.FC<ProductEditFormProps> = ({
   isSaving,
   error,
   categoryOptions,
+  warehouseOptions,
   onSubmit
 }) => {
   return (
@@ -36,6 +38,7 @@ const ProductEditForm: React.FC<ProductEditFormProps> = ({
         onSubmit={onSubmit}
         categoryOptions={categoryOptions}
         categoryIsCustomizable={categoryOptions.find(o => o.label === form.category)?.isCustomizable}
+        warehouseOptions={warehouseOptions}
       />
       
       <div className="mt-4">

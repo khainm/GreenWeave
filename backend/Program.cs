@@ -209,7 +209,9 @@ builder.Services.AddScoped<IShippingService, ShippingService>();
 
 // Add Warehouse services
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
+builder.Services.AddScoped<IProductWarehouseStockRepository, ProductWarehouseStockRepository>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
+builder.Services.AddScoped<IWarehouseSelectionService, WarehouseSelectionService>();
 
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
@@ -286,6 +288,7 @@ app.MapControllers();
 
 // Seed data
 await DataSeeder.SeedDataAsync(app.Services);
+
 
 app.Run();
 

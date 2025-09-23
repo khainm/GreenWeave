@@ -269,6 +269,52 @@ namespace backend.Controllers
                 return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi tạo đơn hàng" });
             }
         }
+
+        /// <summary>
+        /// Tạo đơn hàng từ admin với thông tin khách hàng mới (Admin/Staff only)
+        /// </summary>
+        /// <param name="adminCreateOrderDto">Thông tin đơn hàng và khách hàng</param>
+        /// <returns>Đơn hàng đã tạo</returns>
+        /// <response code="201">Tạo đơn hàng thành công</response>
+        /// <response code="400">Dữ liệu không hợp lệ</response>
+        /// <response code="401">Chưa đăng nhập</response>
+        /// <response code="403">Không có quyền truy cập</response>
+        /// <response code="500">Lỗi server nội bộ</response>
+        [HttpPost("admin")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<OrderResponseDto>> CreateOrderByAdmin([FromBody] AdminCreateOrderDto adminCreateOrderDto)
+        {
+            try
+            {
+                // Check if user is admin or staff
+                if (!User.IsInRole(UserRoles.Admin) && !User.IsInRole(UserRoles.Staff))
+                {
+                    return Forbid();
+                }
+
+                if (!ModelState.IsValid)
+                    return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
+
+                var order = await _orderService.CreateOrderByAdminAsync(adminCreateOrderDto);
+                return CreatedAtAction(nameof(GetOrderById), new { id = order.Id }, 
+                    new { success = true, data = order });
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid data when creating order by admin");
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating order by admin");
+                return StatusCode(500, new { success = false, message = "Lỗi server nội bộ" });
+            }
+        }
         
         /// <summary>
         /// Cập nhật trạng thái đơn hàng (Admin/Staff only)

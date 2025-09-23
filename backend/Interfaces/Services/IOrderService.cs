@@ -9,6 +9,7 @@ namespace backend.Interfaces.Services
         Task<OrderResponseDto?> GetOrderByIdAsync(int id);
         Task<OrderResponseDto?> GetOrderByNumberAsync(string orderNumber);
         Task<OrderResponseDto> CreateOrderAsync(CreateOrderDto createOrderDto);
+        Task<OrderResponseDto> CreateOrderByAdminAsync(AdminCreateOrderDto adminCreateOrderDto);
         Task<OrderResponseDto> UpdateOrderStatusAsync(int id, UpdateOrderStatusDto updateStatusDto);
         Task<bool> DeleteOrderAsync(int id);
 

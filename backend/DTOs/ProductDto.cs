@@ -34,6 +34,9 @@ namespace backend.DTOs
         [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
         public decimal Weight { get; set; }
         
+        // Primary warehouse field
+        public Guid? PrimaryWarehouseId { get; set; }
+        
         [Required]
         public string Status { get; set; } = "active";
         
@@ -71,6 +74,11 @@ namespace backend.DTOs
         public int Stock { get; set; }
         public decimal Weight { get; set; }
         public string Status { get; set; } = string.Empty;
+        
+        // Primary warehouse fields
+        public string? PrimaryWarehouseId { get; set; }
+        public string? PrimaryWarehouseName { get; set; }
+        
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         

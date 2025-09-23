@@ -6,6 +6,7 @@ import type { CreateProductRequest } from '../types/product'
 import ProductForm, { type ProductFormValues } from '../components/admin/ProductForm'
 import { formatVnd } from '../utils/format'
 import CategoryService from '../services/categoryService'
+import warehouseService from '../services/warehouseService'
 
 const AdminAddProduct: React.FC = () => {
   const navigate = useNavigate()
@@ -27,6 +28,7 @@ const AdminAddProduct: React.FC = () => {
     imageFiles: []
   })
   const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable: boolean }[]>([])
+  const [warehouseOptions, setWarehouseOptions] = useState<{ label: string; value: string }[]>([])
 
   // SKU helpers
   const generateSku = (category: string) => {
@@ -46,18 +48,28 @@ const AdminAddProduct: React.FC = () => {
   }, [form.category])
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadData = async () => {
       try {
+        // Load categories
         const cats = await CategoryService.list()
-        setCategoryOptions(cats
+        const categoryOpts = cats
           .filter(c => c.status === 'active' && !c.isCustomizable)
           .sort((a,b) => a.sortOrder - b.sortOrder)
-          .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable })))
+          .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable }))
+        setCategoryOptions(categoryOpts)
+
+        // Load warehouses
+        const warehouseResponse = await warehouseService.getAllWarehouses()
+        const warehouseOpts = warehouseResponse.warehouses?.map((w: any) => ({ 
+          label: w.name, 
+          value: w.id 
+        })) || []
+        setWarehouseOptions(warehouseOpts)
       } catch (e) {
-        // silently ignore for now
+        console.error('Error loading data:', e)
       }
     }
-    loadCategories()
+    loadData()
   }, [])
 
 
@@ -84,6 +96,7 @@ const AdminAddProduct: React.FC = () => {
         stock: form.stock,
         weight: form.weight,
         status: form.status,
+        primaryWarehouseId: form.primaryWarehouseId,
         colors: form.colors,
         imageUrls: form.images.filter(img => img.startsWith('http')), // Chỉ lấy URL
         imageFiles: form.imageFiles
@@ -136,6 +149,7 @@ const AdminAddProduct: React.FC = () => {
               onRegenerateSku={() => setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))}
               categoryOptions={categoryOptions}
               categoryIsCustomizable={categoryOptions.find(o => o.label === form.category)?.isCustomizable}
+              warehouseOptions={warehouseOptions}
             />
             <div className="mt-4">
               <Link to="/admin/products" className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Hủy</Link>

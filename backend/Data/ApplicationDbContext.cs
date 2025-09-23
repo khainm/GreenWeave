@@ -24,6 +24,7 @@ namespace backend.Data
         public DbSet<ShippingRequest> ShippingRequests { get; set; }
         public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
         public DbSet<Warehouse> Warehouses { get; set; }
+        public DbSet<ProductWarehouseStock> ProductWarehouseStocks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -336,6 +337,26 @@ namespace backend.Data
                 
                 entity.HasIndex(w => w.IsDefault).HasFilter("IsDefault = 1 AND IsActive = 1");
                 entity.HasIndex(w => w.IsActive);
+            });
+
+            // ProductWarehouseStock configuration
+            modelBuilder.Entity<ProductWarehouseStock>(entity =>
+            {
+                entity.HasKey(pws => pws.Id);
+                
+                // Composite unique index để tránh duplicate Product-Warehouse
+                entity.HasIndex(pws => new { pws.ProductId, pws.WarehouseId }).IsUnique();
+                
+                // Foreign key relationships
+                entity.HasOne(pws => pws.Product)
+                    .WithMany(p => p.WarehouseStocks)
+                    .HasForeignKey(pws => pws.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                    
+                entity.HasOne(pws => pws.Warehouse)
+                    .WithMany()
+                    .HasForeignKey(pws => pws.WarehouseId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

@@ -9,6 +9,8 @@ namespace backend.Services
     public class ProductService : IProductService
     {
         private readonly IProductRepository _productRepository;
+        private readonly IWarehouseRepository _warehouseRepository;
+        private readonly IProductWarehouseStockRepository _productWarehouseStockRepository;
         private readonly ICloudinaryService _cloudinaryService;
         private readonly ILogger<ProductService> _logger;
         
@@ -22,10 +24,14 @@ namespace backend.Services
         
         public ProductService(
             IProductRepository productRepository,
+            IWarehouseRepository warehouseRepository,
+            IProductWarehouseStockRepository productWarehouseStockRepository,
             ICloudinaryService cloudinaryService,
             ILogger<ProductService> logger)
         {
             _productRepository = productRepository;
+            _warehouseRepository = warehouseRepository;
+            _productWarehouseStockRepository = productWarehouseStockRepository;
             _cloudinaryService = cloudinaryService;
             _logger = logger;
         }
@@ -70,6 +76,14 @@ namespace backend.Services
                     throw new InvalidOperationException($"SKU '{createProductDto.Sku}' already exists");
                 }
                 
+                // Get primary warehouse info if provided
+                string? primaryWarehouseName = null;
+                if (createProductDto.PrimaryWarehouseId.HasValue)
+                {
+                    var warehouse = await _warehouseRepository.GetByIdAsync(createProductDto.PrimaryWarehouseId.Value);
+                    primaryWarehouseName = warehouse?.Name;
+                }
+
                 // Create product entity
                 var product = new Product
                 {
@@ -79,9 +93,11 @@ namespace backend.Services
                     Description = createProductDto.Description,
                     Price = createProductDto.Price,
                     OriginalPrice = createProductDto.OriginalPrice,
-                    Stock = createProductDto.Stock,
+                    Stock = createProductDto.Stock, // Tổng stock sẽ được tính từ warehouse stocks
                     Weight = createProductDto.Weight,
-                    Status = createProductDto.Status
+                    Status = createProductDto.Status,
+                    PrimaryWarehouseId = createProductDto.PrimaryWarehouseId,
+                    PrimaryWarehouseName = primaryWarehouseName
                 };
                 
                 // Process colors
@@ -331,6 +347,23 @@ namespace backend.Services
                     foreach (var s in stickers) s.ProductId = createdProduct.Id;
                     await _productRepository.AddStickersAsync(createdProduct.Id, stickers);
                 }
+
+                // Create warehouse stock if primary warehouse is specified
+                if (createProductDto.PrimaryWarehouseId.HasValue && createProductDto.Stock > 0)
+                {
+                    var warehouseStock = new ProductWarehouseStock
+                    {
+                        ProductId = createdProduct.Id,
+                        WarehouseId = createProductDto.PrimaryWarehouseId.Value,
+                        Stock = createProductDto.Stock,
+                        ReservedStock = 0
+                    };
+                    await _productWarehouseStockRepository.CreateAsync(warehouseStock);
+                    
+                    // Update total stock in product
+                    createdProduct.Stock = await _productWarehouseStockRepository.GetTotalStockByProductIdAsync(createdProduct.Id);
+                    await _productRepository.UpdateAsync(createdProduct);
+                }
                 
                 _logger.LogInformation("Product created successfully: {ProductId} - {ProductName}", createdProduct.Id, createdProduct.Name);
                 
@@ -359,6 +392,14 @@ namespace backend.Services
                     throw new InvalidOperationException($"SKU '{updateProductDto.Sku}' already exists");
                 }
                 
+                // Get primary warehouse info if provided
+                string? primaryWarehouseName = null;
+                if (updateProductDto.PrimaryWarehouseId.HasValue)
+                {
+                    var warehouse = await _warehouseRepository.GetByIdAsync(updateProductDto.PrimaryWarehouseId.Value);
+                    primaryWarehouseName = warehouse?.Name;
+                }
+
                 // Update basic properties
                 existingProduct.Name = updateProductDto.Name;
                 existingProduct.Sku = updateProductDto.Sku;
@@ -369,6 +410,8 @@ namespace backend.Services
                 existingProduct.Stock = updateProductDto.Stock;
                 existingProduct.Weight = updateProductDto.Weight;
                 existingProduct.Status = updateProductDto.Status;
+                existingProduct.PrimaryWarehouseId = updateProductDto.PrimaryWarehouseId;
+                existingProduct.PrimaryWarehouseName = primaryWarehouseName;
                 
                 // Update colors (replace all)
                 existingProduct.Colors.Clear();
@@ -649,6 +692,8 @@ namespace backend.Services
                 Stock = product.Stock,
                 Weight = product.Weight,
                 Status = product.Status,
+                PrimaryWarehouseId = product.PrimaryWarehouseId?.ToString(),
+                PrimaryWarehouseName = product.PrimaryWarehouseName,
                 CreatedAt = product.CreatedAt,
                 UpdatedAt = product.UpdatedAt,
                 Images = product.Images.Select(i => new ProductImageDto

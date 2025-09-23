@@ -17,6 +17,9 @@ import CustomerList from './pages/admin/CustomerList'
 import CustomerDetail from './pages/admin/CustomerDetail'
 import StaffList from './pages/admin/StaffList'
 import AdminWarehousePage from './pages/admin/AdminWarehousePage'
+import AdminWarehouseStockPage from './pages/admin/AdminWarehouseStockPage'
+import AdminCreateOrderPage from './pages/admin/AdminCreateOrderPage'
+import AdminCreateCustomOrderPage from './pages/admin/AdminCreateCustomOrderPage'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -109,6 +112,16 @@ function App() {
                 <AdminOrderDetail />
               </ProtectedRoute>
             } />
+            <Route path="/admin/orders/create" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminCreateOrderPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/orders/create-custom" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminCreateCustomOrderPage />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/customers" element={
               <ProtectedRoute requireStaff={true}>
                 <CustomerList />
@@ -127,6 +140,11 @@ function App() {
             <Route path="/admin/warehouses" element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminWarehousePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/warehouse-stock" element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminWarehouseStockPage />
               </ProtectedRoute>
             } />
           </Routes>

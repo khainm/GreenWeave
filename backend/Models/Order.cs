@@ -61,6 +61,12 @@ namespace backend.Models
 
         public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
 
+        // Warehouse fields for order fulfillment
+        public Guid? FulfillmentWarehouseId { get; set; }
+        
+        [StringLength(100)]
+        public string? FulfillmentWarehouseName { get; set; }
+
         [StringLength(500)]
         public string? Notes { get; set; }
 
@@ -100,6 +106,9 @@ namespace backend.Models
 
         [ForeignKey("ShippingAddressId")]
         public virtual UserAddress ShippingAddress { get; set; } = null!;
+
+        [ForeignKey("FulfillmentWarehouseId")]
+        public virtual Warehouse? FulfillmentWarehouse { get; set; }
 
         public virtual ICollection<OrderItem> Items { get; set; } = new List<OrderItem>();
         
