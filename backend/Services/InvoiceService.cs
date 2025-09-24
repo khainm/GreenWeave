@@ -11,6 +11,7 @@ namespace backend.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IPdfService _pdfService;
         private readonly IEmailService _emailService;
+        private readonly IViettelPostPrintService _viettelPostPrintService;
         private readonly ILogger<InvoiceService> _logger;
 
         public InvoiceService(
@@ -18,12 +19,14 @@ namespace backend.Services
             IOrderRepository orderRepository,
             IPdfService pdfService,
             IEmailService emailService,
+            IViettelPostPrintService viettelPostPrintService,
             ILogger<InvoiceService> logger)
         {
             _invoiceRepository = invoiceRepository;
             _orderRepository = orderRepository;
             _pdfService = pdfService;
             _emailService = emailService;
+            _viettelPostPrintService = viettelPostPrintService;
             _logger = logger;
         }
 
@@ -203,11 +206,26 @@ namespace backend.Services
 
                 var invoice = await CreateInvoiceAsync(createInvoiceDto);
 
-                // Tạo PDF
+                // Tạo PDF hóa đơn custom
                 await GenerateInvoicePdfAsync(orderId);
 
-                // Gửi email
-                await SendInvoiceEmailAsync(invoice.Id);
+                // Tạo ViettelPost print link
+                var printLinkResult = await _viettelPostPrintService.GeneratePrintLinkAsync(
+                    new[] { order.OrderNumber }, 7);
+
+                if (printLinkResult.IsSuccess)
+                {
+                    // Gửi email với cả PDF custom + ViettelPost link (Option 2)
+                    await SendInvoiceEmailWithBothAsync(invoice.Id, printLinkResult.PrintLink, printLinkResult.ExpiryTime);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to generate ViettelPost print link for order {OrderId}: {Error}", 
+                        orderId, printLinkResult.ErrorMessage);
+                    
+                    // Fallback: Chỉ gửi PDF custom
+                    await SendInvoiceEmailAsync(invoice.Id);
+                }
 
                 // Trả về invoice đã cập nhật
                 var updatedInvoice = await _invoiceRepository.GetByIdAsync(invoice.Id);
@@ -299,6 +317,102 @@ namespace backend.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating invoice for order: {OrderId}", orderId);
+                return false;
+            }
+        }
+
+        public async Task<bool> SendInvoiceEmailWithBothAsync(int invoiceId, string printLink, DateTimeOffset expiryTime)
+        {
+            try
+            {
+                var invoice = await _invoiceRepository.GetByIdAsync(invoiceId);
+                if (invoice == null)
+                {
+                    throw new ArgumentException("Không tìm thấy biên lai");
+                }
+
+                if (string.IsNullOrEmpty(invoice.FilePath) || !File.Exists(invoice.FilePath))
+                {
+                    throw new ArgumentException("File PDF biên lai không tồn tại");
+                }
+
+                // Gửi email với cả PDF custom + ViettelPost link
+                var emailSent = await _emailService.SendOrderConfirmationEmailWithBothAsync(
+                    invoice.CustomerEmail,
+                    invoice.CustomerName,
+                    invoice.Order.OrderNumber,
+                    invoice.FilePath,
+                    printLink,
+                    expiryTime
+                );
+
+                // Cập nhật trạng thái
+                if (emailSent)
+                {
+                    invoice.Status = InvoiceStatus.Sent;
+                    invoice.SentAt = DateTime.UtcNow;
+                    invoice.ErrorMessage = null;
+                    await _invoiceRepository.UpdateAsync(invoice);
+                    _logger.LogInformation("Invoice email with both PDF and ViettelPost link sent successfully for invoice: {InvoiceId}", invoiceId);
+                }
+                else
+                {
+                    invoice.Status = InvoiceStatus.Failed;
+                    invoice.ErrorMessage = "Failed to send email with both PDF and ViettelPost link";
+                    await _invoiceRepository.UpdateAsync(invoice);
+                    _logger.LogError("Failed to send invoice email with both PDF and ViettelPost link for invoice: {InvoiceId}", invoiceId);
+                }
+
+                return emailSent;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending invoice email with both PDF and ViettelPost link: {InvoiceId}", invoiceId);
+                return false;
+            }
+        }
+
+        public async Task<bool> SendInvoiceEmailWithLinkAsync(int invoiceId, string printLink, DateTimeOffset expiryTime)
+        {
+            try
+            {
+                var invoice = await _invoiceRepository.GetByIdAsync(invoiceId);
+                if (invoice == null)
+                {
+                    throw new ArgumentException("Không tìm thấy biên lai");
+                }
+
+                // Gửi email với ViettelPost link
+                var emailSent = await _emailService.SendOrderConfirmationEmailWithLinkAsync(
+                    invoice.CustomerEmail,
+                    invoice.CustomerName,
+                    invoice.Order.OrderNumber,
+                    printLink,
+                    expiryTime
+                );
+
+                // Cập nhật trạng thái
+                if (emailSent)
+                {
+                    invoice.Status = InvoiceStatus.Sent;
+                    invoice.SentAt = DateTime.UtcNow;
+                    invoice.ErrorMessage = null;
+                    await _invoiceRepository.UpdateAsync(invoice);
+                    _logger.LogInformation("Invoice email with ViettelPost link sent successfully for invoice: {InvoiceId}", invoiceId);
+                }
+                else
+                {
+                    invoice.Status = InvoiceStatus.Failed;
+                    invoice.ErrorMessage = "Failed to send email with ViettelPost link";
+                    await _invoiceRepository.UpdateAsync(invoice);
+                    _logger.LogError("Failed to send invoice email with ViettelPost link for invoice: {InvoiceId}", invoiceId);
+                }
+
+                return emailSent;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending invoice email with ViettelPost link: {InvoiceId}", invoiceId);
                 return false;
             }
         }

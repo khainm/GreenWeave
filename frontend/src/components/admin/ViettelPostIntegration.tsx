@@ -1,10 +1,11 @@
 import React, { useState } from 'react'
 import ViettelPostApiStatus from './ViettelPostApiStatus'
 import ViettelPostInventoryList from './ViettelPostInventoryList'
+import ViettelPostWebhookStatus from './ViettelPostWebhookStatus'
 import type { InventoryData } from '../../types/shipping'
 
 const ViettelPostIntegration: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'status' | 'inventory'>('status')
+  const [activeTab, setActiveTab] = useState<'status' | 'inventory' | 'webhook'>('status')
   const [selectedInventory, setSelectedInventory] = useState<InventoryData | null>(null)
 
   const handleInventorySelect = (inventory: InventoryData) => {
@@ -56,6 +57,16 @@ const ViettelPostIntegration: React.FC = () => {
             >
               📦 Kho hàng ViettelPost
             </button>
+            <button
+              onClick={() => setActiveTab('webhook')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'webhook'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              🔗 Webhook
+            </button>
           </nav>
         </div>
 
@@ -91,6 +102,12 @@ const ViettelPostIntegration: React.FC = () => {
               <ViettelPostInventoryList onInventorySelect={handleInventorySelect} />
             </div>
           )}
+
+          {activeTab === 'webhook' && (
+            <div className="space-y-4">
+              <ViettelPostWebhookStatus />
+            </div>
+          )}
         </div>
       </div>
 
@@ -99,7 +116,7 @@ const ViettelPostIntegration: React.FC = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Thao tác nhanh
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={() => setActiveTab('status')}
             className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
@@ -119,6 +136,17 @@ const ViettelPostIntegration: React.FC = () => {
               <div className="text-2xl mb-2">📦</div>
               <h4 className="font-medium text-gray-900">Kho hàng</h4>
               <p className="text-sm text-gray-600">Xem danh sách kho hàng</p>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('webhook')}
+            className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+          >
+            <div className="text-center">
+              <div className="text-2xl mb-2">🔗</div>
+              <h4 className="font-medium text-gray-900">Webhook</h4>
+              <p className="text-sm text-gray-600">Theo dõi webhook</p>
             </div>
           </button>
           

@@ -171,6 +171,7 @@ builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IViettelPostPrintService, ViettelPostPrintService>();
 
 // Add Shipping configuration
 builder.Services.Configure<ShippingConfiguration>(
@@ -206,6 +207,10 @@ builder.Services.AddScoped<IEnumerable<IShippingProvider>>(serviceProvider =>
 
 // Add Shipping service
 builder.Services.AddScoped<IShippingService, ShippingService>();
+
+// Add WebhookLog services
+builder.Services.AddScoped<IWebhookLogRepository, WebhookLogRepository>();
+builder.Services.AddScoped<IWebhookLogService, WebhookLogService>();
 
 // Add Warehouse services
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();

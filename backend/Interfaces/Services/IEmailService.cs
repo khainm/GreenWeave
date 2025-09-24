@@ -25,6 +25,29 @@ namespace backend.Interfaces.Services
         );
         
         /// <summary>
+        /// Gửi email thông báo xác nhận đơn hàng với ViettelPost link
+        /// </summary>
+        Task<bool> SendOrderConfirmationEmailWithLinkAsync(
+            string customerEmail,
+            string customerName,
+            string orderNumber,
+            string printLink,
+            DateTimeOffset expiryTime
+        );
+        
+        /// <summary>
+        /// Gửi email thông báo xác nhận đơn hàng với cả PDF và ViettelPost link
+        /// </summary>
+        Task<bool> SendOrderConfirmationEmailWithBothAsync(
+            string customerEmail,
+            string customerName,
+            string orderNumber,
+            string invoicePath,
+            string printLink,
+            DateTimeOffset expiryTime
+        );
+        
+        /// <summary>
         /// Gửi email thông báo cập nhật trạng thái đơn hàng
         /// </summary>
         Task<bool> SendOrderStatusUpdateEmailAsync(

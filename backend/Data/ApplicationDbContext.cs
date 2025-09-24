@@ -25,6 +25,7 @@ namespace backend.Data
         public DbSet<ShippingTransaction> ShippingTransactions { get; set; }
         public DbSet<Warehouse> Warehouses { get; set; }
         public DbSet<ProductWarehouseStock> ProductWarehouseStocks { get; set; }
+        public DbSet<WebhookLog> WebhookLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

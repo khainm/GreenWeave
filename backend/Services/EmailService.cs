@@ -84,12 +84,335 @@ namespace backend.Services
             return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, invoiceAttachmentPath, attachmentName);
         }
 
+        public async Task<bool> SendOrderConfirmationEmailWithLinkAsync(string toEmail, string customerName, string orderNumber, string printLink, DateTimeOffset expiryTime)
+        {
+            var subject = $"Xác nhận đơn hàng #{orderNumber} - GreenWeave";
+            var htmlBody = GetOrderConfirmationEmailWithLinkTemplate(customerName, orderNumber, printLink, expiryTime);
+
+            return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, string.Empty, string.Empty);
+        }
+
+        public async Task<bool> SendOrderConfirmationEmailWithBothAsync(string toEmail, string customerName, string orderNumber, string invoicePath, string printLink, DateTimeOffset expiryTime)
+        {
+            var subject = $"Xác nhận đơn hàng #{orderNumber} - GreenWeave";
+            var htmlBody = GetOrderConfirmationEmailWithBothTemplate(customerName, orderNumber, printLink, expiryTime);
+            var attachmentName = $"invoice_{orderNumber}.pdf";
+
+            return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, invoicePath, attachmentName);
+        }
+
         public async Task<bool> SendOrderStatusUpdateEmailAsync(string toEmail, string customerName, string orderNumber, string newStatus)
         {
             var subject = $"Cập nhật đơn hàng #{orderNumber} - GreenWeave";
             var htmlBody = GetOrderStatusUpdateEmailTemplate(customerName, orderNumber, newStatus);
 
             return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, string.Empty, string.Empty);
+        }
+
+        private string GetOrderConfirmationEmailWithLinkTemplate(string customerName, string orderNumber, string printLink, DateTimeOffset expiryTime)
+        {
+            var expiryDate = expiryTime.ToString("dd/MM/yyyy HH:mm");
+            
+            return $@"
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Xác nhận đơn hàng - GreenWeave</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }}
+        .container {{
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            text-align: center;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #22c55e;
+            margin-bottom: 30px;
+        }}
+        .logo {{
+            font-size: 28px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 10px;
+        }}
+        .title {{
+            font-size: 24px;
+            color: #1f2937;
+            margin: 20px 0;
+        }}
+        .order-info {{
+            background-color: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }}
+        .order-number {{
+            font-size: 20px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 10px;
+        }}
+        .print-link {{
+            background-color: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #f59e0b;
+            text-align: center;
+        }}
+        .print-button {{
+            display: inline-block;
+            background-color: #3b82f6;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 10px 0;
+            transition: background-color 0.3s;
+        }}
+        .print-button:hover {{
+            background-color: #2563eb;
+        }}
+        .expiry-info {{
+            background-color: #f3f4f6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            text-align: center;
+            color: #6b7280;
+        }}
+        .message {{
+            font-size: 16px;
+            margin: 20px 0;
+            line-height: 1.8;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='logo'>🌿 GreenWeave</div>
+            <div class='title'>Xác nhận đơn hàng</div>
+        </div>
+        
+        <div class='message'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            <p>Cảm ơn bạn đã tin tưởng và mua sắm tại GreenWeave! Đơn hàng của bạn đã được xác nhận thành công.</p>
+        </div>
+        
+        <div class='order-info'>
+            <div class='order-number'>Mã đơn hàng: #{orderNumber}</div>
+            <p>Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được giao đến địa chỉ bạn đã cung cấp.</p>
+        </div>
+        
+        <div class='print-link'>
+            <h3>📄 Hóa đơn điện tử</h3>
+            <p>Bạn có thể xem và in hóa đơn bằng cách click vào nút bên dưới:</p>
+            <a href='{printLink}' class='print-button'>Xem và In Hóa đơn</a>
+            <div class='expiry-info'>
+                <strong>⏰ Link có hiệu lực đến:</strong> {expiryDate}
+            </div>
+        </div>
+        
+        <div class='message'>
+            <p><strong>Thông tin theo dõi đơn hàng:</strong></p>
+            <ul>
+                <li>Bạn sẽ nhận được email thông báo khi đơn hàng được giao cho đơn vị vận chuyển</li>
+                <li>Mã theo dõi vận chuyển sẽ được gửi qua SMS và email</li>
+                <li>Thời gian giao hàng dự kiến: 2-5 ngày làm việc</li>
+            </ul>
+        </div>
+        
+        <div class='footer'>
+            <p>Cảm ơn bạn đã chọn GreenWeave - Nơi thiên nhiên gặp gỡ thời trang!</p>
+            <p>© 2024 GreenWeave. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>";
+        }
+
+        private string GetOrderConfirmationEmailWithBothTemplate(string customerName, string orderNumber, string printLink, DateTimeOffset expiryTime)
+        {
+            var expiryDate = expiryTime.ToString("dd/MM/yyyy HH:mm");
+            
+            return $@"
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Xác nhận đơn hàng - GreenWeave</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }}
+        .container {{
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            text-align: center;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #22c55e;
+            margin-bottom: 30px;
+        }}
+        .logo {{
+            font-size: 28px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 10px;
+        }}
+        .title {{
+            font-size: 24px;
+            color: #1f2937;
+            margin: 20px 0;
+        }}
+        .order-info {{
+            background-color: #f0fdf4;
+            border-left: 4px solid #22c55e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }}
+        .order-number {{
+            font-size: 20px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 10px;
+        }}
+        .invoice-section {{
+            background-color: #fef3c7;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #f59e0b;
+        }}
+        .print-link {{
+            background-color: #dbeafe;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3b82f6;
+            text-align: center;
+        }}
+        .print-button {{
+            display: inline-block;
+            background-color: #3b82f6;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 10px 0;
+            transition: background-color 0.3s;
+        }}
+        .print-button:hover {{
+            background-color: #2563eb;
+        }}
+        .expiry-info {{
+            background-color: #f3f4f6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            text-align: center;
+            color: #6b7280;
+        }}
+        .message {{
+            font-size: 16px;
+            margin: 20px 0;
+            line-height: 1.8;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 30px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='logo'>🌿 GreenWeave</div>
+            <div class='title'>Xác nhận đơn hàng</div>
+        </div>
+        
+        <div class='message'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            <p>Cảm ơn bạn đã tin tưởng và mua sắm tại GreenWeave! Đơn hàng của bạn đã được xác nhận thành công.</p>
+        </div>
+        
+        <div class='order-info'>
+            <div class='order-number'>Mã đơn hàng: #{orderNumber}</div>
+            <p>Đơn hàng của bạn đang được chuẩn bị và sẽ sớm được giao đến địa chỉ bạn đã cung cấp.</p>
+        </div>
+        
+        <div class='invoice-section'>
+            <h3>📄 Hóa đơn điện tử</h3>
+            <p><strong>Hóa đơn chi tiết</strong> đã được đính kèm trong email này. Bạn có thể tải xuống và lưu trữ để tra cứu khi cần thiết.</p>
+        </div>
+        
+        <div class='print-link'>
+            <h3>🚚 Link in phiếu gửi hàng</h3>
+            <p>Bạn cũng có thể sử dụng link bên dưới để in phiếu gửi hàng từ ViettelPost:</p>
+            <a href='{printLink}' class='print-button'>In Phiếu Gửi Hàng</a>
+            <div class='expiry-info'>
+                <strong>⏰ Link có hiệu lực đến:</strong> {expiryDate}
+            </div>
+        </div>
+        
+        <div class='message'>
+            <p><strong>Thông tin theo dõi đơn hàng:</strong></p>
+            <ul>
+                <li>Bạn sẽ nhận được email thông báo khi đơn hàng được giao cho đơn vị vận chuyển</li>
+                <li>Mã theo dõi vận chuyển sẽ được gửi qua SMS và email</li>
+                <li>Thời gian giao hàng dự kiến: 2-5 ngày làm việc</li>
+            </ul>
+        </div>
+        
+        <div class='footer'>
+            <p>Cảm ơn bạn đã chọn GreenWeave - Nơi thiên nhiên gặp gỡ thời trang!</p>
+            <p>© 2024 GreenWeave. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>";
         }
 
         private string GetOrderConfirmationEmailTemplate(string customerName, string orderNumber)

@@ -603,20 +603,62 @@ namespace backend.Services
         {
             try
             {
-                var data = JsonSerializer.Deserialize<Dictionary<string, object>>(webhookData);
+                _logger.LogInformation("Processing ViettelPost webhook data: {WebhookData}", webhookData);
                 
-                if (data != null && data.ContainsKey("ORDER_NUMBER") && data.ContainsKey("ORDER_STATUS"))
+                var webhookPayload = JsonSerializer.Deserialize<ViettelPostWebhookData>(webhookData, new JsonSerializerOptions
                 {
-                    return Task.FromResult<ShippingWebhookDto?>(new ShippingWebhookDto
-                    {
-                        TrackingCode = data["ORDER_NUMBER"].ToString() ?? "",
-                        Status = data["ORDER_STATUS"].ToString() ?? "",
-                        Timestamp = DateTime.UtcNow,
-                        RawData = data
-                    });
+                    PropertyNameCaseInsensitive = true
+                });
+
+                if (webhookPayload == null)
+                {
+                    _logger.LogWarning("Failed to deserialize webhook data");
+                    return Task.FromResult<ShippingWebhookDto?>(null);
                 }
 
-                return Task.FromResult<ShippingWebhookDto?>(null);
+                // Validate required fields
+                if (string.IsNullOrEmpty(webhookPayload.ORDER_NUMBER))
+                {
+                    _logger.LogWarning("ORDER_NUMBER is missing in webhook data");
+                    return Task.FromResult<ShippingWebhookDto?>(null);
+                }
+
+                // Parse status date
+                DateTime statusDate;
+                if (!DateTime.TryParseExact(webhookPayload.ORDER_STATUSDATE, "dd/MM/yyyy H:m:s", 
+                    System.Globalization.CultureInfo.InvariantCulture, 
+                    System.Globalization.DateTimeStyles.None, out statusDate))
+                {
+                    _logger.LogWarning("Invalid ORDER_STATUSDATE format: {StatusDate}", webhookPayload.ORDER_STATUSDATE);
+                    statusDate = DateTime.UtcNow;
+                }
+
+                // Map status to description
+                var statusDescription = GetViettelPostStatusDescription(webhookPayload.ORDER_STATUS);
+
+                _logger.LogInformation("Processed webhook for order {OrderNumber} with status {Status} ({StatusDescription})", 
+                    webhookPayload.ORDER_NUMBER, webhookPayload.ORDER_STATUS, statusDescription);
+
+                return Task.FromResult<ShippingWebhookDto?>(new ShippingWebhookDto
+                {
+                    TrackingCode = webhookPayload.ORDER_NUMBER,
+                    Status = webhookPayload.ORDER_STATUS.ToString(),
+                    Timestamp = statusDate,
+                    Description = statusDescription,
+                    Location = webhookPayload.NOTE,
+                    RawData = new Dictionary<string, object>
+                    {
+                        ["ORDER_REFERENCE"] = webhookPayload.ORDER_REFERENCE,
+                        ["ORDER_STATUSDATE"] = webhookPayload.ORDER_STATUSDATE,
+                        ["ORDER_STATUS"] = webhookPayload.ORDER_STATUS,
+                        ["NOTE"] = webhookPayload.NOTE,
+                        ["MONEY_COLLECTION"] = webhookPayload.MONEY_COLLECTION,
+                        ["MONEY_TOTAL"] = webhookPayload.MONEY_TOTAL,
+                        ["EXPECTED_DELIVERY"] = webhookPayload.EXPECTED_DELIVERY,
+                        ["PRODUCT_WEIGHT"] = webhookPayload.PRODUCT_WEIGHT,
+                        ["ORDER_SERVICE"] = webhookPayload.ORDER_SERVICE
+                    }
+                });
             }
             catch (Exception ex)
             {
@@ -1203,6 +1245,53 @@ namespace backend.Services
                 600 => "Đã hoàn trả",
                 700 => "Đã hủy",
                 _ => "Không xác định"
+            };
+        }
+
+        /// <summary>
+        /// Get detailed status description for ViettelPost webhook
+        /// </summary>
+        private static string GetViettelPostStatusDescription(int status)
+        {
+            return status switch
+            {
+                -100 => "Đơn hàng mới tạo, chưa được duyệt",
+                -108 => "Đơn hàng đã gửi tại bưu cục",
+                -109 => "Đơn hàng đã gửi tại điểm tập kết",
+                -110 => "Đơn hàng được bàn giao bởi bưu cục",
+                100 => "Nhận đơn hàng của khách hàng - ViettelPost đang xử lý đơn hàng",
+                101 => "ViettelPost yêu cầu khách hàng hủy đơn hàng",
+                102 => "Đơn hàng đang được xử lý",
+                103 => "Giao đến Bưu cục - ViettelPost đang xử lý đơn hàng",
+                104 => "Giao đến người nhận - Bưu tá",
+                105 => "Bưu tá đã nhận đơn hàng",
+                106 => "Đối tác yêu cầu thu hồi đơn hàng",
+                107 => "Đối tác yêu cầu hủy đơn hàng qua API",
+                200 => "Nhận từ Bưu tá - Bưu cục nhận",
+                201 => "Hủy nhập phiếu gửi",
+                202 => "Sửa phiếu gửi",
+                300 => "Đóng file giao hàng",
+                301 => "Đóng gói giao hàng - Giao từ",
+                302 => "Đóng track thư giao hàng - Giao từ",
+                303 => "Đóng làn xe tải giao hàng - Giao từ",
+                400 => "Nhận file thu nhập - Nhận tại",
+                401 => "Nhận túi bưu phẩm - Nhận tại",
+                402 => "Nhận track thư - Nhận tại",
+                403 => "Nhận làn xe tải - Nhận tại",
+                500 => "Giao đến Bưu tá giao hàng",
+                501 => "Thành công - Giao hàng thành công",
+                502 => "Giao trả về Bưu cục người gửi",
+                503 => "Hủy - Theo yêu cầu của khách hàng",
+                504 => "Thành công - Giao trả về khách hàng",
+                505 => "Tồn kho - Giao trả về Bưu cục người gửi",
+                506 => "Tồn kho - Khách hàng không nhận",
+                507 => "Tồn kho - Khách hàng nhận tại Bưu cục",
+                508 => "Đang giao hàng",
+                509 => "Giao đến Bưu cục khác",
+                510 => "Hủy giao hàng",
+                515 => "Bưu cục giao hàng trả đơn hàng chờ duyệt",
+                550 => "Yêu cầu Bưu cục giao hàng gửi lại",
+                _ => $"Trạng thái không xác định ({status})"
             };
         }
 

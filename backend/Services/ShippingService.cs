@@ -15,6 +15,7 @@ namespace backend.Services
         private readonly IOrderRepository _orderRepository;
         private readonly IShippingRequestRepository _shippingRequestRepository;
         private readonly IShippingTransactionRepository _shippingTransactionRepository;
+        private readonly IWebhookLogService _webhookLogService;
         private readonly IEnumerable<IShippingProvider> _shippingProviders;
         private readonly ShippingConfiguration _config;
         private readonly ILogger<ShippingService> _logger;
@@ -23,6 +24,7 @@ namespace backend.Services
             IOrderRepository orderRepository,
             IShippingRequestRepository shippingRequestRepository,
             IShippingTransactionRepository shippingTransactionRepository,
+            IWebhookLogService webhookLogService,
             IEnumerable<IShippingProvider> shippingProviders,
             IOptions<ShippingConfiguration> shippingConfig,
             ILogger<ShippingService> logger)
@@ -30,6 +32,7 @@ namespace backend.Services
             _orderRepository = orderRepository;
             _shippingRequestRepository = shippingRequestRepository;
             _shippingTransactionRepository = shippingTransactionRepository;
+            _webhookLogService = webhookLogService;
             _shippingProviders = shippingProviders;
             _config = shippingConfig.Value;
             _logger = logger;
@@ -454,40 +457,73 @@ namespace backend.Services
                     return false;
                 }
 
-                // Find order by tracking code (need to add this method to OrderRepository)
+                // Parse webhook data for logging
+                var webhookPayload = JsonSerializer.Deserialize<ViettelPostWebhookData>(webhookData, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                // Find order by tracking code
                 var shippingRequest = await _shippingRequestRepository.GetByTrackingCodeAsync(webhookInfo.TrackingCode);
-                if (shippingRequest?.Order == null)
+                var order = shippingRequest?.Order;
+
+                bool isSuccess = false;
+                string? errorMessage = null;
+
+                try
                 {
-                    _logger.LogWarning("Order not found for tracking code {TrackingCode}", webhookInfo.TrackingCode);
-                    return false;
-                }
-
-                var order = shippingRequest.Order;
-
-                // Update shipping status
-                var newStatus = MapStringToShippingStatus(webhookInfo.Status);
-                if (order.ShippingStatus != newStatus)
-                {
-                    order.ShippingStatus = newStatus;
-                    order.UpdatedAt = DateTime.UtcNow;
-
-                    // Update shipping history
-                    var history = GetShippingHistory(order.ShippingHistory);
-                    history.Add(new TrackingEvent
+                    if (order == null)
                     {
-                        Timestamp = webhookInfo.Timestamp,
-                        Status = webhookInfo.Status,
-                        Description = webhookInfo.Description ?? "",
-                        Location = webhookInfo.Location
-                    });
-                    order.ShippingHistory = JsonSerializer.Serialize(history);
+                        _logger.LogWarning("Order not found for tracking code {TrackingCode}", webhookInfo.TrackingCode);
+                        errorMessage = $"Order not found for tracking code {webhookInfo.TrackingCode}";
+                    }
+                    else
+                    {
+                        // Update shipping status
+                        var newStatus = MapStringToShippingStatus(webhookInfo.Status);
+                        if (order.ShippingStatus != newStatus)
+                        {
+                            order.ShippingStatus = newStatus;
+                            order.UpdatedAt = DateTime.UtcNow;
 
-                    await _orderRepository.UpdateAsync(order);
+                            // Update shipping history
+                            var history = GetShippingHistory(order.ShippingHistory);
+                            history.Add(new TrackingEvent
+                            {
+                                Timestamp = webhookInfo.Timestamp,
+                                Status = webhookInfo.Status,
+                                Description = webhookInfo.Description ?? "",
+                                Location = webhookInfo.Location
+                            });
+                            order.ShippingHistory = JsonSerializer.Serialize(history);
+
+                            await _orderRepository.UpdateAsync(order);
+                        }
+
+                        isSuccess = true;
+                        _logger.LogInformation("Successfully processed webhook for tracking code {TrackingCode}", 
+                            webhookInfo.TrackingCode);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errorMessage = ex.Message;
+                    _logger.LogError(ex, "Error processing webhook for tracking code {TrackingCode}", webhookInfo.TrackingCode);
                 }
 
-                _logger.LogInformation("Successfully processed webhook for tracking code {TrackingCode}", 
-                    webhookInfo.TrackingCode);
-                return true;
+                // Log webhook event
+                if (webhookPayload != null)
+                {
+                    await _webhookLogService.LogWebhookAsync(
+                        webhookPayload,
+                        isSuccess,
+                        errorMessage,
+                        order?.Id,
+                        shippingRequest?.Id
+                    );
+                }
+
+                return isSuccess;
             }
             catch (Exception ex)
             {
