@@ -42,7 +42,7 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose, activePage = '
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <div className="flex items-center">
               <img 
-                src="/src/assets/logo-no-background.png" 
+                src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png" 
                 alt="GreenWeave" 
                 className="h-6 w-auto mr-2"
               />

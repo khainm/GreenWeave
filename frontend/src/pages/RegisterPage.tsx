@@ -109,9 +109,9 @@ const RegisterPage: React.FC = () => {
         <div className="text-center">
           <div className="flex justify-center">
             <img 
-              src="/src/assets/logo-no-background.png" 
+              src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png" 
               alt="GreenWeave" 
-              className="h-20 w-auto"
+              className="h-32 w-auto"
             />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
