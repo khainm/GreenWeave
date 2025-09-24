@@ -111,7 +111,7 @@ const RegisterPage: React.FC = () => {
             <img 
               src="/src/assets/logo-no-background.png" 
               alt="GreenWeave" 
-              className="h-12 w-auto"
+              className="h-20 w-auto"
             />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">

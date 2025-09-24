@@ -54,6 +54,34 @@ namespace backend.Controllers
         }
 
         /// <summary>
+        /// Tìm kiếm và lọc sản phẩm
+        /// </summary>
+        /// <param name="request">Tham số tìm kiếm và lọc</param>
+        /// <returns>Danh sách sản phẩm đã lọc</returns>
+        [HttpPost("search")]
+        [ProducesResponseType(typeof(ProductSearchResponse), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ProductSearchResponse>> SearchProducts([FromBody] ProductSearchRequest request)
+        {
+            try
+            {
+                if (request == null)
+                {
+                    return BadRequest(new { success = false, message = "Request không hợp lệ" });
+                }
+
+                var result = await _productService.SearchProductsAsync(request);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching products");
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi tìm kiếm sản phẩm" });
+            }
+        }
+
+        /// <summary>
         /// Chi tiết sản phẩm tùy chỉnh theo id
         /// </summary>
         [HttpGet("customizable/{id}")]

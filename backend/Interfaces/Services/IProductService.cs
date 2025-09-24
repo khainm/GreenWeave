@@ -16,5 +16,8 @@ namespace backend.Interfaces.Services
         // Queries for customizable products
         Task<IEnumerable<ProductResponseDto>> GetCustomizableProductsAsync();
         Task<ProductResponseDto?> GetCustomizableProductByIdAsync(int id);
+        
+        // Search and filter products
+        Task<ProductSearchResponse> SearchProductsAsync(ProductSearchRequest request);
     }
 }

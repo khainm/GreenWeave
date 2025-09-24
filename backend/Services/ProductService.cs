@@ -741,5 +741,48 @@ namespace backend.Services
             
             return colorNames.ContainsKey(colorCode.ToLower()) ? colorNames[colorCode.ToLower()] : null;
         }
+
+        public async Task<ProductSearchResponse> SearchProductsAsync(ProductSearchRequest request)
+        {
+            try
+            {
+                var (products, totalCount) = await _productRepository.SearchProductsAsync(
+                    request.Search,
+                    request.Category,
+                    request.Status,
+                    request.MinPrice,
+                    request.MaxPrice,
+                    request.MinStock,
+                    request.SortBy,
+                    request.SortDirection,
+                    request.Page,
+                    request.PageSize
+                );
+
+                var productDtos = products.Select(MapToResponseDto).ToList();
+                var totalPages = (int)Math.Ceiling((double)totalCount / request.PageSize);
+
+                return new ProductSearchResponse
+                {
+                    IsSuccess = true,
+                    Message = "Tìm kiếm sản phẩm thành công",
+                    Products = productDtos,
+                    TotalCount = totalCount,
+                    Page = request.Page,
+                    PageSize = request.PageSize,
+                    TotalPages = totalPages
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching products");
+                return new ProductSearchResponse
+                {
+                    IsSuccess = false,
+                    Message = "Có lỗi xảy ra khi tìm kiếm sản phẩm",
+                    Products = new List<ProductResponseDto>()
+                };
+            }
+        }
     }
 }

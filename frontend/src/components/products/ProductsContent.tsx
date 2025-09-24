@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import ErrorMessage from '../ui/ErrorMessage';
 import ProductsSections from './ProductsSections';
@@ -14,7 +14,7 @@ interface ProductsContentProps {
   error: string | null;
 }
 
-const ProductsContent: React.FC<ProductsContentProps> = ({
+const ProductsContent: React.FC<ProductsContentProps> = memo(({
   products,
   categories,
   selectedColors,
@@ -38,6 +38,8 @@ const ProductsContent: React.FC<ProductsContentProps> = ({
       onColorSelect={onColorSelect}
     />
   );
-};
+});
+
+ProductsContent.displayName = 'ProductsContent';
 
 export default ProductsContent;

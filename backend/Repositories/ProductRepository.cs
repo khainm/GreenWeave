@@ -322,5 +322,99 @@ namespace backend.Repositories
                 throw;
             }
         }
+
+        public async Task<(IEnumerable<Product> Products, int TotalCount)> SearchProductsAsync(
+            string? search,
+            string? category,
+            string? status,
+            decimal? minPrice,
+            decimal? maxPrice,
+            int? minStock,
+            string? sortBy,
+            string? sortDirection,
+            int page,
+            int pageSize)
+        {
+            try
+            {
+                var query = _context.Products
+                    .Include(p => p.Images.OrderBy(i => i.SortOrder))
+                    .Include(p => p.Colors.OrderBy(c => c.SortOrder))
+                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    .AsQueryable();
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(search))
+                {
+                    query = query.Where(p => 
+                        p.Name.Contains(search) ||
+                        p.Sku.Contains(search) ||
+                        p.Description.Contains(search));
+                }
+
+                // Apply category filter
+                if (!string.IsNullOrEmpty(category))
+                {
+                    query = query.Where(p => p.Category == category);
+                }
+
+                // Apply status filter
+                if (!string.IsNullOrEmpty(status))
+                {
+                    query = query.Where(p => p.Status == status);
+                }
+
+                // Apply price filters
+                if (minPrice.HasValue)
+                {
+                    query = query.Where(p => p.Price >= minPrice.Value);
+                }
+
+                if (maxPrice.HasValue)
+                {
+                    query = query.Where(p => p.Price <= maxPrice.Value);
+                }
+
+                // Apply stock filter
+                if (minStock.HasValue)
+                {
+                    query = query.Where(p => p.Stock >= minStock.Value);
+                }
+
+                // Get total count before pagination
+                var totalCount = await query.CountAsync();
+
+                // Apply sorting
+                query = sortBy?.ToLower() switch
+                {
+                    "name" => sortDirection?.ToLower() == "desc" 
+                        ? query.OrderByDescending(p => p.Name)
+                        : query.OrderBy(p => p.Name),
+                    "price" => sortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(p => p.Price)
+                        : query.OrderBy(p => p.Price),
+                    "createdat" => sortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(p => p.CreatedAt)
+                        : query.OrderBy(p => p.CreatedAt),
+                    "stock" => sortDirection?.ToLower() == "desc"
+                        ? query.OrderByDescending(p => p.Stock)
+                        : query.OrderBy(p => p.Stock),
+                    _ => query.OrderBy(p => p.Name)
+                };
+
+                // Apply pagination
+                var products = await query
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+
+                return (products, totalCount);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching products");
+                throw;
+            }
+        }
     }
 }

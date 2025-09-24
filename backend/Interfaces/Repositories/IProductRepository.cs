@@ -24,5 +24,18 @@ namespace backend.Interfaces.Repositories
         // Queries for customizable products (categories with IsCustomizable = true)
         Task<IEnumerable<Product>> GetCustomizableAsync();
         Task<Product?> GetCustomizableByIdAsync(int id);
+        
+        // Search and filter products
+        Task<(IEnumerable<Product> Products, int TotalCount)> SearchProductsAsync(
+            string? search,
+            string? category,
+            string? status,
+            decimal? minPrice,
+            decimal? maxPrice,
+            int? minStock,
+            string? sortBy,
+            string? sortDirection,
+            int page,
+            int pageSize);
     }
 }
