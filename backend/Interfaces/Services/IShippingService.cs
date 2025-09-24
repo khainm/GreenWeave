@@ -30,6 +30,14 @@ namespace backend.Interfaces.Services
         Task<CreateShipmentResult> CreateShipmentAsync(CreateShipmentRequest request);
 
         /// <summary>
+        /// Update an existing order
+        /// </summary>
+        /// <param name="orderId">Order ID</param>
+        /// <param name="request">Order update request</param>
+        /// <returns>Order update result</returns>
+        Task<UpdateOrderResult> UpdateOrderAsync(int orderId, UpdateOrderRequest request);
+
+        /// <summary>
         /// Cancel a shipment
         /// </summary>
         /// <param name="orderId">Order ID</param>
@@ -58,5 +66,11 @@ namespace backend.Interfaces.Services
         /// <param name="orderId">Order ID</param>
         /// <returns>Shipping request information</returns>
         Task<ShippingRequestResponseDto?> GetShippingRequestAsync(int orderId);
+
+        /// <summary>
+        /// List inventory from Viettel Post
+        /// </summary>
+        /// <returns>Inventory list result</returns>
+        Task<ListInventoryResult> ListInventoryAsync();
     }
 }

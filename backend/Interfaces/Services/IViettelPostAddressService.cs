@@ -14,6 +14,13 @@ namespace backend.Interfaces.Services
         Task<AddressApiResponse<List<AddressDto>>> GetProvincesAsync();
 
         /// <summary>
+        /// Get province by ID from Viettel Post API
+        /// </summary>
+        /// <param name="provinceId">Province ID</param>
+        /// <returns>Province information</returns>
+        Task<AddressApiResponse<AddressDto>> GetProvinceByIdAsync(int provinceId);
+
+        /// <summary>
         /// Get list of districts by province ID from Viettel Post API
         /// </summary>
         /// <param name="provinceId">Province ID</param>

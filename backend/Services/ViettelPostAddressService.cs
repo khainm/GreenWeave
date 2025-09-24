@@ -147,6 +147,18 @@ namespace backend.Services
         {
             try
             {
+                // Validate provinceId parameter theo API documentation
+                if (provinceId <= 0)
+                {
+                    _logger.LogWarning("Invalid provinceId: {ProvinceId}. Province/city status must not be blank.", provinceId);
+                    return new AddressApiResponse<List<AddressDto>>
+                    {
+                        Success = false,
+                        Message = "Mã tỉnh thành phố không được để trống",
+                        Errors = new List<string> { "Province/city status not blank" }
+                    };
+                }
+
                 await EnsureAuthenticatedAsync();
 
                 _httpClient.DefaultRequestHeaders.Clear();
@@ -156,16 +168,23 @@ namespace backend.Services
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 _logger.LogInformation("Viettel Post districts response for province {ProvinceId}: {Response}", provinceId, responseContent);
+                _logger.LogInformation("Response length: {Length}, IsSuccessStatusCode: {IsSuccess}", 
+                    responseContent.Length, response.IsSuccessStatusCode);
 
                 if (response.IsSuccessStatusCode)
                 {
                     try
                     {
+                        _logger.LogInformation("Attempting to deserialize districts response: {Response}", responseContent);
+                        
                         var options = new JsonSerializerOptions
                         {
                             PropertyNameCaseInsensitive = true
                         };
                         var result = JsonSerializer.Deserialize<ViettelPostApiResponse<List<DistrictData>>>(responseContent, options);
+                        
+                        _logger.LogInformation("Deserialized districts result: Status={Status}, Error={Error}, DataCount={DataCount}", 
+                            result?.Status, result?.Error, result?.Data?.Count);
                         
                         if (result?.Status == 200 && !result.Error && result.Data != null)
                         {
@@ -173,7 +192,7 @@ namespace backend.Services
                             {
                                 Id = d.DISTRICT_ID,
                                 Name = d.DISTRICT_NAME,
-                                Code = d.DISTRICT_CODE
+                                Code = d.DISTRICT_VALUE // DISTRICT_VALUE đã là string
                             }).ToList();
 
                             return new AddressApiResponse<List<AddressDto>>
@@ -183,10 +202,36 @@ namespace backend.Services
                                 Data = districts
                             };
                         }
+                        else
+                        {
+                            // Xử lý các error status theo API documentation
+                            string errorMessage = result?.Status switch
+                            {
+                                203 => "Province/city status not blank",
+                                205 => "System error",
+                                _ => result?.Message ?? "Không thể lấy danh sách quận/huyện"
+                            };
+                            
+                            _logger.LogWarning("Failed to parse districts: Status={Status}, Error={Error}, Data={Data}", 
+                                result?.Status, result?.Error, result?.Data);
+                            
+                            return new AddressApiResponse<List<AddressDto>>
+                            {
+                                Success = false,
+                                Message = errorMessage,
+                                Errors = new List<string> { errorMessage }
+                            };
+                        }
                     }
                     catch (JsonException ex)
                     {
                         _logger.LogError(ex, "Failed to deserialize districts response: {Response}", responseContent);
+                        return new AddressApiResponse<List<AddressDto>>
+                        {
+                            Success = false,
+                            Message = "Lỗi phân tích dữ liệu quận/huyện",
+                            Errors = new List<string> { ex.Message }
+                        };
                     }
                 }
 
@@ -213,6 +258,18 @@ namespace backend.Services
         {
             try
             {
+                // Validate districtId parameter theo API documentation
+                if (districtId <= 0)
+                {
+                    _logger.LogWarning("Invalid districtId: {DistrictId}. District status must not be blank.", districtId);
+                    return new AddressApiResponse<List<AddressDto>>
+                    {
+                        Success = false,
+                        Message = "Mã quận huyện không được để trống",
+                        Errors = new List<string> { "District status not blank" }
+                    };
+                }
+
                 await EnsureAuthenticatedAsync();
 
                 _httpClient.DefaultRequestHeaders.Clear();
@@ -256,8 +313,23 @@ namespace backend.Services
                         }
                         else
                         {
+                            // Xử lý các error status theo API documentation
+                            string errorMessage = result?.Status switch
+                            {
+                                203 => "District status not blank",
+                                205 => "System error",
+                                _ => result?.Message ?? "Không thể lấy danh sách phường/xã"
+                            };
+                            
                             _logger.LogWarning("Failed to parse wards: Status={Status}, Error={Error}, Data={Data}", 
                                 result?.Status, result?.Error, result?.Data);
+                            
+                            return new AddressApiResponse<List<AddressDto>>
+                            {
+                                Success = false,
+                                Message = errorMessage,
+                                Errors = new List<string> { errorMessage }
+                            };
                         }
                     }
                     catch (JsonException ex)
@@ -314,6 +386,107 @@ namespace backend.Services
                 {
                     Success = false,
                     Message = "Đã xảy ra lỗi khi lấy danh sách phường/xã",
+                    Errors = new List<string> { ex.Message }
+                };
+            }
+        }
+
+        public async Task<AddressApiResponse<AddressDto>> GetProvinceByIdAsync(int provinceId)
+        {
+            try
+            {
+                await EnsureAuthenticatedAsync();
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+
+                var response = await _httpClient.GetAsync($"/v2/categories/listProvinceById?provinceId={provinceId}");
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("Viettel Post province by ID response: {Response}", responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    try
+                    {
+                        var options = new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        };
+                        var result = JsonSerializer.Deserialize<ViettelPostApiResponse<List<ProvinceData>>>(responseContent, options);
+                        
+                        _logger.LogInformation("Deserialized province by ID result: Status={Status}, Error={Error}, DataCount={DataCount}", 
+                            result?.Status, result?.Error, result?.Data?.Count);
+                        
+                        if (result?.Status == 200 && !result.Error && result.Data != null && result.Data.Count > 0)
+                        {
+                            var province = result.Data.First();
+                            var provinceDto = new AddressDto
+                            {
+                                Id = province.PROVINCE_ID,
+                                Name = province.PROVINCE_NAME,
+                                Code = province.PROVINCE_CODE
+                            };
+
+                            return new AddressApiResponse<AddressDto>
+                            {
+                                Success = true,
+                                Message = "Lấy thông tin tỉnh/thành phố thành công",
+                                Data = provinceDto
+                            };
+                        }
+                        else
+                        {
+                            // Xử lý các error status theo API documentation
+                            string errorMessage = result?.Status switch
+                            {
+                                203 => "Province/city status not blank",
+                                205 => "System error",
+                                _ => result?.Message ?? "Không tìm thấy tỉnh/thành phố"
+                            };
+                            
+                            _logger.LogWarning("Failed to parse province by ID: Status={Status}, Error={Error}, Data={Data}", 
+                                result?.Status, result?.Error, result?.Data);
+                            
+                            return new AddressApiResponse<AddressDto>
+                            {
+                                Success = false,
+                                Message = errorMessage,
+                                Errors = new List<string> { errorMessage }
+                            };
+                        }
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogError(ex, "Error deserializing province by ID response: {Response}", responseContent);
+                        return new AddressApiResponse<AddressDto>
+                        {
+                            Success = false,
+                            Message = "Lỗi phân tích dữ liệu tỉnh/thành phố",
+                            Errors = new List<string> { ex.Message }
+                        };
+                    }
+                }
+                else
+                {
+                    _logger.LogError("Viettel Post province by ID API returned error: {StatusCode} - {Response}", 
+                        response.StatusCode, responseContent);
+                    
+                    return new AddressApiResponse<AddressDto>
+                    {
+                        Success = false,
+                        Message = "Lỗi API Viettel Post",
+                        Errors = new List<string> { $"HTTP {response.StatusCode}: {responseContent}" }
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting province by ID: {ProvinceId}", provinceId);
+                return new AddressApiResponse<AddressDto>
+                {
+                    Success = false,
+                    Message = "Lỗi hệ thống khi lấy thông tin tỉnh/thành phố",
                     Errors = new List<string> { ex.Message }
                 };
             }
@@ -491,16 +664,17 @@ namespace backend.Services
 
     public class DistrictData
     {
-        public int DISTRICT_ID { get; set; }
-        public string DISTRICT_CODE { get; set; } = string.Empty;
-        public string DISTRICT_NAME { get; set; } = string.Empty;
+        public int DISTRICT_ID { get; set; }           // ✅ NUMBER - District ID
+        public string DISTRICT_VALUE { get; set; } = string.Empty; // ✅ VARCHAR2(250) - District status (string in API response)
+        public string DISTRICT_NAME { get; set; } = string.Empty; // ✅ VARCHAR2(250) - District name
+        public int PROVINCE_ID { get; set; }          // ✅ NUMBER - Province/city status
     }
 
     public class WardData
     {
-        public int WARDS_ID { get; set; }
-        public string WARDS_NAME { get; set; } = string.Empty;
-        public int DISTRICT_ID { get; set; }
+        public int WARDS_ID { get; set; }           // ✅ NUMBER - Ward status
+        public string WARDS_NAME { get; set; } = string.Empty; // ✅ VARCHAR2(250) - Ward name
+        public int DISTRICT_ID { get; set; }        // ✅ NUMBER - District status
     }
     #endregion
 }

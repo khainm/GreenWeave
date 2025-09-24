@@ -50,6 +50,42 @@ namespace backend.Controllers
         }
 
         /// <summary>
+        /// Lấy thông tin tỉnh/thành phố theo ID từ Viettel Post
+        /// </summary>
+        /// <param name="provinceId">ID của tỉnh/thành phố</param>
+        /// <returns>Thông tin tỉnh/thành phố</returns>
+        [HttpGet("province/{provinceId}")]
+        [AllowAnonymous]
+        public async Task<ActionResult<AddressApiResponse<AddressDto>>> GetProvinceById(int provinceId)
+        {
+            try
+            {
+                if (provinceId <= 0)
+                {
+                    return BadRequest(new AddressApiResponse<AddressDto>
+                    {
+                        Success = false,
+                        Message = "ID tỉnh/thành phố không hợp lệ",
+                        Errors = new List<string> { "Province ID must be greater than 0" }
+                    });
+                }
+
+                var result = await _addressService.GetProvinceByIdAsync(provinceId);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting province by ID {ProvinceId}", provinceId);
+                return StatusCode(500, new AddressApiResponse<AddressDto>
+                {
+                    Success = false,
+                    Message = "Đã xảy ra lỗi khi lấy thông tin tỉnh/thành phố",
+                    Errors = new List<string> { ex.Message }
+                });
+            }
+        }
+
+        /// <summary>
         /// Lấy danh sách quận/huyện theo tỉnh từ Viettel Post
         /// </summary>
         /// <param name="provinceId">ID của tỉnh/thành phố</param>

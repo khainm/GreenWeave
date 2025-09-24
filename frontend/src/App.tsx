@@ -20,6 +20,7 @@ import AdminWarehousePage from './pages/admin/AdminWarehousePage'
 import AdminWarehouseStockPage from './pages/admin/AdminWarehouseStockPage'
 import AdminCreateOrderPage from './pages/admin/AdminCreateOrderPage'
 import AdminCreateCustomOrderPage from './pages/admin/AdminCreateCustomOrderPage'
+import ViettelPostIntegration from './components/admin/ViettelPostIntegration'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -145,6 +146,11 @@ function App() {
             <Route path="/admin/warehouse-stock" element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminWarehouseStockPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/viettelpost" element={
+              <ProtectedRoute requireAdmin={true}>
+                <ViettelPostIntegration />
               </ProtectedRoute>
             } />
           </Routes>

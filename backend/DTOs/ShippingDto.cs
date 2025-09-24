@@ -43,6 +43,17 @@ namespace backend.DTOs
     }
 
     /// <summary>
+    /// Result of updating an order
+    /// </summary>
+    public class UpdateOrderResult
+    {
+        public bool IsSuccess { get; set; }
+        public string? Message { get; set; }
+        public string? ErrorMessage { get; set; }
+        public Dictionary<string, object> AdditionalData { get; set; } = new();
+    }
+
+    /// <summary>
     /// Result of tracking a shipment
     /// </summary>
     public class TrackingResult
@@ -113,6 +124,23 @@ namespace backend.DTOs
         public string? Note { get; set; }
 
         public bool RequireSignature { get; set; } = false;
+    }
+
+    /// <summary>
+    /// Request DTO for updating an order
+    /// </summary>
+    public class UpdateOrderRequest
+    {
+        [Required]
+        public ShippingAddressDto FromAddress { get; set; } = new();
+
+        [Required]
+        public ShippingAddressDto ToAddress { get; set; } = new();
+
+        [StringLength(500)]
+        public string? Note { get; set; }
+
+        public decimal CodAmount { get; set; }
     }
 
     /// <summary>
@@ -271,5 +299,25 @@ namespace backend.DTOs
         public int? GroupAddressId { get; set; }
         public string Message { get; set; } = string.Empty;
         public string? ErrorMessage { get; set; }
+    }
+
+    public class ListInventoryResult
+    {
+        public bool IsSuccess { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string? ErrorMessage { get; set; }
+        public List<InventoryData>? Inventories { get; set; }
+    }
+
+    public class InventoryData
+    {
+        public int GroupAddressId { get; set; }    // ✅ NUMBER - Store ID
+        public int CusId { get; set; }              // ✅ NUMBER - Customer ID
+        public string Name { get; set; } = string.Empty;     // ✅ VARCHAR2(250) - Customer name
+        public string Phone { get; set; } = string.Empty;    // ✅ VARCHAR2(250) - Phone number
+        public string Address { get; set; } = string.Empty;  // ✅ VARCHAR2(250) - Address
+        public int ProvinceId { get; set; }        // ✅ NUMBER - Province/city status
+        public int DistrictId { get; set; }         // ✅ NUMBER - District status
+        public int WardsId { get; set; }            // ✅ NUMBER - Ward status
     }
 }

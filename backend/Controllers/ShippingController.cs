@@ -257,6 +257,30 @@ namespace backend.Controllers
                 return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy thông tin yêu cầu vận chuyển" });
             }
         }
+
+        /// <summary>
+        /// Lấy danh sách kho hàng từ Viettel Post
+        /// </summary>
+        /// <returns>Danh sách kho hàng</returns>
+        /// <response code="200">Lấy danh sách kho hàng thành công</response>
+        /// <response code="500">Lỗi hệ thống</response>
+        [HttpGet("inventory")]
+        [Authorize(Roles = "Admin,Staff")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ListInventoryResult>> GetInventory()
+        {
+            try
+            {
+                var result = await _shippingService.ListInventoryAsync();
+                return Ok(new { success = true, data = result.Inventories });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting inventory list");
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy danh sách kho hàng" });
+            }
+        }
     }
 
     /// <summary>

@@ -46,6 +46,28 @@ export class ViettelPostAddressService {
   }
 
   /**
+   * Get province by ID from Viettel Post API
+   */
+  static async getProvinceById(provinceId: number): Promise<AddressDto> {
+    try {
+      console.log('🔍 [ViettelPostAddressService] Calling getProvinceById for ID:', provinceId);
+      const response = await apiClient.get<AddressApiResponse<AddressDto>>(`/api/viettelpostaddress/province/${provinceId}`);
+      console.log('🔍 [ViettelPostAddressService] Received response:', response);
+      
+      if (response?.success && response?.data) {
+        console.log('✅ [ViettelPostAddressService] Success! Returning province:', response.data);
+        return response.data;
+      }
+      
+      console.error('❌ [ViettelPostAddressService] API returned success=false or no data:', response);
+      throw new Error(response?.message || 'Failed to get province');
+    } catch (error) {
+      console.error('❌ [ViettelPostAddressService] Error getting province by ID:', error);
+      throw new Error('Không thể lấy thông tin tỉnh/thành phố');
+    }
+  }
+
+  /**
    * Get list of districts by province ID from Viettel Post API
    */
   static async getDistricts(provinceId: number): Promise<AddressDto[]> {

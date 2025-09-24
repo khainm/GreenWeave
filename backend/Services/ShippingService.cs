@@ -224,6 +224,80 @@ namespace backend.Services
             }
         }
 
+        public async Task<UpdateOrderResult> UpdateOrderAsync(int orderId, UpdateOrderRequest request)
+        {
+            try
+            {
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null)
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Order not found"
+                    };
+                }
+
+                // Check if shipping request exists
+                var existingRequest = await _shippingRequestRepository.GetByOrderIdAsync(orderId);
+                if (existingRequest == null)
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "No shipping request found for this order"
+                    };
+                }
+
+                // Update shipping request with new data
+                existingRequest.FromAddress = JsonSerializer.Serialize(request.FromAddress);
+                existingRequest.ToAddress = JsonSerializer.Serialize(request.ToAddress);
+                existingRequest.Note = request.Note;
+                existingRequest.CodAmount = request.CodAmount;
+                existingRequest.UpdatedAt = DateTime.UtcNow;
+
+                // Find the appropriate provider
+                var provider = _shippingProviders.FirstOrDefault(p => p.Provider == order.ShippingProvider);
+                if (provider == null)
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = $"Provider {order.ShippingProvider} not found"
+                    };
+                }
+
+                // Update order with provider
+                var result = await provider.UpdateOrderAsync(order, existingRequest);
+
+                // Update database if successful
+                if (result.IsSuccess)
+                {
+                    await _shippingRequestRepository.UpdateAsync(existingRequest);
+                    
+                    // Update order if needed
+                    order.UpdatedAt = DateTime.UtcNow;
+                    await _orderRepository.UpdateAsync(order);
+                }
+
+                // Log the transaction
+                await LogTransactionAsync(existingRequest.Id, "UpdateOrder", order.ShippingProvider.ToString(),
+                    JsonSerializer.Serialize(request), JsonSerializer.Serialize(result), null, 
+                    result.IsSuccess, result.ErrorMessage);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order {OrderId}", orderId);
+                return new UpdateOrderResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
         public async Task<CancelShipmentResult> CancelShipmentAsync(int orderId, string reason)
         {
             try
@@ -602,6 +676,37 @@ namespace backend.Services
                 ShippingStatus.Cancelled => "Đã hủy",
                 _ => "Không xác định"
             };
+        }
+
+        /// <summary>
+        /// Lấy danh sách kho hàng từ Viettel Post
+        /// </summary>
+        /// <returns>Kết quả lấy danh sách kho hàng</returns>
+        public async Task<ListInventoryResult> ListInventoryAsync()
+        {
+            try
+            {
+                var viettelPostProvider = _shippingProviders.FirstOrDefault(p => p.Provider == ShippingProvider.ViettelPost);
+                if (viettelPostProvider == null)
+                {
+                    return new ListInventoryResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "ViettelPost provider không khả dụng"
+                    };
+                }
+
+                return await viettelPostProvider.ListInventoryAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error listing inventory");
+                return new ListInventoryResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
         }
     }
 }

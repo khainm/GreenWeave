@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import type { Warehouse, CreateWarehouseRequest, UpdateWarehouseRequest } from '../../types/warehouse'
 import ViettelPostAddressService from '../../services/viettelPostAddressService'
 
@@ -73,13 +73,38 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({
     }
   }
 
-  const loadDistricts = async (provinceId: number) => {
+  const loadProvinceById = async (provinceId: number) => {
+    try {
+      const data = await ViettelPostAddressService.getProvinceById(provinceId)
+      console.log('✅ [WarehouseForm] Loaded province by ID:', data)
+      return data
+    } catch (error) {
+      console.error('Error loading province by ID:', error)
+      return null
+    }
+  }
+
+  // Sử dụng loadProvinceById để validate province khi cần
+  const validateProvince = async (provinceId: number) => {
+    if (provinceId > 0) {
+      const province = await loadProvinceById(provinceId)
+      if (!province) {
+        console.warn('Province not found:', provinceId)
+      }
+    }
+  }
+
+  const loadDistricts = useCallback(async (provinceId: number, preserveFormData = false) => {
     if (!provinceId) return
     
     setLoadingDistricts(true)
     setDistricts([])
     setWards([])
-    setFormData(prev => ({ ...prev, districtId: 0, wardId: 0, districtName: '', wardName: '' }))
+    
+    // Only reset form data if not preserving (i.e., not in edit mode)
+    if (!preserveFormData) {
+      setFormData(prev => ({ ...prev, districtId: 0, wardId: 0, districtName: '', wardName: '' }))
+    }
     
     try {
       const response = await ViettelPostAddressService.getDistricts(provinceId)
@@ -87,17 +112,23 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({
       setDistricts(response || [])
     } catch (error) {
       console.error('Error loading districts:', error)
+      // Hiển thị thông báo lỗi cho user
+      alert('Không thể tải danh sách quận/huyện. Vui lòng thử lại.')
     } finally {
       setLoadingDistricts(false)
     }
-  }
+  }, [])
 
-  const loadWards = async (districtId: number) => {
+  const loadWards = useCallback(async (districtId: number, preserveFormData = false) => {
     if (!districtId) return
     
     setLoadingWards(true)
     setWards([])
-    setFormData(prev => ({ ...prev, wardId: 0, wardName: '' }))
+    
+    // Only reset form data if not preserving (i.e., not in edit mode)
+    if (!preserveFormData) {
+      setFormData(prev => ({ ...prev, wardId: 0, wardName: '' }))
+    }
     
     try {
       const response = await ViettelPostAddressService.getWards(districtId)
@@ -105,10 +136,12 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({
       setWards(response || [])
     } catch (error) {
       console.error('Error loading wards:', error)
+      // Hiển thị thông báo lỗi cho user
+      alert('Không thể tải danh sách phường/xã. Vui lòng thử lại.')
     } finally {
       setLoadingWards(false)
     }
-  }
+  }, [])
 
   const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const provinceId = parseInt(e.target.value)
@@ -165,6 +198,21 @@ const WarehouseForm: React.FC<WarehouseFormProps> = ({
     e.preventDefault()
     await onSubmit(formData)
   }
+
+  // Load districts and wards when provinces are loaded and warehouse has data
+  useEffect(() => {
+    if (provinces.length > 0 && warehouse && warehouse.provinceId) {
+      loadDistricts(warehouse.provinceId, true) // preserveFormData = true for edit mode
+      validateProvince(warehouse.provinceId) // Validate province exists
+    }
+  }, [provinces, warehouse, loadDistricts])
+
+  // Load wards when districts are loaded and warehouse has data
+  useEffect(() => {
+    if (districts.length > 0 && warehouse && warehouse.districtId) {
+      loadWards(warehouse.districtId, true) // preserveFormData = true for edit mode
+    }
+  }, [districts, warehouse, loadWards])
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">

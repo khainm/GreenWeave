@@ -249,6 +249,11 @@ const TopNav: React.FC = () => {
                                   </Link>
                                 </li>
                                 <li>
+                                  <Link to="/admin/viettelpost" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsGoodsOpen(false)}>
+                                    Tích hợp ViettelPost
+                                  </Link>
+                                </li>
+                                <li>
                                   <Link to="/admin/warehouse-stock" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsGoodsOpen(false)}>
                                     Quản lý stock
                                   </Link>

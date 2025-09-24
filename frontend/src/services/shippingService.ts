@@ -106,6 +106,28 @@ export class ShippingService {
       throw new Error('Không thể lấy thông tin yêu cầu vận chuyển');
     }
   }
+
+  /**
+   * List inventory/warehouse from Viettel Post
+   */
+  static async listInventory(): Promise<any[]> {
+    try {
+      console.log('🔍 [ShippingService] Calling listInventory...');
+      const response = await apiClient.get<{ success: boolean; data: any[] }>('/api/shipping/inventory');
+      console.log('🔍 [ShippingService] Received response:', response);
+      
+      if (response?.success && response?.data) {
+        console.log('✅ [ShippingService] Success! Returning inventory:', response.data);
+        return response.data;
+      }
+      
+      console.error('❌ [ShippingService] API returned success=false or no data:', response);
+      throw new Error('Failed to get inventory list');
+    } catch (error) {
+      console.error('❌ [ShippingService] Error getting inventory list:', error);
+      throw new Error('Không thể lấy danh sách kho hàng');
+    }
+  }
 }
 
 export default ShippingService;

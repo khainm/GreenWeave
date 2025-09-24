@@ -367,6 +367,40 @@ namespace backend.Services
                     }
                 }
 
+                // Đồng bộ với ViettelPost khi đơn hàng đã được tạo và có thay đổi thông tin
+                if (order.ShippingRequest != null && !string.IsNullOrEmpty(order.ShippingCode))
+                {
+                    try
+                    {
+                        _logger.LogInformation("Syncing order changes with ViettelPost for order: {OrderId}", id);
+                        
+                        var updateRequest = new UpdateOrderRequest
+                        {
+                            FromAddress = JsonSerializer.Deserialize<ShippingAddressDto>(order.ShippingRequest.FromAddress) ?? new(),
+                            ToAddress = JsonSerializer.Deserialize<ShippingAddressDto>(order.ShippingRequest.ToAddress) ?? new(),
+                            Note = order.Notes,
+                            CodAmount = order.ShippingRequest.CodAmount
+                        };
+
+                        var updateResult = await _shippingService.UpdateOrderAsync(id, updateRequest);
+                        
+                        if (updateResult.IsSuccess)
+                        {
+                            _logger.LogInformation("Order synced successfully with ViettelPost for order: {OrderId}", id);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Failed to sync order with ViettelPost for order: {OrderId}, Error: {Error}", 
+                                id, updateResult.ErrorMessage);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error syncing order with ViettelPost for order: {OrderId}", id);
+                        // Không throw exception để không ảnh hưởng đến việc cập nhật trạng thái đơn hàng
+                    }
+                }
+
                 // Gửi email thông báo cập nhật trạng thái (trừ trường hợp confirmed vì đã gửi trong invoice)
                 if (updateStatusDto.Status != OrderStatus.Confirmed)
                 {

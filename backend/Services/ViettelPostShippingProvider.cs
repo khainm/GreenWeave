@@ -74,10 +74,10 @@ namespace backend.Services
                     SENDER_DISTRICT = senderDistrictId,
                     RECEIVER_PROVINCE = receiverProvinceId,
                     RECEIVER_DISTRICT = receiverDistrictId,
-                    PRODUCT_TYPE = "HH",
+                    PRODUCT_TYPE = "HH", // Hàng hóa/Goods - có thể mở rộng để hỗ trợ "TH" (Thư/Envelope)
                     PRODUCT_WEIGHT = request.Weight,
                     PRODUCT_PRICE = request.InsuranceValue,
-                    MONEY_COLLECTION = request.CodAmount.ToString(),
+                    MONEY_COLLECTION = (int)request.CodAmount, // NUMBER type theo API documentation
                     TYPE = 1
                 };
 
@@ -124,7 +124,13 @@ namespace backend.Services
                                 AdditionalData = new Dictionary<string, object>
                                 {
                                     ["viettelpost_response"] = services,
-                                    ["selected_service"] = selectedService
+                                    ["selected_service"] = selectedService,
+                                    ["service_code"] = selectedService.MA_DV_CHINH,
+                                    ["service_name"] = selectedService.TEN_DICHVU,
+                                    ["delivery_time"] = selectedService.THOI_GIAN,
+                                    ["exchange_weight"] = selectedService.EXCHANGE_WEIGHT,
+                                    ["extra_services"] = selectedService.EXTRA_SERVICE ?? new List<ViettelPostExtraService>(),
+                                    ["all_services"] = services
                                 }
                             };
                         }
@@ -138,10 +144,18 @@ namespace backend.Services
                             _logger.LogWarning("Viettel Post API returned error: {Status} - {Message}", 
                                 errorResponse?.Status, errorResponse?.Message);
                             
+                            // Xử lý các error status theo API documentation
+                            string errorMessage = errorResponse?.Status switch
+                            {
+                                204 => "Price does not apply to this itinerary!",
+                                205 => "System error",
+                                _ => errorResponse?.Message ?? "Viettel Post API error"
+                            };
+                            
                             return new FeeResult
                             {
                                 IsSuccess = false,
-                                ErrorMessage = errorResponse?.Message ?? "Viettel Post API error"
+                                ErrorMessage = errorMessage
                             };
                         }
                         catch (JsonException ex)
@@ -231,21 +245,21 @@ namespace backend.Services
                     PRODUCT_LENGTH = 0,
                     PRODUCT_WIDTH = 0,
                     PRODUCT_HEIGHT = 0,
-                    PRODUCT_TYPE = "HH",
+                    PRODUCT_TYPE = "HH", // Hàng hóa/Goods - có thể mở rộng để hỗ trợ "TH" (Thư/Envelope)
                     ORDER_PAYMENT = order.PaymentMethod == PaymentMethod.CashOnDelivery ? 3 : 1, // 3 = COD, 1 = Người gửi thanh toán
                     ORDER_SERVICE = "VCN", // Dịch vụ chuyển phát nhanh
                     ORDER_SERVICE_ADD = "",
                     ORDER_VOUCHER = "",
                     ORDER_NOTE = shippingRequest.Note ?? "",
                     MONEY_COLLECTION = order.PaymentMethod == PaymentMethod.CashOnDelivery ? (int)shippingRequest.CodAmount : 0,
-                    MONEY_TOTALFEE = 0,
-                    MONEY_FEECOD = 0,
-                    MONEY_FEEVAS = 0,
-                    MONEY_FEEINSURRANCE = 0,
-                    MONEY_FEE = 0,
-                    MONEY_FEEOTHER = 0,
-                    MONEY_TOTALVAT = 0,
-                    MONEY_TOTAL = 0,
+                    MONEY_TOTALFEE = (int)shippingRequest.Fee,
+                    MONEY_FEECOD = 0, // Có thể tính toán dựa trên CodAmount
+                    MONEY_FEEVAS = 0, // Có thể mở rộng thêm field này trong tương lai
+                    MONEY_FEEINSURRANCE = (int)shippingRequest.InsuranceValue,
+                    MONEY_FEE = (int)shippingRequest.Fee,
+                    MONEY_FEEOTHER = 0, // Có thể mở rộng thêm field này trong tương lai
+                    MONEY_TOTALVAT = 0, // Có thể mở rộng thêm field này trong tương lai
+                    MONEY_TOTAL = (int)shippingRequest.Fee,
                     LIST_ITEM = listItems
                 };
 
@@ -264,26 +278,68 @@ namespace backend.Services
                     
                     if (result?.Status == 200 && result.Data != null)
                     {
-                        // Generate tracking code
-                        var trackingCode = result.Data.ORDER_NUMBER;
+                        // Sử dụng dữ liệu từ API response thay vì hard code
+                        var createData = result.Data;
+                        var trackingCode = createData.ORDER_NUMBER;
 
                         return new CreateShipmentResult
                         {
                             IsSuccess = true,
                             TrackingCode = trackingCode,
-                            ExternalId = result.Data.ORDER_NUMBER,
-                            TotalFee = result.Data.MONEY_TOTAL,
+                            ExternalId = createData.ORDER_NUMBER,
+                            TotalFee = createData.MONEY_TOTAL,
                             AdditionalData = new Dictionary<string, object>
                             {
                                 ["viettelpost_response"] = result,
+                                ["order_number"] = createData.ORDER_NUMBER,
+                                ["money_collection"] = createData.MONEY_COLLECTTION,
+                                ["exchange_weight"] = createData.EXCHANGE_WEIGHT,
+                                ["money_other_fee"] = createData.MONEY_OTHER_FEE,
+                                ["money_fee"] = createData.MONEY_FEE,
+                                ["money_collection_fee"] = createData.MONEY_COLLECTION_FEE,
+                                ["money_fee_vat"] = createData.MONEY_FEE_VAT,
+                                ["money_total_fee"] = createData.MONEY_TOTAL_FEE,
+                                ["money_total"] = createData.MONEY_TOTAL,
                                 ["is_production"] = true
                             }
                         };
                     }
                 }
 
+                // Xử lý error response với các status code cụ thể
+                try
+                {
+                    var errorResult = JsonSerializer.Deserialize<ViettelPostCreateOrderResponse>(responseContent);
+                    if (errorResult != null)
+                    {
+                        string errorMessage = errorResult.Status switch
+                        {
+                            201 => "Cancel key in delivery note!",
+                            202 => "Token error (blank, expired ...)",
+                            203 => "Field error may not be blank (order status, ....)",
+                            204 => "Invalid data error",
+                            205 => "System error",
+                            206 => "Order status already exists on the system",
+                            _ => errorResult.Message ?? "Viettel Post API error"
+                        };
+
+                        _logger.LogError("Viettel Post createOrder API returned error {Status}: {Message} for order {OrderNumber}", 
+                            errorResult.Status, errorMessage, order.OrderNumber);
+
+                        return new CreateShipmentResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = errorMessage
+                        };
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Fallback nếu không parse được JSON
+                }
+
                 // Log error and return failure
-                _logger.LogError("Viettel Post API returned error for order {OrderNumber}", order.OrderNumber);
+                _logger.LogError("Viettel Post API returned error for order {OrderNumber}: {Response}", order.OrderNumber, responseContent);
 
                 return new CreateShipmentResult
                 {
@@ -342,6 +398,139 @@ namespace backend.Services
             {
                 _logger.LogError(ex, "Error cancelling Viettel Post shipment {TrackingCode}", trackingCode);
                 return new CancelShipmentResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        public async Task<UpdateOrderResult> UpdateOrderAsync(Order order, ShippingRequest shippingRequest)
+        {
+            try
+            {
+                _logger.LogInformation("Updating order in ViettelPost for order {OrderNumber}", order.OrderNumber);
+
+                await EnsureAuthenticatedAsync();
+
+                var fromAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.FromAddress);
+                var toAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.ToAddress);
+                
+                // Validate required address IDs for updateOrder
+                if (toAddress?.WardId == null || toAddress?.DistrictId == null || toAddress?.ProvinceId == null)
+                {
+                    throw new InvalidOperationException("Complete address information (ProvinceId, DistrictId, WardId) is required for updating order");
+                }
+
+                // Calculate total weight and dimensions
+                var totalWeight = order.Items.Sum(i => i.Product.Weight * i.Quantity);
+                var totalPrice = order.Items.Sum(i => i.Product.Price * i.Quantity);
+                
+                // Create LIST_ITEM for detailed product information
+                var listItems = order.Items.Select(item => new
+                {
+                    PRODUCT_NAME = item.Product.Name,
+                    PRODUCT_PRICE = (int)item.Product.Price,
+                    PRODUCT_WEIGHT = (int)item.Product.Weight,
+                    PRODUCT_QUANTITY = item.Quantity
+                }).ToArray();
+
+                // Payload theo API documentation cho UpdateOrder - chỉ cần 3 fields
+                var payload = new
+                {
+                    Type = 1, // ✅ NUMBER - Status type: 1. Confirm order
+                    ORDER_NUMBER = order.OrderNumber, // ✅ NUMBER - Order number
+                    NOTE = shippingRequest.Note ?? order.Notes ?? "", // ✅ VARCHAR2(250) - Order note
+                    DATE = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss") // ✅ VARCHAR2(250) - Date (optional, only for re-order)
+                };
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+
+                var response = await _httpClient.PostAsync("/v2/order/UpdateOrder",
+                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Viettel Post update order response: {Response}", responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonSerializer.Deserialize<ViettelPostUpdateOrderResponse>(responseContent);
+                    
+                    if (result?.Status == 200 && result.Data != null)
+                    {
+                        // Sử dụng dữ liệu từ API response thay vì hard code
+                        var updateData = result.Data;
+                        
+                        return new UpdateOrderResult
+                        {
+                            IsSuccess = true,
+                            Message = updateData.MESSAGE ?? "Order updated successfully in ViettelPost",
+                            AdditionalData = new Dictionary<string, object>
+                            {
+                                ["viettelpost_response"] = result,
+                                ["order_number"] = updateData.ORDER_NUMBER,
+                                ["order_reference"] = updateData.ORDER_REFERENCE,
+                                ["order_status"] = updateData.ORDER_STATUS,
+                                ["status_name"] = updateData.STATUS_NAME,
+                                ["current_location"] = updateData.LOCALION_CURRENTLY,
+                                ["money_collection"] = updateData.MONEY_COLLECTION,
+                                ["money_total"] = updateData.MONEY_TOTAL,
+                                ["product_weight"] = updateData.PRODUCT_WEIGHT,
+                                ["expected_delivery_date"] = updateData.EXPECTED_DELIVERY_DATE,
+                                ["order_service"] = updateData.ORDER_SERVICE,
+                                ["money_total_fee"] = updateData.MONEY_TOTALFEE,
+                                ["is_production"] = true
+                            }
+                        };
+                    }
+                }
+
+                // Xử lý error response với các status code cụ thể
+                try
+                {
+                    var errorResult = JsonSerializer.Deserialize<ViettelPostUpdateOrderResponse>(responseContent);
+                    if (errorResult != null)
+                    {
+                        string errorMessage = errorResult.Status switch
+                        {
+                            201 => "Cancel key in delivery note!",
+                            202 => "Correct delivery note",
+                            203 => "Order does not exist or status has been changed..",
+                            204 => "Invalid account or owner password!",
+                            205 => "System error",
+                            207 => "No order found",
+                            _ => errorResult.Message ?? "Viettel Post UpdateOrder API error"
+                        };
+
+                        _logger.LogError("Viettel Post UpdateOrder API returned error {Status}: {Message} for order {OrderNumber}", 
+                            errorResult.Status, errorMessage, order.OrderNumber);
+
+                        return new UpdateOrderResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = errorMessage
+                        };
+                    }
+                }
+                catch (JsonException)
+                {
+                    // Fallback nếu không parse được JSON
+                }
+
+                // Log error and return failure
+                _logger.LogError("Viettel Post UpdateOrder API returned error for order {OrderNumber}: {Response}", order.OrderNumber, responseContent);
+
+                return new UpdateOrderResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = $"Viettel Post UpdateOrder API error: {responseContent}"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating Viettel Post order for order {OrderId}", order.Id);
+                return new UpdateOrderResult
                 {
                     IsSuccess = false,
                     ErrorMessage = ex.Message
@@ -568,10 +757,10 @@ namespace backend.Services
                     SENDER_DISTRICT = senderDistrictId,
                     RECEIVER_PROVINCE = receiverProvinceId,
                     RECEIVER_DISTRICT = receiverDistrictId,
-                    PRODUCT_TYPE = "HH",
+                    PRODUCT_TYPE = "HH", // Hàng hóa/Goods - có thể mở rộng để hỗ trợ "TH" (Thư/Envelope)
                     PRODUCT_WEIGHT = request.Weight,
                     PRODUCT_PRICE = request.InsuranceValue,
-                    MONEY_COLLECTION = request.CodAmount.ToString(),
+                    MONEY_COLLECTION = (int)request.CodAmount, // NUMBER type theo API documentation
                     TYPE = 1
                 };
                 
@@ -741,6 +930,87 @@ namespace backend.Services
             return new List<ShippingOptionDto>();
         }
 
+        public async Task<ListInventoryResult> ListInventoryAsync()
+        {
+            try
+            {
+                await EnsureAuthenticatedAsync();
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+
+                var response = await _httpClient.GetAsync("/v2/user/listInventory");
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("Viettel Post listInventory response: {Response}", responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var options = new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    };
+                    var result = JsonSerializer.Deserialize<ViettelPostListInventoryResponse>(responseContent, options);
+                    
+                    if (result?.Status == 200 && result.Data != null)
+                    {
+                        var inventories = result.Data.Select(d => new InventoryData
+                        {
+                            GroupAddressId = d.groupaddressId,
+                            CusId = d.cusId,
+                            Name = d.name,
+                            Phone = d.phone,
+                            Address = d.address,
+                            ProvinceId = d.provinceId,
+                            DistrictId = d.districtId,
+                            WardsId = d.wardsId
+                        }).ToList();
+
+                        return new ListInventoryResult
+                        {
+                            IsSuccess = true,
+                            Message = "Lấy danh sách kho hàng thành công",
+                            Inventories = inventories
+                        };
+                    }
+                    else
+                    {
+                        // Xử lý các error status theo API documentation
+                        string errorMessage = result?.Status switch
+                        {
+                            201 => "Cancel key in delivery note!",
+                            202 => "Correct delivery note",
+                            205 => "System error",
+                            _ => result?.Message ?? "Không thể lấy danh sách kho hàng"
+                        };
+                        
+                        _logger.LogWarning("Failed to parse listInventory: Status={Status}, Error={Error}, Data={Data}", 
+                            result?.Status, result?.Error, result?.Data);
+                        
+                        return new ListInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = errorMessage
+                        };
+                    }
+                }
+
+                return new ListInventoryResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = $"Viettel Post API error: {responseContent}"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting inventory list from Viettel Post");
+                return new ListInventoryResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
 
         // Private helper methods
 
@@ -995,12 +1265,49 @@ namespace backend.Services
                     _httpClient.DefaultRequestHeaders.Clear();
                     _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
+                    // Validate required fields theo API documentation
+                    if (string.IsNullOrWhiteSpace(request.Phone))
+                    {
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = "Field error may not be blank (phone)"
+                        };
+                    }
+                    
+                    if (string.IsNullOrWhiteSpace(request.Name))
+                    {
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = "Field error may not be blank (name)"
+                        };
+                    }
+                    
+                    if (string.IsNullOrWhiteSpace(request.Address))
+                    {
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = "Field error may not be blank (address)"
+                        };
+                    }
+                    
+                    if (request.WardsId <= 0)
+                    {
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = "Invalid ward status"
+                        };
+                    }
+
                     var payload = new
                     {
-                        PHONE = request.Phone,
-                        NAME = request.Name,
-                        ADDRESS = request.Address,
-                        WARDS_ID = request.WardsId
+                        PHONE = request.Phone,           // ✅ VARCHAR2(250) - Phone number
+                        NAME = request.Name,             // ✅ VARCHAR2(250) - Full name
+                        ADDRESS = request.Address,       // ✅ VARCHAR2(250) - Address
+                        WARDS_ID = request.WardsId       // ✅ NUMBER - Ward status
                     };
 
                     var jsonContent = JsonSerializer.Serialize(payload);
@@ -1045,13 +1352,24 @@ namespace backend.Services
                         }
                         else
                         {
+                            // Xử lý các error status theo API documentation
+                            string errorMessage = result?.Status switch
+                            {
+                                201 => "Cancel key in delivery note!",
+                                202 => "Correct delivery note",
+                                203 => "Field error may not be blank (email, phone, address, name ....)",
+                                204 => "Invalid province, district, ward status!",
+                                205 => "System error",
+                                _ => result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
+                            };
+                            
                             _logger.LogWarning("🔍 [DEBUG] Failed conditions: Status={Status}, DataNull={DataNull}, DataCount={DataCount}", 
                                 result?.Status, result?.Data == null, result?.Data?.Count);
                             
                             return new RegisterInventoryResult
                             {
                                 IsSuccess = false,
-                                ErrorMessage = result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
+                                ErrorMessage = errorMessage
                             };
                         }
                     }
@@ -1182,6 +1500,13 @@ namespace backend.Services
     public class ViettelPostCreateOrderData
     {
         public string ORDER_NUMBER { get; set; } = string.Empty;
+        public decimal MONEY_COLLECTTION { get; set; }
+        public decimal EXCHANGE_WEIGHT { get; set; }
+        public decimal MONEY_OTHER_FEE { get; set; }
+        public decimal MONEY_FEE { get; set; }
+        public decimal MONEY_COLLECTION_FEE { get; set; }
+        public decimal MONEY_FEE_VAT { get; set; }
+        public decimal MONEY_TOTAL_FEE { get; set; }
         public decimal MONEY_TOTAL { get; set; }
     }
 
@@ -1235,16 +1560,69 @@ namespace backend.Services
 
     public class ViettelPostRegisterInventoryData
     {
-        public int groupaddressId { get; set; }
-        public int cusId { get; set; }
-        public string name { get; set; } = string.Empty;
-        public string phone { get; set; } = string.Empty;
-        public string address { get; set; } = string.Empty;
-        public int provinceId { get; set; }
-        public int districtId { get; set; }
-        public int wardsId { get; set; }
+        public int groupaddressId { get; set; }    // ✅ NUMBER - Store ID
+        public int cusId { get; set; }              // ✅ NUMBER - Customer ID
+        public string name { get; set; } = string.Empty;     // ✅ VARCHAR2(250) - Customer name
+        public string phone { get; set; } = string.Empty;    // ✅ VARCHAR2(250) - Phone number
+        public string address { get; set; } = string.Empty;  // ✅ VARCHAR2(250) - Address
+        public int provinceId { get; set; }         // ✅ NUMBER - Province/city status
+        public int districtId { get; set; }         // ✅ NUMBER - District status
+        public int wardsId { get; set; }            // ✅ NUMBER - Ward status
         public object? postId { get; set; }
         public object? merchant { get; set; }
+    }
+
+    public class ViettelPostListInventoryResponse
+    {
+        public int Status { get; set; }
+        public bool Error { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public List<ViettelPostListInventoryData>? Data { get; set; }
+    }
+
+    public class ViettelPostListInventoryData
+    {
+        public int groupaddressId { get; set; }    // ✅ NUMBER - Store ID
+        public int cusId { get; set; }              // ✅ NUMBER - Customer ID
+        public string name { get; set; } = string.Empty;     // ✅ VARCHAR2(250) - Customer name
+        public string phone { get; set; } = string.Empty;    // ✅ VARCHAR2(250) - Phone number
+        public string address { get; set; } = string.Empty;  // ✅ VARCHAR2(250) - Address
+        public int provinceId { get; set; }         // ✅ NUMBER - Province/city status
+        public int districtId { get; set; }         // ✅ NUMBER - District status
+        public int wardsId { get; set; }            // ✅ NUMBER - Ward status
+    }
+
+    public class ViettelPostUpdateOrderResponse
+    {
+        public int Status { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public ViettelPostUpdateOrderData? Data { get; set; }
+    }
+
+    public class ViettelPostUpdateOrderData
+    {
+        public string ORDER_NUMBER { get; set; } = string.Empty;
+        public string ORDER_REFERENCE { get; set; } = string.Empty;
+        public string ORDER_STATUSDATE { get; set; } = string.Empty;
+        public int ORDER_STATUS { get; set; }
+        public string STATUS_NAME { get; set; } = string.Empty;
+        public string LOCALION_CURRENTLY { get; set; } = string.Empty;
+        public string NOTE { get; set; } = string.Empty;
+        public decimal MONEY_COLLECTION { get; set; }
+        public decimal MONEY_TOTAL { get; set; }
+        public decimal PRODUCT_WEIGHT { get; set; }
+        public decimal MONEY_COLLECTION_ORIGIN { get; set; }
+        public string EMPLOYEE_NAME { get; set; } = string.Empty;
+        public string EMPLOYEE_PHONE { get; set; } = string.Empty;
+        public decimal VOUCHER_VALUE { get; set; }
+        public string EXPECTED_DELIVERY_DATE { get; set; } = string.Empty;
+        public decimal MONEY_FEECOD { get; set; }
+        public int ORDER_PAYMENT { get; set; }
+        public string EXPECTED_DELIVERY { get; set; } = string.Empty;
+        public string ORDER_SERVICE { get; set; } = string.Empty;
+        public decimal MONEY_TOTALFEE { get; set; }
+        public string DETAIL { get; set; } = string.Empty;
+        public string MESSAGE { get; set; } = string.Empty;
     }
     #endregion
 }

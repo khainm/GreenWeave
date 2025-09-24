@@ -34,6 +34,14 @@ namespace backend.Interfaces.Services
         Task<CreateShipmentResult> CreateShipmentAsync(Order order, ShippingRequest shippingRequest);
 
         /// <summary>
+        /// Update an existing order with the provider
+        /// </summary>
+        /// <param name="order">Order to update</param>
+        /// <param name="shippingRequest">Updated shipping request details</param>
+        /// <returns>Order update result</returns>
+        Task<UpdateOrderResult> UpdateOrderAsync(Order order, ShippingRequest shippingRequest);
+
+        /// <summary>
         /// Cancel a shipment
         /// </summary>
         /// <param name="trackingCode">Tracking code of the shipment to cancel</param>
@@ -81,6 +89,7 @@ namespace backend.Interfaces.Services
         /// <param name="request">Inventory registration request</param>
         /// <returns>Registration result</returns>
         Task<RegisterInventoryResult> RegisterInventoryAsync(RegisterInventoryRequest request);
+        Task<ListInventoryResult> ListInventoryAsync();
     }
 
     /// <summary>

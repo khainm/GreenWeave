@@ -143,3 +143,22 @@ export const ShippingStatusColors: Record<ShippingStatus, string> = {
   [ShippingStatus.Returned]: 'text-purple-600 bg-purple-100',
   [ShippingStatus.Cancelled]: 'text-gray-600 bg-gray-100'
 };
+
+// Inventory types for ViettelPost
+export interface InventoryData {
+  groupAddressId: number;
+  cusId: number;
+  name: string;
+  phone: string;
+  address: string;
+  provinceId: number;
+  districtId: number;
+  wardsId: number;
+}
+
+export interface ListInventoryResult {
+  isSuccess: boolean;
+  message: string;
+  errorMessage?: string;
+  inventories?: InventoryData[];
+}
