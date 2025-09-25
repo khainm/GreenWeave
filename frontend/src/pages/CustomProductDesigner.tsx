@@ -2,6 +2,12 @@ import React, { useEffect, useRef, useState } from 'react'
 import Header from '../components/layout/Header'
 import ProductService from '../services/productService'
 import type { Product } from '../types/product'
+import { 
+  PaintBrushIcon, 
+  PhotoIcon, 
+  SparklesIcon,
+  Bars3Icon
+} from '@heroicons/react/24/outline'
 
 // Import các component con
 import ProductGallery from '../components/designer/ProductGallery'
@@ -10,7 +16,6 @@ import ColorSelector from '../components/designer/ColorSelector'
 import ActionButtons from '../components/designer/ActionButtons'
 import ExportButtons from '../components/designer/ExportButtons'
 import CanvasArea from '../components/designer/CanvasArea'
-import ZoomControls from '../components/designer/ZoomControls'
 
 // Enhanced UI styles with improved design
 const enhancedStyles = `
@@ -241,26 +246,27 @@ const CustomProductDesigner: React.FC = () => {
   const [stickers, setStickers] = useState<Sticker[]>([])
   const [productColor, setProductColor] = useState<string>('#ffffff')
   const [baseImageSrc, setBaseImageSrc] = useState<string>('')
-  const [canvasSize, setCanvasSize] = useState<number>(800) // Tăng từ 600 lên 800 để ảnh to hơn
-  const [zoom, setZoom] = useState<number>(1) // Thêm zoom state
+  const [canvasSize, setCanvasSize] = useState<number>(600)
   const [showToolsMobile, setShowToolsMobile] = useState<boolean>(false)
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [isLoading, setIsLoading] = useState<boolean>(true)
+  const [activeTab, setActiveTab] = useState<'products' | 'stickers' | 'colors' | 'tools'>('products')
 
   // Keep selection state in Konva Transformer via effect below
 
   const addSticker = (src: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    // Đặt sticker ở trung tâm canvas với kích thước lớn hơn (scale 1.5)
-    const centerX = canvasSize / 2 - 60 // Offset để căn giữa
-    const centerY = canvasSize / 2 - 60
+    // Đặt sticker ở trung tâm canvas với kích thước rất nhỏ
+    const centerX = canvasSize / 2 - 10 // Offset rất nhỏ để căn giữa
+    const centerY = canvasSize / 2 - 10
     setStickers(prev => [...prev, { 
       id, 
       src, 
       x: centerX, 
       y: centerY, 
-      scaleX: 1.5,  // Tăng từ 1 lên 1.5 để sticker lớn hơn
-      scaleY: 1.5,  // Tăng từ 1 lên 1.5 để sticker lớn hơn
+      scaleX: 0.15,  // Giảm xuống 0.15 để sticker rất nhỏ
+      scaleY: 0.15,  // Giảm xuống 0.15 để sticker rất nhỏ
       rotation: 0 
     }])
     setSelectedId(id)
@@ -315,21 +321,6 @@ const CustomProductDesigner: React.FC = () => {
     setStickers(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s))
   }
 
-  // Function để fit canvas vào màn hình hiện tại một cách tối ưu
-  const fitToScreen = () => {
-    const canvasContainer = canvasWrapRef.current
-    if (!canvasContainer) return
-    
-    const containerWidth = canvasContainer.clientWidth - 100 // Trừ padding
-    const containerHeight = canvasContainer.clientHeight - 100 // Trừ padding
-    
-    // Tính zoom để canvas vừa với container
-    const scaleX = containerWidth / canvasSize
-    const scaleY = containerHeight / canvasSize
-    const optimalZoom = Math.min(scaleX, scaleY, 1.5) // Không vượt quá 150%
-    
-    setZoom(Math.max(0.5, optimalZoom)) // Không dưới 50%
-  }
 
   const exportPNG = () => {
     const uri = canvasRef.current?.stage?.toDataURL({ pixelRatio: 2 })
@@ -374,14 +365,19 @@ const CustomProductDesigner: React.FC = () => {
     const ro = new (window as any).ResizeObserver((entries: any[]) => {
       const entry = entries[0]
       const width = entry.contentRect?.width || el.clientWidth
-      // Tăng canvas size để ảnh to và rõ hơn: min 500px, max 1200px
-      const size = Math.max(500, Math.min(1200, Math.floor(width * 0.8)))
+      const height = entry.contentRect?.height || el.clientHeight
+      
+      // Tính toán kích thước canvas tối ưu dựa trên container
+      const minDimension = Math.min(width, height)
+      const size = Math.max(400, Math.min(800, Math.floor(minDimension * 0.7)))
       setCanvasSize(size)
     })
     ro.observe(el)
-    // initial measure - đặt size lớn hơn để ảnh hiển thị to
+    // initial measure
     const width = el.clientWidth
-    setCanvasSize(Math.max(500, Math.min(1200, Math.floor(width * 0.8))))
+    const height = el.clientHeight
+    const minDimension = Math.min(width, height)
+    setCanvasSize(Math.max(400, Math.min(800, Math.floor(minDimension * 0.7))))
     return () => ro.disconnect()
   }, [])
 
@@ -389,6 +385,7 @@ const CustomProductDesigner: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       try {
+        setIsLoading(true)
         const list = await ProductService.getCustomizableProducts()
         setProducts(list)
         // Auto-select the first product that has an image (primary/any)
@@ -396,7 +393,11 @@ const CustomProductDesigner: React.FC = () => {
           const withImage = list.find(p => (p.images && p.images.length > 0)) || list[0]
           setSelectedProduct(withImage)
         }
-      } catch {}
+      } catch (error) {
+        console.error('Failed to load products:', error)
+      } finally {
+        setIsLoading(false)
+      }
     }
     load()
   }, [])
@@ -407,24 +408,6 @@ const CustomProductDesigner: React.FC = () => {
       // Only handle shortcuts when not in input fields
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
       
-      // Zoom shortcuts
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key) {
-          case '=':
-          case '+':
-            e.preventDefault()
-            setZoom(prev => Math.min(prev + 0.2, 2.0))
-            break
-          case '-':
-            e.preventDefault()
-            setZoom(prev => Math.max(prev - 0.2, 0.5))
-            break
-          case '0':
-            e.preventDefault()
-            setZoom(1)
-            break
-        }
-      }
       
       // Delete selected sticker
       if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -521,75 +504,75 @@ const CustomProductDesigner: React.FC = () => {
 
   // Upload sticker bị vô hiệu hóa theo yêu cầu (chỉ dùng sticker của admin)
 
+  if (isLoading) {
+    return (
+      <>
+        <style>{enhancedStyles}</style>
+        <Header />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <h2 className="text-xl font-semibold text-gray-700 mb-2">Đang tải Studio Thiết Kế...</h2>
+            <p className="text-gray-500">Vui lòng chờ trong giây lát</p>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <style>{enhancedStyles}</style>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 relative overflow-hidden">
-        {/* Enhanced background decorative elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-purple-400/30 to-pink-400/30 rounded-full blur-3xl floating-animation"></div>
-          <div className="absolute top-1/3 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/25 to-cyan-400/25 rounded-full blur-3xl floating-animation" style={{animationDelay: '2s'}}></div>
-          <div className="absolute -bottom-32 right-1/4 w-72 h-72 bg-gradient-to-br from-emerald-400/20 to-teal-400/20 rounded-full blur-3xl floating-animation" style={{animationDelay: '4s'}}></div>
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-amber-300/15 to-orange-300/15 rounded-full blur-3xl floating-animation" style={{animationDelay: '1s'}}></div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        <Header />
         
-        {/* Subtle pattern overlay */}
-        <div className="absolute inset-0 opacity-5" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%239C92AC' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-        }}></div>
-      <Header />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        {/* Enhanced Header Section */}
-        {/* Compact Header Section */}
-        <div className="mb-8 text-center relative z-10">
-          <div className="inline-block mb-4">
-            <div className="relative">
-              <h1 className="text-3xl lg:text-4xl font-black text-gradient bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 tracking-tight">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* Header Section */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center shadow-md">
+                <SparklesIcon className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-2xl lg:text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent">
                 Studio Thiết Kế
               </h1>
             </div>
+            <p className="text-gray-600 text-base max-w-xl mx-auto">
+              Tạo ra những sản phẩm độc đáo với thiết kế của riêng bạn
+            </p>
           </div>
-          <p className="text-gray-700 text-lg max-w-2xl mx-auto leading-relaxed font-medium">
-            Tạo ra những sản phẩm độc đáo với thiết kế của riêng bạn
-          </p>
-        </div>        {/* Enhanced Mobile tools toggle */}
-        <div className="lg:hidden mb-6 relative z-10">
-          <div className="glass-morphism rounded-2xl shadow-xl border border-white/30 p-4 card-hover-effect">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 gradient-bg-accent rounded-xl flex items-center justify-center shadow-lg pulse-glow">
-                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-                  </svg>
-                </div>
-                <div>
-                  <div className="text-lg font-bold text-gray-900">Công cụ thiết kế</div>
-                  <div className="text-xs text-gray-600">Tùy chỉnh sản phẩm của bạn</div>
-                </div>
+
+          {/* Mobile Tab Navigation */}
+          <div className="lg:hidden mb-4">
+            <div className="bg-white rounded-xl shadow-md p-1">
+              <div className="grid grid-cols-4 gap-1">
+                {[
+                  { id: 'products', label: 'Sản phẩm', icon: PhotoIcon },
+                  { id: 'stickers', label: 'Stickers', icon: SparklesIcon },
+                  { id: 'colors', label: 'Màu sắc', icon: PaintBrushIcon },
+                  { id: 'tools', label: 'Công cụ', icon: Bars3Icon }
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => setActiveTab(id as any)}
+                    className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all duration-200 ${
+                      activeTab === id
+                        ? 'bg-gradient-to-r from-green-500 to-blue-500 text-white shadow-md'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="text-xs font-medium">{label}</span>
+                  </button>
+                ))}
               </div>
-              <button
-                onClick={() => setShowToolsMobile(v => !v)}
-                className="px-6 py-3 rounded-xl gradient-bg-primary text-white text-sm font-bold hover:shadow-xl transition-all duration-300 transform hover:scale-105 click-effect relative overflow-hidden"
-              >
-                <span className="relative z-10">
-                  {showToolsMobile ? 'Ẩn công cụ' : 'Hiện công cụ'}
-                </span>
-              </button>
             </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6 h-[calc(100vh-120px)]">
-          {/* Compact Left Sidebar - chiếm 2/12 cột */}
-          {(showToolsMobile || typeof window === 'undefined' || window.innerWidth >= 1024) && (
-            <div className="lg:col-span-2 lg:max-h-[calc(100vh-160px)] lg:overflow-y-auto lg:pr-2 scrollbar-thin relative z-10">
-              <div className="space-y-4 pb-6">
-                <ProductGallery 
-                  products={products}
-                  selectedProduct={selectedProduct}
-                  onSelectProduct={setSelectedProduct}
-                />
-
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            {/* Left Sidebar - Tools */}
+            <div className="hidden lg:block lg:col-span-3">
+              <div className="bg-white rounded-xl shadow-md p-4 space-y-4">
                 <StickerPalette 
                   selectedProduct={selectedProduct}
                   onAddSticker={addSticker}
@@ -613,53 +596,92 @@ const CustomProductDesigner: React.FC = () => {
                 />
               </div>
             </div>
-          )}
 
-          {/* Expanded Canvas Area - chiếm 10/12 cột */}
-          <div className="lg:col-span-10 glass-morphism rounded-3xl shadow-2xl border border-white/30 p-4 card-hover-effect relative z-10 flex flex-col">
-            {/* Enhanced Canvas Section */}
-            <div className="flex-1 flex flex-col">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 gradient-bg-secondary rounded-xl flex items-center justify-center shadow-lg pulse-glow">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
+            {/* Mobile Tab Content */}
+            <div className="lg:hidden mb-4">
+              <div className="bg-white rounded-xl shadow-md p-4">
+                {activeTab === 'products' && (
+                  <ProductGallery 
+                    products={products}
+                    selectedProduct={selectedProduct}
+                    onSelectProduct={setSelectedProduct}
+                  />
+                )}
+                {activeTab === 'stickers' && (
+                  <StickerPalette 
+                    selectedProduct={selectedProduct}
+                    onAddSticker={addSticker}
+                  />
+                )}
+                {activeTab === 'colors' && (
+                  <ColorSelector 
+                    selectedProduct={selectedProduct}
+                    productColor={productColor}
+                    onColorChange={setProductColor}
+                  />
+                )}
+                {activeTab === 'tools' && (
+                  <div className="space-y-3">
+                    <ActionButtons 
+                      selectedId={selectedId}
+                      onRemoveSelected={removeSelected}
+                      onResetDesign={resetDesign}
+                    />
+                    <ExportButtons 
+                      onExportPNG={exportPNG}
+                      onExportJSON={exportJSON}
+                    />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-black text-gradient">Canvas thiết kế</h3>
-                    <p className="text-gray-600 text-sm font-medium">Kéo thả và tùy chỉnh stickers của bạn</p>
-                  </div>
-                </div>
-                
-                {/* Zoom Controls */}
-                <ZoomControls 
-                  zoom={zoom}
-                  onZoomIn={() => setZoom(prev => Math.min(prev + 0.2, 2.0))}
-                  onZoomOut={() => setZoom(prev => Math.max(prev - 0.2, 0.5))}
-                  onResetZoom={() => setZoom(1)}
-                  onFitToScreen={fitToScreen}
-                />
+                )}
               </div>
-              
-              <div className="flex-1 flex items-center justify-center" ref={canvasWrapRef}>
-                <CanvasArea 
-                  ref={canvasRef}
-                  canvasSize={canvasSize}
-                  zoom={zoom}
-                  baseImageSrc={baseImageSrc}
-                  stickers={stickers}
-                  selectedId={selectedId}
-                  onClearSelection={clearSelection}
-                  onSelectSticker={onSelect}
-                  onUpdateSticker={updateSticker}
-                  onRemoveSelected={removeSelected}
+            </div>
+
+            {/* Canvas Area - Center */}
+            <div className="lg:col-span-6">
+              <div className="bg-white rounded-xl shadow-md p-4">
+                {/* Canvas Container */}
+                <div className="bg-white rounded-lg border border-gray-200 min-h-[500px] flex items-center justify-center relative" ref={canvasWrapRef}>
+                  {/* Canvas Area */}
+                  <div className="w-full h-full">
+                    <CanvasArea 
+                      ref={canvasRef}
+                      canvasSize={canvasSize}
+                      baseImageSrc={baseImageSrc}
+                      stickers={stickers}
+                      selectedId={selectedId}
+                      onClearSelection={clearSelection}
+                      onSelectSticker={onSelect}
+                      onUpdateSticker={updateSticker}
+                      onRemoveSelected={removeSelected}
+                    />
+                  </div>
+                  
+                  {/* Canvas Info Overlay */}
+                  {!baseImageSrc && (
+                    <div className="absolute inset-0 flex items-center justify-center z-20 bg-gray-50 rounded-lg">
+                      <div className="text-center">
+                        <PhotoIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-500 mb-2">Chọn sản phẩm để bắt đầu</h3>
+                        <p className="text-gray-400">Chọn một sản phẩm từ danh sách để bắt đầu thiết kế</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Right Sidebar - Products */}
+            <div className="hidden lg:block lg:col-span-3">
+              <div className="bg-white rounded-xl shadow-md p-4">
+                <ProductGallery 
+                  products={products}
+                  selectedProduct={selectedProduct}
+                  onSelectProduct={setSelectedProduct}
                 />
               </div>
             </div>
           </div>
         </div>
-      </div>
       </div>
     </>
   )
