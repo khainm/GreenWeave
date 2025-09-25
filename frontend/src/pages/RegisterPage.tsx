@@ -17,6 +17,7 @@ const RegisterPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
 
   const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -90,8 +91,9 @@ const RegisterPage: React.FC = () => {
       const response = await register(formData);
       
       if (response.success) {
-        const from = (location.state as any)?.from?.pathname || '/';
-        navigate(from, { replace: true });
+        // Hiển thị thông báo xác thực email thay vì redirect
+        setMessage('Đăng ký thành công! Email xác thực đã được gửi đến hộp thư của bạn. Vui lòng kiểm tra email và click vào link xác thực để kích hoạt tài khoản.');
+        setErrors([]);
       } else {
         setErrors(response.errors || [response.message]);
       }
@@ -125,6 +127,32 @@ const RegisterPage: React.FC = () => {
         {/* Form */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Success Message */}
+            {message && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-green-800">
+                      Đăng ký thành công!
+                    </h3>
+                    <div className="mt-2 text-sm text-green-700">
+                      <p>{message}</p>
+                      <p className="mt-2">
+                        <Link to="/login" className="font-medium text-green-800 hover:text-green-900">
+                          Đăng nhập ngay →
+                        </Link>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Error Messages */}
             {errors.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">

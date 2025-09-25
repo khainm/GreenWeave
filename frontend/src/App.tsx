@@ -29,6 +29,9 @@ import MyOrdersPage from './pages/MyOrdersPage'
 import PaymentPage from './pages/PaymentPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import EmailVerificationPage from './pages/EmailVerificationPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import AddressPage from './pages/AddressPage'
 import './App.css'
@@ -47,27 +50,30 @@ function App() {
             <Route path="/products/:id" element={<ProductDetail />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/checkout" element={
-              <ProtectedRoute requireAuth={true}>
+              <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                 <CheckoutPage />
               </ProtectedRoute>
             } />
             <Route path="/orders" element={
-              <ProtectedRoute requireAuth={true}>
+              <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                 <MyOrdersPage />
               </ProtectedRoute>
             } />
             <Route path="/orders/:id" element={
-              <ProtectedRoute requireAuth={true}>
+              <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                 <OrderDetailsPage />
               </ProtectedRoute>
             } />
             <Route path="/payment/:orderId" element={
-              <ProtectedRoute requireAuth={true}>
+              <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                 <PaymentPage />
               </ProtectedRoute>
             } />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/verify-email" element={<EmailVerificationPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={
               <ProtectedRoute requireAuth={true}>
                 <ProfilePage />

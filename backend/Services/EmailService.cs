@@ -109,6 +109,21 @@ namespace backend.Services
             return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, string.Empty, string.Empty);
         }
 
+        public async Task<bool> SendEmailConfirmationAsync(string toEmail, string customerName, string confirmationLink)
+        {
+            var subject = "Xác thực tài khoản - GreenWeave";
+            var htmlBody = GetEmailConfirmationTemplate(customerName, confirmationLink);
+
+            return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, string.Empty, string.Empty);
+        }
+
+        public async Task<bool> SendPasswordResetEmailAsync(string toEmail, string customerName, string resetLink)
+        {
+            var subject = "Đặt lại mật khẩu - GreenWeave";
+            var htmlBody = GetPasswordResetTemplate(customerName, resetLink);
+            return await SendEmailWithAttachmentAsync(toEmail, customerName, subject, htmlBody, string.Empty, string.Empty);
+        }
+
         private string GetOrderConfirmationEmailWithLinkTemplate(string customerName, string orderNumber, string printLink, DateTimeOffset expiryTime)
         {
             var expiryDate = expiryTime.ToString("dd/MM/yyyy HH:mm");
@@ -215,7 +230,9 @@ namespace backend.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <div class='logo'>🌿 GreenWeave</div>
+            <div class='logo'>
+                <img src='https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png' alt='GreenWeave' style='height: 40px; width: auto;' />
+            </div>
             <div class='title'>Xác nhận đơn hàng</div>
         </div>
         
@@ -369,7 +386,9 @@ namespace backend.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <div class='logo'>🌿 GreenWeave</div>
+            <div class='logo'>
+                <img src='https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png' alt='GreenWeave' style='height: 40px; width: auto;' />
+            </div>
             <div class='title'>Xác nhận đơn hàng</div>
         </div>
         
@@ -501,7 +520,9 @@ namespace backend.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <div class='logo'>🌿 GreenWeave</div>
+            <div class='logo'>
+                <img src='https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png' alt='GreenWeave' style='height: 40px; width: auto;' />
+            </div>
             <div class='title'>Xác nhận đơn hàng</div>
         </div>
         
@@ -648,7 +669,9 @@ namespace backend.Services
 <body>
     <div class='container'>
         <div class='header'>
-            <div class='logo'>🌿 GreenWeave</div>
+            <div class='logo'>
+                <img src='https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png' alt='GreenWeave' style='height: 40px; width: auto;' />
+            </div>
             <div class='title'>Cập nhật đơn hàng</div>
         </div>
         
@@ -672,6 +695,243 @@ namespace backend.Services
             <p>Trân trọng,</p>
             <p><strong>GreenWeave Team</strong></p>
             <p>© 2024 GreenWeave. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>";
+        }
+
+        private string GetEmailConfirmationTemplate(string customerName, string confirmationLink)
+        {
+            return $@"
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Xác thực tài khoản - GreenWeave</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }}
+        .container {{
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            text-align: center;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #22c55e;
+            margin-bottom: 30px;
+        }}
+        .logo {{
+            font-size: 28px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 10px;
+        }}
+        .title {{
+            font-size: 24px;
+            color: #1f2937;
+            margin: 20px 0;
+        }}
+        .content {{
+            margin: 20px 0;
+        }}
+        .button {{
+            display: inline-block;
+            background-color: #22c55e;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }}
+        .button:hover {{
+            background-color: #16a34a;
+        }}
+        .backup-link {{
+            background-color: #f3f4f6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            word-break: break-all;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='logo'>
+                <img src='https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png' alt='GreenWeave' style='height: 40px; width: auto;' />
+            </div>
+            <h1 class='title'>Xác thực tài khoản</h1>
+        </div>
+        
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            
+            <p>Cảm ơn bạn đã đăng ký tài khoản tại GreenWeave! Để hoàn tất quá trình đăng ký, vui lòng xác thực email của bạn bằng cách nhấp vào nút bên dưới:</p>
+            
+            <div style='text-align: center;'>
+                <a href='{confirmationLink}' class='button'>✅ Xác thực tài khoản</a>
+            </div>
+            
+            <p><strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 24 giờ.</p>
+            
+            <div class='backup-link'>
+                <p><strong>Nếu nút không hoạt động, hãy copy link này vào trình duyệt:</strong></p>
+                <p>{confirmationLink}</p>
+            </div>
+            
+            <p>Sau khi xác thực, bạn sẽ có thể:</p>
+            <ul>
+                <li>Đăng nhập vào tài khoản</li>
+                <li>Mua sắm các sản phẩm thân thiện với môi trường</li>
+                <li>Theo dõi đơn hàng</li>
+                <li>Quản lý thông tin cá nhân</li>
+            </ul>
+        </div>
+        
+        <div class='footer'>
+            <p>Nếu bạn không tạo tài khoản này, vui lòng bỏ qua email này.</p>
+            <p>© 2024 GreenWeave. Tất cả quyền được bảo lưu.</p>
+        </div>
+    </div>
+</body>
+</html>";
+        }
+
+        private string GetPasswordResetTemplate(string customerName, string resetLink)
+        {
+            return $@"
+<!DOCTYPE html>
+<html lang='vi'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>Đặt lại mật khẩu - GreenWeave</title>
+    <style>
+        body {{
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }}
+        .container {{
+            background-color: #ffffff;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }}
+        .header {{
+            text-align: center;
+            padding-bottom: 30px;
+            border-bottom: 3px solid #22c55e;
+            margin-bottom: 30px;
+        }}
+        .logo {{
+            font-size: 28px;
+            font-weight: bold;
+            color: #22c55e;
+            margin-bottom: 10px;
+        }}
+        .title {{
+            font-size: 24px;
+            color: #1f2937;
+            margin: 20px 0;
+        }}
+        .content {{
+            margin: 20px 0;
+        }}
+        .button {{
+            display: inline-block;
+            background-color: #22c55e;
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            margin: 20px 0;
+            text-align: center;
+        }}
+        .button:hover {{
+            background-color: #16a34a;
+        }}
+        .backup-link {{
+            background-color: #f3f4f6;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            word-break: break-all;
+        }}
+        .footer {{
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+            color: #6b7280;
+            font-size: 14px;
+        }}
+    </style>
+</head>
+<body>
+    <div class='container'>
+        <div class='header'>
+            <div class='logo'>
+                <img src='https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png' alt='GreenWeave' style='height: 40px; width: auto;' />
+            </div>
+            <h1 class='title'>Đặt lại mật khẩu</h1>
+        </div>
+        
+        <div class='content'>
+            <p>Xin chào <strong>{customerName}</strong>,</p>
+            
+            <p>Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản GreenWeave của bạn. Để đặt lại mật khẩu, vui lòng nhấp vào nút bên dưới:</p>
+            
+            <div style='text-align: center;'>
+                <a href='{resetLink}' class='button'>🔒 Đặt lại mật khẩu</a>
+            </div>
+            
+            <p><strong>Lưu ý:</strong> Liên kết này sẽ hết hạn sau 1 giờ.</p>
+            
+            <div class='backup-link'>
+                <p><strong>Nếu nút không hoạt động, hãy copy link này vào trình duyệt:</strong></p>
+                <p>{resetLink}</p>
+            </div>
+            
+            <p><strong>Bảo mật:</strong></p>
+            <ul>
+                <li>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này</li>
+                <li>Mật khẩu của bạn sẽ không thay đổi cho đến khi bạn tạo mật khẩu mới</li>
+                <li>Liên kết này chỉ có thể sử dụng một lần</li>
+            </ul>
+        </div>
+        
+        <div class='footer'>
+            <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
+            <p>© 2024 GreenWeave. Tất cả quyền được bảo lưu.</p>
         </div>
     </div>
 </body>

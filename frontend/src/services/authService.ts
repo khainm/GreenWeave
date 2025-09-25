@@ -1,4 +1,5 @@
 import { apiClient } from './apiClient';
+import { emailVerificationService } from './emailVerificationService';
 
 export interface LoginRequest {
   email: string;
@@ -27,6 +28,7 @@ export interface User {
   avatar?: string;
   createdAt: string;
   isActive: boolean;
+  emailVerified: boolean;
   roles: string[];
 }
 
@@ -101,8 +103,15 @@ class AuthService {
     try {
       const response = await apiClient.post<AuthResponse>('/api/auth/register', userData);
       
-      if (response.success && response.token && response.user) {
-        this.setAuthData(response.token, response.user);
+      // Nếu đăng ký thành công, tự động gửi email xác thực
+      if (response.success) {
+        try {
+          await emailVerificationService.sendVerificationEmail(userData.email);
+          console.log('📧 [AuthService] Verification email sent successfully');
+        } catch (emailError) {
+          console.error('❌ [AuthService] Failed to send verification email:', emailError);
+          // Không throw error vì đăng ký đã thành công, chỉ log
+        }
       }
       
       return response;

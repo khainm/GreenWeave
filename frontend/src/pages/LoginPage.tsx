@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
+import ResendVerificationEmail from '../components/ResendVerificationEmail';
 
 const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -12,6 +13,8 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [showResendVerification, setShowResendVerification] = useState(false);
 
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -24,6 +27,14 @@ const LoginPage: React.FC = () => {
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, navigate, location]);
+
+  // Check for message from email verification
+  useEffect(() => {
+    const state = location.state as any;
+    if (state?.message) {
+      setMessage(state.message);
+    }
+  }, [location.state]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -82,6 +93,27 @@ const LoginPage: React.FC = () => {
         {/* Form */}
         <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
           <form className="space-y-6" onSubmit={handleSubmit}>
+            {/* Success Message */}
+            {message && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-green-800">
+                      Thông báo
+                    </h3>
+                    <div className="mt-2 text-sm text-green-700">
+                      <p>{message}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Error Messages */}
             {errors.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -105,6 +137,20 @@ const LoginPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Resend Verification Email Component */}
+            {showResendVerification && (
+              <ResendVerificationEmail 
+                email={formData.email}
+                onSuccess={(message) => {
+                  setMessage(message);
+                  setShowResendVerification(false);
+                }}
+                onError={(error) => {
+                  setErrors([error]);
+                }}
+              />
             )}
 
             {/* Email Field */}

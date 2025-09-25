@@ -54,6 +54,7 @@ namespace backend.Services
                 Avatar = user.Avatar,
                 CreatedAt = user.CreatedAt,
                 IsActive = user.IsActive,
+                EmailVerified = user.EmailConfirmed,
                 Roles = roles.ToList()
             };
         }
@@ -135,16 +136,13 @@ namespace backend.Services
                     }
                 }
 
-                // Generate JWT token with roles
-                var roles = await _userManager.GetRolesAsync(user);
-                var token = _jwtService.GenerateToken(user, roles);
-
+                // Không tự động đăng nhập, yêu cầu xác thực email
                 return new AuthResponseDto
                 {
                     Success = true,
-                    Message = "Đăng ký thành công",
-                    Token = token,
-                    User = await CreateUserDtoAsync(user)
+                    Message = "Đăng ký thành công! Vui lòng kiểm tra email để xác thực tài khoản.",
+                    Token = null,
+                    User = null
                 };
             }
             catch (Exception ex)
@@ -185,8 +183,21 @@ namespace backend.Services
                     };
                 }
 
-                // Generate JWT token with roles
+                // Kiểm tra email verification cho user thường, admin không cần
                 var roles = await _userManager.GetRolesAsync(user);
+                var isAdmin = roles.Contains("Admin");
+                
+                if (!isAdmin && !user.EmailConfirmed)
+                {
+                    return new AuthResponseDto
+                    {
+                        Success = false,
+                        Message = "Email chưa được xác thực",
+                        Errors = new List<string> { "Vui lòng kiểm tra email và xác thực tài khoản trước khi đăng nhập" }
+                    };
+                }
+
+                // Generate JWT token with roles
                 var token = _jwtService.GenerateToken(user, roles);
 
                 return new AuthResponseDto

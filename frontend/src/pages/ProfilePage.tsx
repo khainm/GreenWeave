@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { authService } from '../services/authService';
-import { UserIcon, EnvelopeIcon, PhoneIcon, CalendarIcon, MapPinIcon, CameraIcon } from '@heroicons/react/24/outline';
+import { emailVerificationService } from '../services/emailVerificationService';
+import { UserIcon, EnvelopeIcon, PhoneIcon, CalendarIcon, MapPinIcon, CameraIcon, CheckCircleIcon, ExclamationTriangleIcon, LockClosedIcon, KeyIcon } from '@heroicons/react/24/outline';
 
 const ProfilePage: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, isEmailVerified } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isSendingVerification, setIsSendingVerification] = useState(false);
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -67,6 +70,24 @@ const ProfilePage: React.FC = () => {
       setErrors(['Có lỗi xảy ra khi cập nhật thông tin']);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSendVerificationEmail = async () => {
+    if (!user?.email) return;
+    
+    setIsSendingVerification(true);
+    try {
+      const result = await emailVerificationService.sendVerificationEmail(user.email);
+      if (result.success) {
+        setSuccessMessage('Email xác thực đã được gửi! Vui lòng kiểm tra hộp thư của bạn.');
+      } else {
+        setErrors(result.errors || [result.message]);
+      }
+    } catch (error: any) {
+      setErrors([error.message || 'Có lỗi xảy ra khi gửi email xác thực']);
+    } finally {
+      setIsSendingVerification(false);
     }
   };
 
@@ -138,6 +159,61 @@ const ProfilePage: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Email Verification Status - Admin không cần xác thực */}
+          {!user.roles?.includes('Admin') && (
+            <div className="px-6 py-4 border-b border-gray-200">
+            <div className={`flex items-center space-x-3 p-4 rounded-lg ${
+              isEmailVerified 
+                ? 'bg-green-50 border border-green-200' 
+                : 'bg-yellow-50 border border-yellow-200'
+            }`}>
+              <div className="flex-shrink-0">
+                {isEmailVerified ? (
+                  <CheckCircleIcon className="h-6 w-6 text-green-600" />
+                ) : (
+                  <ExclamationTriangleIcon className="h-6 w-6 text-yellow-600" />
+                )}
+              </div>
+              <div className="flex-1">
+                <h3 className={`text-sm font-medium ${
+                  isEmailVerified ? 'text-green-800' : 'text-yellow-800'
+                }`}>
+                  {isEmailVerified ? 'Email đã được xác thực' : 'Email chưa được xác thực'}
+                </h3>
+                <p className={`text-sm ${
+                  isEmailVerified ? 'text-green-700' : 'text-yellow-700'
+                }`}>
+                  {isEmailVerified 
+                    ? 'Tài khoản của bạn đã được xác thực và có thể sử dụng đầy đủ các chức năng.'
+                    : 'Để sử dụng đầy đủ các chức năng như mua hàng, thanh toán, vui lòng xác thực email của bạn.'
+                  }
+                </p>
+              </div>
+              {!isEmailVerified && (
+                <div className="flex-shrink-0">
+                  <button
+                    onClick={handleSendVerificationEmail}
+                    disabled={isSendingVerification}
+                    className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded text-yellow-800 bg-yellow-100 hover:bg-yellow-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 disabled:opacity-50"
+                  >
+                    {isSendingVerification ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-yellow-800" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Đang gửi...
+                      </>
+                    ) : (
+                      'Gửi email xác thực'
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          )}
 
           {/* Profile Form */}
           <div className="px-6 py-8">
@@ -319,6 +395,31 @@ const ProfilePage: React.FC = () => {
                 </div>
               </div>
             </form>
+
+            {/* Security Section */}
+            <div className="mt-8 pt-6 border-t border-gray-200">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Bảo mật tài khoản</h3>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <LockClosedIcon className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900">Mật khẩu</h4>
+                      <p className="text-sm text-gray-500">Cập nhật mật khẩu để bảo vệ tài khoản</p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/forgot-password"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-green-700 bg-green-100 hover:bg-green-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
+                  >
+                    <KeyIcon className="h-4 w-4 mr-2" />
+                    Đổi mật khẩu
+                  </Link>
+                </div>
+              </div>
+            </div>
 
             {/* Account Info */}
             <div className="mt-8 pt-6 border-t border-gray-200">

@@ -55,6 +55,7 @@ namespace backend.DTOs
         public string? Avatar { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }
+        public bool EmailVerified { get; set; }
         public List<string> Roles { get; set; } = new List<string>();
     }
 

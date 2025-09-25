@@ -40,23 +40,26 @@ namespace backend.Middleware
 
         private static async Task HandleUnauthorizedAsync(HttpContext context)
         {
-            context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-            context.Response.ContentType = "application/json";
-
-            var response = new
+            if (!context.Response.HasStarted)
             {
-                success = false,
-                message = "Token không hợp lệ hoặc đã hết hạn",
-                statusCode = 401,
-                timestamp = DateTime.UtcNow
-            };
+                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                context.Response.ContentType = "application/json";
 
-            var jsonResponse = JsonSerializer.Serialize(response, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
+                var response = new
+                {
+                    success = false,
+                    message = "Token không hợp lệ hoặc đã hết hạn",
+                    statusCode = 401,
+                    timestamp = DateTime.UtcNow
+                };
 
-            await context.Response.WriteAsync(jsonResponse);
+                var jsonResponse = JsonSerializer.Serialize(response, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                await context.Response.WriteAsync(jsonResponse);
+            }
         }
     }
 }

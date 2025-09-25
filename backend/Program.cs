@@ -108,7 +108,7 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     options.User.RequireUniqueEmail = true;
     
     // Sign in settings
-    options.SignIn.RequireConfirmedEmail = false;
+    options.SignIn.RequireConfirmedEmail = true;
     options.SignIn.RequireConfirmedPhoneNumber = false;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
@@ -212,6 +212,10 @@ builder.Services.AddScoped<IShippingService, ShippingService>();
 builder.Services.AddScoped<IWebhookLogRepository, WebhookLogRepository>();
 builder.Services.AddScoped<IWebhookLogService, WebhookLogService>();
 
+// Add Email Verification services
+builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
+builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
+
 // Add Warehouse services
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<IProductWarehouseStockRepository, ProductWarehouseStockRepository>();
@@ -280,13 +284,13 @@ app.UseRouting();
 // Apply CORS after routing and before auth per ASP.NET Core guidance
 app.UseCors("AllowFrontend");
 
-// Add custom JWT middleware
-app.UseMiddleware<backend.Middleware.JwtTokenValidationMiddleware>();
-app.UseMiddleware<backend.Middleware.JwtAuthenticationMiddleware>();
-
 // Add Authentication & Authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Add custom JWT middleware
+app.UseMiddleware<backend.Middleware.JwtTokenValidationMiddleware>();
+app.UseMiddleware<backend.Middleware.JwtAuthenticationMiddleware>();
 
 // Only map API controllers, remove Razor Pages
 app.MapControllers();

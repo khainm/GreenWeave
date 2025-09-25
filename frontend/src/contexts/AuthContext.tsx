@@ -6,6 +6,7 @@ import type { User, AuthResponse } from '../services/authService';
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
+  isEmailVerified: boolean;
   isLoading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<AuthResponse>;
   register: (userData: any) => Promise<AuthResponse>;
@@ -22,6 +23,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
 
   // Initialize auth state
   useEffect(() => {
@@ -32,11 +34,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const userData = authService.getUser();
           if (userData) {
             setUser(userData);
+            // Admin không cần xác thực email
+            const isAdmin = userData.roles?.includes('Admin') || false;
+            setIsEmailVerified(isAdmin || userData.emailVerified || false);
           } else {
             // Try to fetch fresh user data
             const profile = await authService.getProfile();
             if (profile) {
               setUser(profile);
+              // Admin không cần xác thực email
+              const isAdmin = profile.roles?.includes('Admin') || false;
+              setIsEmailVerified(isAdmin || profile.emailVerified || false);
             } else {
               authService.logout();
             }
@@ -59,6 +67,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authService.login({ email, password, rememberMe });
       if (response.success && response.user) {
         setUser(response.user);
+        // Admin không cần xác thực email
+        const isAdmin = response.user.roles?.includes('Admin') || false;
+        setIsEmailVerified(isAdmin || response.user.emailVerified || false);
       }
       return response;
     } finally {
@@ -82,15 +93,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = () => {
     authService.logout();
     setUser(null);
+    setIsEmailVerified(false);
   };
 
   const updateUser = (userData: User) => {
     setUser(userData);
+    // Admin không cần xác thực email
+    const isAdmin = userData.roles?.includes('Admin') || false;
+    setIsEmailVerified(isAdmin || userData.emailVerified || false);
   };
 
   const value: AuthContextType = {
     user,
     isAuthenticated: !!user,
+    isEmailVerified,
     isLoading,
     login,
     register,

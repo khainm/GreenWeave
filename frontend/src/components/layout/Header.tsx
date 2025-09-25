@@ -4,6 +4,7 @@ import { ShoppingCartIcon, Bars3Icon, UserIcon, ChevronDownIcon } from '@heroico
 import MobileMenu from '../MobileMenu';
 import { CartService, getCartId, getOrCreateCartId } from '../../services/cartService';
 import { useAuth } from '../../contexts/AuthContext';
+import EmailVerificationBanner from '../EmailVerificationBanner';
 
 interface HeaderProps {
   activePage?: string;
@@ -14,7 +15,7 @@ const Header: React.FC<HeaderProps> = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
   const [cartCount, setCartCount] = useState<number>(0);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isEmailVerified, logout } = useAuth();
 
   // Initialize cart id and fetch count
   useEffect(() => {
@@ -83,6 +84,11 @@ const Header: React.FC<HeaderProps> = () => {
 
   return (
     <>
+      {/* Email Verification Banner - Admin không cần xác thực */}
+      {isAuthenticated && !isEmailVerified && user && !user.roles?.includes('Admin') && (
+        <EmailVerificationBanner userEmail={user.email} />
+      )}
+      
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">

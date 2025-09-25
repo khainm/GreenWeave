@@ -26,6 +26,8 @@ namespace backend.Data
         public DbSet<Warehouse> Warehouses { get; set; }
         public DbSet<ProductWarehouseStock> ProductWarehouseStocks { get; set; }
         public DbSet<WebhookLog> WebhookLogs { get; set; }
+        public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
+        public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

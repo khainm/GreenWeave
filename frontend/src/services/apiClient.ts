@@ -129,6 +129,11 @@ class ApiClient {
           
           return Promise.reject(new ApiException(invoiceError.message, invoiceError.status, invoiceError))
         }
+
+        // Handle email verification errors
+        if (error.config?.url?.includes('/emailverification/')) {
+          console.error('📧 [ApiClient] Email verification error:', apiError);
+        }
         
         return Promise.reject(new ApiException(apiError.message, apiError.status, apiError))
       }
@@ -137,10 +142,11 @@ class ApiClient {
 
   private unwrapResponse<T>(response: AxiosResponse<any>): T {
     const payload = response.data
-    // For Viettel Post address APIs and shipping APIs, don't unwrap the data property
+    // For Viettel Post address APIs, shipping APIs, and email verification APIs, don't unwrap the data property
     // because we need the full response structure with success, message, data, errors
     if (response.config?.url?.includes('/viettelpostaddress/') || 
-        response.config?.url?.includes('/shipping/')) {
+        response.config?.url?.includes('/shipping/') ||
+        response.config?.url?.includes('/emailverification/')) {
       return payload as T
     }
     

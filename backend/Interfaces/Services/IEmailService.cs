@@ -56,5 +56,23 @@ namespace backend.Interfaces.Services
             string orderNumber,
             string newStatus
         );
+        
+        /// <summary>
+        /// Gửi email xác thực tài khoản
+        /// </summary>
+        Task<bool> SendEmailConfirmationAsync(
+            string toEmail,
+            string customerName,
+            string confirmationLink
+        );
+
+        /// <summary>
+        /// Gửi email đặt lại mật khẩu
+        /// </summary>
+        Task<bool> SendPasswordResetEmailAsync(
+            string toEmail,
+            string customerName,
+            string resetLink
+        );
     }
 }
