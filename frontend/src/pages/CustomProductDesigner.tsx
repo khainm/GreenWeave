@@ -6,7 +6,8 @@ import {
   PaintBrushIcon, 
   PhotoIcon, 
   SparklesIcon,
-  Bars3Icon
+  Bars3Icon,
+  CloudArrowUpIcon
 } from '@heroicons/react/24/outline'
 
 // Import các component con
@@ -16,6 +17,7 @@ import ColorSelector from '../components/designer/ColorSelector'
 import ActionButtons from '../components/designer/ActionButtons'
 import ExportButtons from '../components/designer/ExportButtons'
 import CanvasArea from '../components/designer/CanvasArea'
+import PersonalUpload from '../components/designer/PersonalUpload'
 
 // Enhanced UI styles with improved design
 const enhancedStyles = `
@@ -251,7 +253,7 @@ const CustomProductDesigner: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isLoading, setIsLoading] = useState<boolean>(true)
-  const [activeTab, setActiveTab] = useState<'products' | 'stickers' | 'colors' | 'tools'>('products')
+  const [activeTab, setActiveTab] = useState<'products' | 'stickers' | 'colors' | 'tools' | 'upload'>('products')
 
   // Keep selection state in Konva Transformer via effect below
 
@@ -279,6 +281,29 @@ const CustomProductDesigner: React.FC = () => {
         button.style.transform = ''
       }, 150)
     }
+  }
+
+  // Function để thêm ảnh cá nhân
+  const addPersonalImage = (src: string) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    // Đặt ảnh ở trung tâm canvas với kích thước vừa phải
+    const centerX = canvasSize / 2 - 50 // Offset để căn giữa
+    const centerY = canvasSize / 2 - 50
+    setStickers(prev => [...prev, { 
+      id, 
+      src, 
+      x: centerX, 
+      y: centerY, 
+      scaleX: 0.4,  // Kích thước vừa phải cho ảnh
+      scaleY: 0.4,  // Kích thước vừa phải cho ảnh
+      rotation: 0 
+    }])
+    setSelectedId(id)
+  }
+
+  // Function để thêm sticker cá nhân
+  const addPersonalSticker = (src: string) => {
+    addSticker(src) // Sử dụng cùng logic với sticker thông thường
   }
 
   const onSelect = (id: string) => {
@@ -545,10 +570,11 @@ const CustomProductDesigner: React.FC = () => {
           {/* Mobile Tab Navigation */}
           <div className="lg:hidden mb-4">
             <div className="bg-white rounded-xl shadow-md p-1">
-              <div className="grid grid-cols-4 gap-1">
+              <div className="grid grid-cols-5 gap-1">
                 {[
                   { id: 'products', label: 'Sản phẩm', icon: PhotoIcon },
                   { id: 'stickers', label: 'Stickers', icon: SparklesIcon },
+                  { id: 'upload', label: 'Tải lên', icon: CloudArrowUpIcon },
                   { id: 'colors', label: 'Màu sắc', icon: PaintBrushIcon },
                   { id: 'tools', label: 'Công cụ', icon: Bars3Icon }
                 ].map(({ id, label, icon: Icon }) => (
@@ -576,6 +602,11 @@ const CustomProductDesigner: React.FC = () => {
                 <StickerPalette 
                   selectedProduct={selectedProduct}
                   onAddSticker={addSticker}
+                />
+
+                <PersonalUpload 
+                  onAddImage={addPersonalImage}
+                  onAddSticker={addPersonalSticker}
                 />
 
                 <ColorSelector 
@@ -611,6 +642,12 @@ const CustomProductDesigner: React.FC = () => {
                   <StickerPalette 
                     selectedProduct={selectedProduct}
                     onAddSticker={addSticker}
+                  />
+                )}
+                {activeTab === 'upload' && (
+                  <PersonalUpload 
+                    onAddImage={addPersonalImage}
+                    onAddSticker={addPersonalSticker}
                   />
                 )}
                 {activeTab === 'colors' && (

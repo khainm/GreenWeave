@@ -27,43 +27,34 @@ const AboutPage: React.FC = () => {
                       <div>TÁI CHẾ</div>
                     </div>
                   </div>
-                  <div className="aspect-[4/3] bg-gray-100 rounded-xl flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="text-6xl mb-4">🌱</div>
-                      <p className="text-gray-600 text-sm">Sustainable Fashion Items</p>
-                    </div>
+                  <div className="aspect-[4/3] bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
+                    <img 
+                      src="https://res.cloudinary.com/djatlz4as/image/upload/v1758810650/ghts_1031_gvugnr.jpg" 
+                      alt="Sustainable Fashion Items"
+                      className="w-full h-full object-cover rounded-xl"
+                    />
                   </div>
                 </div>
 
                 {/* Bottom Row - Logo and Craft Tools */}
                 <div className="grid grid-cols-2 gap-4">
                   {/* Logo Card */}
-                  <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                    <div className="flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center mb-4">
-                          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mr-1">
-                            <span className="text-white text-lg font-bold">W</span>
-                          </div>
-                          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center mr-1">
-                            <span className="text-white text-lg font-bold">W</span>
-                          </div>
-                          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-                            <span className="text-white text-lg font-bold">W</span>
-                          </div>
-                        </div>
-                        <h2 className="text-lg font-bold text-green-700">GreenWeave</h2>
-                      </div>
-                    </div>
+                  <div className="w-full">
+                    <img 
+                      src="https://res.cloudinary.com/djatlz4as/image/upload/v1758810671/IMG_4175_dlsdvz.jpg" 
+                      alt="GreenWeave"
+                      className="w-full h-full object-cover rounded-2xl"
+                    />
                   </div>
 
                   {/* Craft Tools Card */}
-                  <div className="bg-white rounded-2xl p-6 border border-gray-200">
-                    <div className="aspect-square bg-gray-100 rounded-xl flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-4xl mb-2">✂️</div>
-                        <p className="text-gray-600 text-xs">Craft & Production</p>
-                      </div>
+                  <div className="bg-white rounded-2xl p-2 border border-gray-200">
+                    <div className="aspect-square w-full">
+                      <img 
+                        src="https://res.cloudinary.com/djatlz4as/image/upload/v1758810659/IMG_4172_c6dsc3.jpg" 
+                        alt="Craft & Production"
+                        className="w-full h-full object-cover rounded-xl"
+                      />
                     </div>
                   </div>
                 </div>
