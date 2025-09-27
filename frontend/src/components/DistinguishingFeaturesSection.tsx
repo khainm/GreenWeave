@@ -6,15 +6,15 @@ const DistinguishingFeaturesSection: React.FC = () => {
   
   const images = [
     {
-      src: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?q=80&w=1000&auto=format&fit=crop',
+      src: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758947085/recycled-tote-bag-3_pn0pvh.jpg',
       alt: 'Sản phẩm từ chất liệu bền vững'
     },
     {
-      src: 'https://images.unsplash.com/photo-1516478177764-9fe5bd7e9717?q=80&w=1000&auto=format&fit=crop',
+      src: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758947330/quy-trinh-tai-che-nhua-pet-recycle-dung-cach_iypm5p.jpg',
       alt: 'Túi tote thân thiện môi trường'
     },
     {
-      src: 'https://images.unsplash.com/photo-1520975624745-4f7a4f35e979?q=80&w=1000&auto=format&fit=crop',
+      src: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758947070/recycled-mailer-packaging-design-for-kids-clothing-brand_k4ztku.jpg',
       alt: 'Sản phẩm tái chế chất lượng cao'
     }
   ];

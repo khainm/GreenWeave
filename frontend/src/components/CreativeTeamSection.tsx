@@ -9,7 +9,7 @@ const CreativeTeamSection: React.FC = () => {
       role: 'NGƯỜI ĐẠI DIỆN',
       description: 'Chuyên gia chiến lược với tầm nhìn phát triển bền vững',
       skills: ['Chiến lược', 'Phát triển bền vững', 'Quản lý dự án'],
-      image: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?q=80&w=400&auto=format&fit=crop',
+      image: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758946591/TRISZ-16_i57nwj.jpg',
       status: 'Active'
     },
     {
@@ -18,7 +18,7 @@ const CreativeTeamSection: React.FC = () => {
       role: 'CHIEF MARKETING OFFICER',
       description: 'Chuyên gia marketing với 5+ năm kinh nghiệm trong ngành thời trang',
       skills: ['Digital Marketing', 'Brand Strategy', 'Consumer Insights'],
-      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=400&auto=format&fit=crop',
+      image: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758946679/TRISZ-12_kmj7ey.jpg',
       status: 'Active'
     },
     {
@@ -27,7 +27,7 @@ const CreativeTeamSection: React.FC = () => {
       role: 'CHIEF EXECUTIVE OFFICER',
       description: 'Nhà lãnh đạo tầm nhìn với passion về môi trường và đổi mới',
       skills: ['Leadership', 'Business Strategy', 'Sustainability'],
-      image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?q=80&w=400&auto=format&fit=crop',
+      image: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758946613/TRISZ-22_omzsky.jpg',
       status: 'Active'
     },
     {
@@ -36,7 +36,7 @@ const CreativeTeamSection: React.FC = () => {
       role: 'CHIEF TECHNOLOGY OFFICER',
       description: 'Kỹ sư công nghệ với chuyên môn về platform và development',
       skills: ['Full-stack Development', 'System Architecture', 'Innovation'],
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=400&auto=format&fit=crop',
+      image: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758946627/TRISZ-5_v4pggx.jpg',
       status: 'Active'
     },
     {
@@ -45,7 +45,7 @@ const CreativeTeamSection: React.FC = () => {
       role: 'CHIEF OPERATING OFFICER',
       description: 'Chuyên gia vận hành với kinh nghiệm tối ưu quy trình sản xuất',
       skills: ['Operations', 'Supply Chain', 'Quality Control'],
-      image: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?q=80&w=400&auto=format&fit=crop',
+      image: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758946680/TRISZ-19_svtpkj.jpg',
       status: 'Active'
     },
     {
@@ -54,7 +54,7 @@ const CreativeTeamSection: React.FC = () => {
       role: 'CHIEF BUSINESS DEVELOPMENT OFFICER',
       description: 'Chuyên gia phát triển kinh doanh và mở rộng thị trường',
       skills: ['Business Development', 'Partnership', 'Market Expansion'],
-      image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?q=80&w=400&auto=format&fit=crop',
+      image: 'https://res.cloudinary.com/djatlz4as/image/upload/v1758946647/TRISZ-6_vni2n2.jpg',
       status: 'Active'
     }
   ];
