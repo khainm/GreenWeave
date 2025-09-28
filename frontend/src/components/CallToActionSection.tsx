@@ -2,7 +2,7 @@ import React from 'react';
 
 const CallToActionSection: React.FC = () => {
   return (
-    <section className="w-full bg-green-700">
+    <section className="w-full" style={{ backgroundColor: '#0a4b3e' }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         {/* Main CTA Content */}
         <div className="text-center mb-12">
@@ -12,7 +12,12 @@ const CallToActionSection: React.FC = () => {
           <p className="text-lg md:text-xl text-white/90 mb-8 max-w-2xl mx-auto">
             Tham gia cộng đồng thời trang bền vững và nhận ưu đãi đặc biệt
           </p>
-          <button className="px-8 py-4 rounded-xl bg-green-500 hover:bg-green-400 text-white font-semibold text-lg transition-colors">
+          <button 
+            className="px-8 py-4 rounded-xl text-white font-semibold text-lg transition-colors"
+            style={{ backgroundColor: '#4caf50' }}
+            onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#45a049'}
+            onMouseLeave={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#4caf50'}
+          >
             Mua Sắm Ngay
           </button>
         </div>

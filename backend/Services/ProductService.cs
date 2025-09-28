@@ -615,6 +615,36 @@ namespace backend.Services
                 
                 var updatedProduct = await _productRepository.UpdateAsync(existingProduct);
                 
+                // Handle warehouse stock update if primary warehouse is specified
+                if (updateProductDto.PrimaryWarehouseId.HasValue && updateProductDto.Stock > 0)
+                {
+                    // Check if warehouse stock already exists
+                    var existingStock = await _productWarehouseStockRepository.GetByProductAndWarehouseAsync(id, updateProductDto.PrimaryWarehouseId.Value);
+                    
+                    if (existingStock != null)
+                    {
+                        // Update existing stock
+                        existingStock.Stock = updateProductDto.Stock;
+                        await _productWarehouseStockRepository.UpdateAsync(existingStock);
+                    }
+                    else
+                    {
+                        // Create new warehouse stock
+                        var warehouseStock = new ProductWarehouseStock
+                        {
+                            ProductId = id,
+                            WarehouseId = updateProductDto.PrimaryWarehouseId.Value,
+                            Stock = updateProductDto.Stock,
+                            ReservedStock = 0
+                        };
+                        await _productWarehouseStockRepository.CreateAsync(warehouseStock);
+                    }
+                    
+                    // Update total stock in product
+                    updatedProduct.Stock = await _productWarehouseStockRepository.GetTotalStockByProductIdAsync(id);
+                    await _productRepository.UpdateAsync(updatedProduct);
+                }
+                
                 _logger.LogInformation("Product updated successfully: {ProductId} - {ProductName}", updatedProduct.Id, updatedProduct.Name);
                 
                 return MapToResponseDto(updatedProduct);

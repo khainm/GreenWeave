@@ -14,11 +14,17 @@ export class ProductService {
     formData.append('Weight', productData.weight.toString())
     formData.append('Status', productData.status)
     
+    // Add PrimaryWarehouseId if provided
+    if (productData.primaryWarehouseId) {
+      formData.append('PrimaryWarehouseId', productData.primaryWarehouseId)
+    }
+    
     // Debug logging
     console.log('🔍 ProductService - buildFormData:', {
       name: productData.name,
       weight: productData.weight,
-      weightType: typeof productData.weight
+      weightType: typeof productData.weight,
+      primaryWarehouseId: productData.primaryWarehouseId
     })
     if (productData.description) formData.append('Description', productData.description)
     if (productData.originalPrice) formData.append('OriginalPrice', productData.originalPrice.toString())

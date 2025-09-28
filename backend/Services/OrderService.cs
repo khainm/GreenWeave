@@ -16,6 +16,7 @@ namespace backend.Services
         private readonly IShippingService _shippingService;
         private readonly IEmailService _emailService;
         private readonly IWarehouseSelectionService _warehouseSelectionService;
+        private readonly IProductWarehouseStockRepository _productWarehouseStockRepository;
         private readonly ILogger<OrderService> _logger;
         private readonly ShippingConfiguration _shippingConfig;
         
@@ -27,6 +28,7 @@ namespace backend.Services
             IShippingService shippingService,
             IEmailService emailService,
             IWarehouseSelectionService warehouseSelectionService,
+            IProductWarehouseStockRepository productWarehouseStockRepository,
             ILogger<OrderService> logger,
             IOptions<ShippingConfiguration> shippingConfig)
         {
@@ -37,6 +39,7 @@ namespace backend.Services
             _shippingService = shippingService;
             _emailService = emailService;
             _warehouseSelectionService = warehouseSelectionService;
+            _productWarehouseStockRepository = productWarehouseStockRepository;
             _logger = logger;
             _shippingConfig = shippingConfig.Value;
         }
@@ -151,6 +154,10 @@ namespace backend.Services
                 }
 
                 var createdOrder = await _orderRepository.CreateAsync(order);
+                
+                // Reserve stock for the order
+                await ReserveStockForOrderAsync(createdOrder.Id, createOrderDto.Items, selectedWarehouse.WarehouseId);
+                
                 return MapToResponseDto(createdOrder);
             }
             catch (Exception ex)
@@ -246,6 +253,10 @@ namespace backend.Services
                 }
 
                 var createdOrder = await _orderRepository.CreateAsync(order);
+                
+                // Reserve stock for the order
+                await ReserveStockForOrderAsync(createdOrder.Id, adminCreateOrderDto.Items, selectedWarehouse.WarehouseId);
+                
                 return MapToResponseDto(createdOrder);
             }
             catch (Exception ex)
@@ -319,6 +330,8 @@ namespace backend.Services
                     case OrderStatus.Cancelled:
                         order.CancelledAt = DateTime.UtcNow;
                         order.CancelReason = updateStatusDto.Notes;
+                        // Return reserved stock when order is cancelled
+                        await ReturnReservedStockForCancelledOrderAsync(id);
                         break;
                 }
 
@@ -331,7 +344,10 @@ namespace backend.Services
                     {
                         _logger.LogInformation("Processing confirmed order: {OrderId}", id);
                         
-                        // 1. Tạo shipment với ViettelPost
+                        // 1. Reduce actual stock when order is confirmed
+                        await ReduceStockForConfirmedOrderAsync(id);
+                        
+                        // 2. Tạo shipment với ViettelPost
                         if (order.ShippingRequest != null)
                         {
                             _logger.LogInformation("Creating shipment for order: {OrderId}", id);
@@ -355,7 +371,7 @@ namespace backend.Services
                             }
                         }
                         
-                        // 2. Tạo và gửi invoice
+                        // 3. Tạo và gửi invoice
                         _logger.LogInformation("Creating invoice for confirmed order: {OrderId}", id);
                         await _invoiceService.ProcessOrderConfirmationAsync(id);
                         _logger.LogInformation("Invoice created and sent successfully for order: {OrderId}", id);
@@ -787,6 +803,162 @@ namespace backend.Services
         {
             _logger.LogInformation("Using ViettelPost in Production mode");
             return ShippingProvider.ViettelPost;
+        }
+
+        /// <summary>
+        /// Reserve stock for order items when order is created
+        /// </summary>
+        private async Task ReserveStockForOrderAsync(int orderId, List<CreateOrderItemDto> items, Guid warehouseId)
+        {
+            try
+            {
+                _logger.LogInformation("Reserving stock for order {OrderId} in warehouse {WarehouseId}", orderId, warehouseId);
+                
+                foreach (var item in items)
+                {
+                    var warehouseStock = await _productWarehouseStockRepository.GetByProductAndWarehouseAsync(item.ProductId, warehouseId);
+                    if (warehouseStock != null)
+                    {
+                        // Check if enough stock is available
+                        if (warehouseStock.AvailableStock >= item.Quantity)
+                        {
+                            // Reserve the stock
+                            warehouseStock.ReservedStock += item.Quantity;
+                            await _productWarehouseStockRepository.UpdateAsync(warehouseStock);
+                            
+                            _logger.LogInformation("Reserved {Quantity} units of product {ProductId} for order {OrderId}", 
+                                item.Quantity, item.ProductId, orderId);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Insufficient stock for product {ProductId} in warehouse {WarehouseId}. Available: {Available}, Required: {Required}", 
+                                item.ProductId, warehouseId, warehouseStock.AvailableStock, item.Quantity);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No warehouse stock found for product {ProductId} in warehouse {WarehouseId}", 
+                            item.ProductId, warehouseId);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reserving stock for order {OrderId}", orderId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Reduce actual stock when order is confirmed
+        /// </summary>
+        private async Task ReduceStockForConfirmedOrderAsync(int orderId)
+        {
+            try
+            {
+                _logger.LogInformation("Reducing stock for confirmed order {OrderId}", orderId);
+                
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null) return;
+
+                foreach (var item in order.Items)
+                {
+                    // Find the warehouse stock for this product
+                    var warehouseStocks = await _productWarehouseStockRepository.GetByProductIdAsync(item.ProductId);
+                    
+                    foreach (var warehouseStock in warehouseStocks)
+                    {
+                        if (warehouseStock.ReservedStock >= item.Quantity)
+                        {
+                            // Reduce both actual stock and reserved stock
+                            warehouseStock.Stock -= item.Quantity;
+                            warehouseStock.ReservedStock -= item.Quantity;
+                            await _productWarehouseStockRepository.UpdateAsync(warehouseStock);
+                            
+                            _logger.LogInformation("Reduced stock for product {ProductId} in warehouse {WarehouseId}: Stock -{Quantity}, Reserved -{Quantity}", 
+                                item.ProductId, warehouseStock.WarehouseId, item.Quantity, item.Quantity);
+                            break;
+                        }
+                    }
+                }
+
+                // Update total stock in products
+                await UpdateProductTotalStockAsync(order.Items.ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reducing stock for confirmed order {OrderId}", orderId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Return reserved stock when order is cancelled
+        /// </summary>
+        private async Task ReturnReservedStockForCancelledOrderAsync(int orderId)
+        {
+            try
+            {
+                _logger.LogInformation("Returning reserved stock for cancelled order {OrderId}", orderId);
+                
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null) return;
+
+                foreach (var item in order.Items)
+                {
+                    // Find the warehouse stock for this product
+                    var warehouseStocks = await _productWarehouseStockRepository.GetByProductIdAsync(item.ProductId);
+                    
+                    foreach (var warehouseStock in warehouseStocks)
+                    {
+                        if (warehouseStock.ReservedStock >= item.Quantity)
+                        {
+                            // Return reserved stock to available stock
+                            warehouseStock.ReservedStock -= item.Quantity;
+                            await _productWarehouseStockRepository.UpdateAsync(warehouseStock);
+                            
+                            _logger.LogInformation("Returned reserved stock for product {ProductId} in warehouse {WarehouseId}: Reserved -{Quantity}", 
+                                item.ProductId, warehouseStock.WarehouseId, item.Quantity);
+                            break;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error returning reserved stock for cancelled order {OrderId}", orderId);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Update total stock in products after warehouse stock changes
+        /// </summary>
+        private async Task UpdateProductTotalStockAsync(List<OrderItem> orderItems)
+        {
+            try
+            {
+                var productIds = orderItems.Select(item => item.ProductId).Distinct();
+                
+                foreach (var productId in productIds)
+                {
+                    var totalStock = await _productWarehouseStockRepository.GetTotalStockByProductIdAsync(productId);
+                    var product = await _productRepository.GetByIdAsync(productId);
+                    
+                    if (product != null)
+                    {
+                        product.Stock = totalStock;
+                        await _productRepository.UpdateAsync(product);
+                        
+                        _logger.LogInformation("Updated total stock for product {ProductId}: {TotalStock}", productId, totalStock);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating product total stock");
+                throw;
+            }
         }
     }
 }

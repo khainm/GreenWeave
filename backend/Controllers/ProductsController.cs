@@ -191,6 +191,7 @@ namespace backend.Controllers
                 _logger.LogInformation("Stock: {Stock}", request.Stock);
                 _logger.LogInformation("Weight: {Weight}", request.Weight);
                 _logger.LogInformation("Status: {Status}", request.Status);
+                _logger.LogInformation("PrimaryWarehouseId: {PrimaryWarehouseId}", request.PrimaryWarehouseId);
                 _logger.LogInformation("=== END BOUND REQUEST ===");
                 
                 if (!ModelState.IsValid)
@@ -237,6 +238,7 @@ namespace backend.Controllers
                     Stock = request.Stock,
                     Weight = weight,
                     Status = request.Status,
+                    PrimaryWarehouseId = request.PrimaryWarehouseId,
                     Colors = request.Colors ?? new List<string>(),
                     ImageUrls = request.ImageUrls,
                     ColorImageMap = null, // mapping sẽ đi qua file upload theo chuẩn hiện tại
@@ -346,6 +348,7 @@ namespace backend.Controllers
                 _logger.LogInformation("Stock: {Stock}", request.Stock);
                 _logger.LogInformation("Weight: {Weight}", request.Weight);
                 _logger.LogInformation("Status: {Status}", request.Status);
+                _logger.LogInformation("PrimaryWarehouseId: {PrimaryWarehouseId}", request.PrimaryWarehouseId);
                 _logger.LogInformation("=== END BOUND REQUEST ===");
                 
                 if (!ModelState.IsValid)
@@ -392,6 +395,7 @@ namespace backend.Controllers
                     Stock = request.Stock,
                     Weight = weight, // Use the parsed weight value
                     Status = request.Status,
+                    PrimaryWarehouseId = request.PrimaryWarehouseId,
                     Colors = request.Colors ?? new List<string>(),
                     ImageUrls = request.ImageUrls,
                     StickerUrls = request.StickerUrls,
@@ -559,6 +563,12 @@ namespace backend.Controllers
         [Required(ErrorMessage = "Khối lượng là bắt buộc")]
         [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
         public decimal Weight { get; set; }
+        
+        /// <summary>
+        /// ID kho hàng chính để lưu trữ sản phẩm
+        /// </summary>
+        /// <example>123e4567-e89b-12d3-a456-426614174000</example>
+        public Guid? PrimaryWarehouseId { get; set; }
         
         /// <summary>
         /// Trạng thái sản phẩm
