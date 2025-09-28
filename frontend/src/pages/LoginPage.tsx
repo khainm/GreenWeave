@@ -63,8 +63,21 @@ const LoginPage: React.FC = () => {
       } else {
         setErrors(response.errors || [response.message]);
       }
-    } catch (error) {
-      setErrors(['Có lỗi xảy ra khi đăng nhập']);
+    } catch (error: any) {
+      console.error('Login page error:', error);
+      
+      // Extract specific error details
+      let errorMessages: string[] = ['Có lỗi xảy ra khi đăng nhập'];
+      
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessages = error.response.data.errors;
+      } else if (error.response?.data?.message) {
+        errorMessages = [error.response.data.message];
+      } else if (error.message) {
+        errorMessages = [error.message];
+      }
+      
+      setErrors(errorMessages);
     } finally {
       setIsLoading(false);
     }

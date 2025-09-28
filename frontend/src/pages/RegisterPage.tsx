@@ -18,6 +18,7 @@ const RegisterPage: React.FC = () => {
   const [errors, setErrors] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const { register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -91,14 +92,28 @@ const RegisterPage: React.FC = () => {
       const response = await register(formData);
       
       if (response.success) {
-        // Hiển thị thông báo xác thực email thay vì redirect
+        // Hiển thị popup thông báo xác thực email
+        setShowSuccessModal(true);
         setMessage('Đăng ký thành công! Email xác thực đã được gửi đến hộp thư của bạn. Vui lòng kiểm tra email và click vào link xác thực để kích hoạt tài khoản.');
         setErrors([]);
       } else {
         setErrors(response.errors || [response.message]);
       }
-    } catch (error) {
-      setErrors(['Có lỗi xảy ra khi đăng ký']);
+    } catch (error: any) {
+      console.error('Register page error:', error);
+      
+      // Extract specific error details
+      let errorMessages: string[] = ['Có lỗi xảy ra khi đăng ký'];
+      
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorMessages = error.response.data.errors;
+      } else if (error.response?.data?.message) {
+        errorMessages = [error.response.data.message];
+      } else if (error.message) {
+        errorMessages = [error.message];
+      }
+      
+      setErrors(errorMessages);
     } finally {
       setIsLoading(false);
     }
@@ -422,6 +437,73 @@ const RegisterPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                Đăng ký thành công!
+              </h3>
+              
+              <p className="text-gray-600 mb-6">
+                Email xác thực đã được gửi đến <strong>{formData.email}</strong>. 
+                Vui lòng kiểm tra hộp thư và click vào link xác thực để kích hoạt tài khoản.
+              </p>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-start">
+                  <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="text-sm text-blue-800">
+                    <p className="font-medium mb-1">Lưu ý quan trọng:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Kiểm tra cả hộp thư spam/junk</li>
+                      <li>Link xác thực có hiệu lực trong 48 giờ</li>
+                      <li>Bạn cần xác thực email trước khi đăng nhập</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col space-y-3">
+                <Link
+                  to="/login"
+                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-center"
+                >
+                  Đi đến trang đăng nhập
+                </Link>
+                
+                <button
+                  onClick={() => {
+                    setShowSuccessModal(false);
+                    setFormData({
+                      email: '',
+                      password: '',
+                      confirmPassword: '',
+                      fullName: '',
+                      phoneNumber: '',
+                      dateOfBirth: '',
+                      address: ''
+                    });
+                  }}
+                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                >
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

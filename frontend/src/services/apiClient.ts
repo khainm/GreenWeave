@@ -102,8 +102,8 @@ class ApiClient {
           console.log('🔐 [ApiClient] 401 Unauthorized - clearing auth data');
           localStorage.removeItem('auth_token')
           localStorage.removeItem('user_data')
-          // Only redirect if not already on login page
-          if (window.location.pathname !== '/login') {
+          // Only redirect if not already on login page and not on register page
+          if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
             console.log('🔄 [ApiClient] Redirecting to login page');
             window.location.href = '/login'
           }

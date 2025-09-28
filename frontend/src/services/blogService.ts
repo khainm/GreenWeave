@@ -7,6 +7,18 @@ export class BlogService {
     return apiClient.get<Blog[]>('/api/blog/published');
   }
 
+  async getPublishedBlogsWithPagination(filters: BlogFilters = {}): Promise<BlogListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.pageSize) params.append('pageSize', filters.pageSize.toString());
+    if (filters.search) params.append('search', filters.search);
+    if (filters.category) params.append('category', filters.category);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/api/blog/published?${queryString}` : '/api/blog/published';
+    return apiClient.get<BlogListResponse>(url);
+  }
+
   async getBlogBySlug(slug: string): Promise<Blog> {
     console.log('Getting blog by slug:', slug);
     return apiClient.get<Blog>(`/api/blog/slug/${slug}`);
@@ -54,6 +66,20 @@ export class BlogService {
   // Admin APIs (authentication required)
   async getAllBlogs(): Promise<Blog[]> {
     return apiClient.get<Blog[]>('/api/blog');
+  }
+
+  async getAllBlogsWithPagination(filters: BlogFilters = {}): Promise<BlogListResponse> {
+    const params = new URLSearchParams();
+    if (filters.page) params.append('page', filters.page.toString());
+    if (filters.pageSize) params.append('pageSize', filters.pageSize.toString());
+    if (filters.status) params.append('status', filters.status);
+    if (filters.category) params.append('category', filters.category);
+    if (filters.authorId) params.append('authorId', filters.authorId);
+    if (filters.search) params.append('search', filters.search);
+    
+    const queryString = params.toString();
+    const url = queryString ? `/api/blog?${queryString}` : '/api/blog';
+    return apiClient.get<BlogListResponse>(url);
   }
 
   async getBlogById(id: number): Promise<Blog> {

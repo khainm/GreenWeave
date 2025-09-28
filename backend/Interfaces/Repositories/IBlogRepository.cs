@@ -25,5 +25,6 @@ namespace backend.Interfaces.Repositories
         Task<IEnumerable<Blog>> GetPopularAsync(int count);
         Task<IEnumerable<string>> GetCategoriesAsync();
         Task<IEnumerable<string>> GetTagsAsync();
+        Task<int> GetActualViewCountAsync(int id);
     }
 }

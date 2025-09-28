@@ -221,6 +221,11 @@ namespace backend.Services
             return await _blogRepository.GetTagsAsync();
         }
 
+        public async Task<int> GetActualViewCountAsync(int id)
+        {
+            return await _blogRepository.GetActualViewCountAsync(id);
+        }
+
         public async Task<string> GenerateSlugAsync(string title, int? excludeId = null)
         {
             // Convert to lowercase and replace spaces with hyphens

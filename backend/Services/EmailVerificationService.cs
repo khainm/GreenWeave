@@ -51,12 +51,12 @@ namespace backend.Services
                     };
                 }
 
-                // Kiểm tra rate limit (3 lần/giờ)
+                // Kiểm tra rate limit (5 lần/giờ)
                 var recentTokens = await _context.EmailVerificationTokens
                     .Where(t => t.UserId == user.Id && t.CreatedAt > DateTime.UtcNow.AddHours(-1))
                     .CountAsync();
 
-                if (recentTokens >= 3)
+                if (recentTokens >= 5)
                 {
                     return new EmailVerificationResponse
                     {
@@ -73,7 +73,7 @@ namespace backend.Services
                     UserId = user.Id,
                     Token = token,
                     CreatedAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.AddHours(24), // 24 giờ
+                    ExpiresAt = DateTime.UtcNow.AddHours(48), // 48 giờ
                     IsUsed = false
                 };
 
@@ -164,7 +164,7 @@ namespace backend.Services
                     };
                 }
 
-                var result = await _userManager.ConfirmEmailAsync(user, await _userManager.GenerateEmailConfirmationTokenAsync(user));
+                var result = await _userManager.ConfirmEmailAsync(user, token);
                 if (!result.Succeeded)
                 {
                     return new EmailVerificationResponse

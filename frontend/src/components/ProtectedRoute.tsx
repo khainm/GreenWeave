@@ -101,19 +101,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
           <p className="text-gray-600 mb-4">
             Để sử dụng chức năng này, vui lòng xác thực email của bạn trước.
           </p>
-          <div className="flex space-x-3">
+          <div className="flex flex-col space-y-3">
+            <a
+              href="/profile"
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-center"
+            >
+              Xác thực email
+            </a>
             <button
               onClick={() => window.history.back()}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors duration-200"
             >
               Quay lại
             </button>
-            <a
-              href="/profile"
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200"
-            >
-              Xác thực email
-            </a>
           </div>
         </div>
       </div>

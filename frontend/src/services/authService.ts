@@ -89,10 +89,35 @@ class AuthService {
       
       return response;
     } catch (error: any) {
+      console.error('Login API error:', error);
+      
+      // Extract detailed error information
+      let message = 'Đăng nhập thất bại';
+      let errors: string[] = ['Có lỗi xảy ra khi đăng nhập'];
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        
+        // Use specific message from backend
+        if (data.message) {
+          message = data.message;
+        }
+        
+        // Use specific errors from backend
+        if (data.errors && Array.isArray(data.errors)) {
+          errors = data.errors;
+        } else if (data.message) {
+          errors = [data.message];
+        }
+      } else if (error.message) {
+        message = error.message;
+        errors = [error.message];
+      }
+      
       const errorResponse: AuthError = {
         success: false,
-        message: error.response?.data?.message || 'Đăng nhập thất bại',
-        errors: error.response?.data?.errors || ['Có lỗi xảy ra khi đăng nhập']
+        message: message,
+        errors: errors
       };
       return errorResponse;
     }
@@ -116,10 +141,35 @@ class AuthService {
       
       return response;
     } catch (error: any) {
+      console.error('Register API error:', error);
+      
+      // Extract detailed error information
+      let message = 'Đăng ký thất bại';
+      let errors: string[] = ['Có lỗi xảy ra khi đăng ký'];
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        
+        // Use specific message from backend
+        if (data.message) {
+          message = data.message;
+        }
+        
+        // Use specific errors from backend
+        if (data.errors && Array.isArray(data.errors)) {
+          errors = data.errors;
+        } else if (data.message) {
+          errors = [data.message];
+        }
+      } else if (error.message) {
+        message = error.message;
+        errors = [error.message];
+      }
+      
       const errorResponse: AuthError = {
         success: false,
-        message: error.response?.data?.message || 'Đăng ký thất bại',
-        errors: error.response?.data?.errors || ['Có lỗi xảy ra khi đăng ký']
+        message: message,
+        errors: errors
       };
       return errorResponse;
     }

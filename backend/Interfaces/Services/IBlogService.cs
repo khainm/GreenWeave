@@ -26,5 +26,6 @@ namespace backend.Interfaces.Services
         Task<IEnumerable<string>> GetCategoriesAsync();
         Task<IEnumerable<string>> GetTagsAsync();
         Task<string> GenerateSlugAsync(string title, int? excludeId = null);
+        Task<int> GetActualViewCountAsync(int id);
     }
 }

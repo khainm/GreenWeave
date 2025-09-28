@@ -65,8 +65,8 @@ namespace backend.Repositories
                 .Where(b => b.Status == "published" && 
                            (b.Title.Contains(searchTerm) || 
                             b.Content.Contains(searchTerm) || 
-                            b.Excerpt.Contains(searchTerm) ||
-                            b.Tags.Contains(searchTerm)))
+                            (b.Excerpt != null && b.Excerpt.Contains(searchTerm)) ||
+                            (b.Tags != null && b.Tags.Contains(searchTerm))))
                 .OrderByDescending(b => b.PublishedAt)
                 .ToListAsync();
         }
@@ -143,10 +143,10 @@ namespace backend.Repositories
 
         public async Task IncrementViewCountAsync(int id, string ipAddress, string? userAgent = null)
         {
-            // Check if this IP has already viewed this blog recently (within 24 hours)
+            // Check if this IP has already viewed this blog recently (within 1 hour)
             var recentView = await _context.BlogViews
                 .Where(bv => bv.BlogId == id && bv.IpAddress == ipAddress)
-                .Where(bv => bv.ViewedAt > DateTime.UtcNow.AddHours(-24))
+                .Where(bv => bv.ViewedAt > DateTime.UtcNow.AddHours(-1)) // ✅ Giảm từ 24h xuống 1h
                 .FirstOrDefaultAsync();
 
             if (recentView == null)
@@ -251,6 +251,14 @@ namespace backend.Repositories
                 .OrderByDescending(b => b.ViewCount)
                 .Take(count)
                 .ToListAsync();
+        }
+
+        public async Task<int> GetActualViewCountAsync(int id)
+        {
+            // Get actual view count from BlogViews table
+            return await _context.BlogViews
+                .Where(bv => bv.BlogId == id)
+                .CountAsync();
         }
 
         public async Task<IEnumerable<string>> GetCategoriesAsync()

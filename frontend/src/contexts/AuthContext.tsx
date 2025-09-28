@@ -70,8 +70,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Admin không cần xác thực email
         const isAdmin = response.user.roles?.includes('Admin') || false;
         setIsEmailVerified(isAdmin || response.user.emailVerified || false);
+      } else {
+        // Clear user data on failed login
+        setUser(null);
+        setIsEmailVerified(false);
       }
       return response;
+    } catch (error: any) {
+      console.error('Login error:', error);
+      setUser(null);
+      setIsEmailVerified(false);
+      
+      // Extract specific error message from API response
+      let errorMessage = 'Có lỗi xảy ra khi đăng nhập';
+      let errorDetails: string[] = ['Vui lòng thử lại sau'];
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorDetails = error.response.data.errors;
+      } else if (error.response?.data?.message) {
+        errorDetails = [error.response.data.message];
+      } else if (error.message) {
+        errorDetails = [error.message];
+      }
+      
+      return {
+        success: false,
+        message: errorMessage,
+        errors: errorDetails
+      };
     } finally {
       setIsLoading(false);
     }
@@ -85,6 +115,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(response.user);
       }
       return response;
+    } catch (error: any) {
+      console.error('Register error:', error);
+      
+      // Extract specific error message from API response
+      let errorMessage = 'Có lỗi xảy ra khi đăng ký';
+      let errorDetails: string[] = ['Vui lòng thử lại sau'];
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+        errorDetails = error.response.data.errors;
+      } else if (error.response?.data?.message) {
+        errorDetails = [error.response.data.message];
+      } else if (error.message) {
+        errorDetails = [error.message];
+      }
+      
+      return {
+        success: false,
+        message: errorMessage,
+        errors: errorDetails
+      };
     } finally {
       setIsLoading(false);
     }
