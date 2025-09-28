@@ -48,6 +48,7 @@ const Header: React.FC<HeaderProps> = () => {
     { id: 'home', label: 'Trang chủ', path: '/' },
     { id: 'products', label: 'Sản phẩm', path: '/products' },
     { id: 'custom', label: 'Sản phẩm tùy chỉnh', path: '/custom' },
+    { id: 'blog', label: 'Blog', path: '/blog' },
     { id: 'about', label: 'Về chúng tôi', path: '/about' },
     { id: 'contact', label: 'Liên hệ', path: '/contact' }
   ];

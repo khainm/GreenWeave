@@ -1,38 +1,27 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { blogService } from '../services/blogService';
+import type { Blog } from '../types/blog';
 
 const GreenChoiceSection: React.FC = () => {
-  const posts = [
-    {
-      id: 1,
-      title: 'Xu hướng thời trang xanh 2025',
-      excerpt:
-        'Cập nhật những chất liệu tái chế và thiết kế tối giản đang dẫn đầu xu hướng thời trang bền vững.',
-      date: '16/09/2025',
-      image:
-        'https://images.unsplash.com/photo-1520975624745-4f7a4f35e979?q=80&w=1200&auto=format&fit=crop',
-      href: '#',
-    },
-    {
-      id: 2,
-      title: 'Bí quyết phối đồ “xanh” cho Gen Z',
-      excerpt:
-        '5 gợi ý phối đồ vừa cá tính vừa thân thiện với môi trường cho bạn trẻ năng động.',
-      date: '10/09/2025',
-      image:
-        'https://images.unsplash.com/photo-1544441893-675973e31985?q=80&w=1200&auto=format&fit=crop',
-      href: '#',
-    },
-    {
-      id: 3,
-      title: 'Hành trình một chiếc áo tái chế',
-      excerpt:
-        'Từ chai nhựa đến sợi vải: bên trong quy trình sản xuất bền vững của GreenWeave.',
-      date: '05/09/2025',
-      image:
-        'https://images.unsplash.com/photo-1520975922212-23b36c5b0d3a?q=80&w=1200&auto=format&fit=crop',
-      href: '#',
-    },
-  ];
+  const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadRecentBlogs();
+  }, []);
+
+  const loadRecentBlogs = async () => {
+    try {
+      setLoading(true);
+      const recentBlogs = await blogService.getRecentBlogs(3);
+      setBlogs(recentBlogs);
+    } catch (error) {
+      console.error('Error loading recent blogs:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <section className="w-full bg-gradient-to-b from-white to-gray-50">
@@ -64,34 +53,62 @@ const GreenChoiceSection: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {posts.map((post) => (
-              <a
-                key={post.id}
-                href={post.href}
-                className="group rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow"
-              >
-                <div className="relative aspect-[16/10] overflow-hidden">
-                  <img
-                    src={post.image}
-                    alt={post.title}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
+            {loading ? (
+              // Loading skeleton
+              [...Array(3)].map((_, index) => (
+                <div key={index} className="rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100 animate-pulse">
+                  <div className="aspect-[16/10] bg-gray-200"></div>
+                  <div className="p-5">
+                    <div className="h-3 bg-gray-200 rounded w-1/4 mb-2"></div>
+                    <div className="h-5 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                  </div>
                 </div>
-                <div className="p-5">
-                  <p className="text-xs uppercase tracking-wide text-gray-500">{post.date}</p>
-                  <h5 className="mt-2 text-lg font-semibold text-gray-900 group-hover:text-green-700 line-clamp-2">
-                    {post.title}
-                  </h5>
-                  <p className="mt-2 text-sm text-gray-600 line-clamp-3">{post.excerpt}</p>
-                  <span className="mt-3 inline-flex items-center text-green-700 text-sm font-medium">
-                    Đọc tiếp
-                    <svg className="ml-1 h-4 w-4" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                      <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l5 5a1 1 0 010 1.414l-5 5a1 1 0 11-1.414-1.414L13.586 11H4a1 1 0 110-2h9.586l-3.293-3.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                </div>
-              </a>
-            ))}
+              ))
+            ) : blogs.length > 0 ? (
+              blogs.map((blog) => (
+                <Link
+                  key={blog.id}
+                  to={`/blog/${blog.slug}`}
+                  className="group rounded-xl overflow-hidden bg-white shadow-sm ring-1 ring-gray-100 hover:shadow-md transition-shadow"
+                >
+                  <div className="relative aspect-[16/10] overflow-hidden">
+                    {blog.featuredImageUrl ? (
+                      <img
+                        src={blog.featuredImageUrl}
+                        alt={blog.featuredImageAlt || blog.title}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400 text-sm">Không có ảnh</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-5">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">
+                      {blogService.formatDate(blog.publishedAt || blog.createdAt)}
+                    </p>
+                    <h5 className="mt-2 text-lg font-semibold text-gray-900 group-hover:text-green-700 line-clamp-2">
+                      {blog.title}
+                    </h5>
+                    <p className="mt-2 text-sm text-gray-600 line-clamp-3">
+                      {blog.excerpt || 'Không có mô tả'}
+                    </p>
+                    <span className="mt-3 inline-flex items-center text-green-700 text-sm font-medium">
+                      Đọc tiếp
+                      <svg className="ml-1 h-4 w-4" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l5 5a1 1 0 010 1.414l-5 5a1 1 0 11-1.414-1.414L13.586 11H4a1 1 0 110-2h9.586l-3.293-3.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                    </span>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-gray-500">Chưa có bài viết nào</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

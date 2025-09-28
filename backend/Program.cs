@@ -222,6 +222,10 @@ builder.Services.AddScoped<IProductWarehouseStockRepository, ProductWarehouseSto
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IWarehouseSelectionService, WarehouseSelectionService>();
 
+// Add Blog services
+builder.Services.AddScoped<IBlogRepository, BlogRepository>();
+builder.Services.AddScoped<IBlogService, BlogService>();
+
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
 {

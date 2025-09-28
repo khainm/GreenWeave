@@ -21,6 +21,10 @@ import AdminWarehouseStockPage from './pages/admin/AdminWarehouseStockPage'
 import AdminCreateOrderPage from './pages/admin/AdminCreateOrderPage'
 import AdminCreateCustomOrderPage from './pages/admin/AdminCreateCustomOrderPage'
 import ViettelPostIntegration from './components/admin/ViettelPostIntegration'
+import BlogPage from './pages/BlogPage'
+import BlogDetailPage from './pages/BlogDetailPage'
+import AdminBlogPage from './pages/admin/AdminBlogPage'
+import AdminBlogFormPage from './pages/admin/AdminBlogFormPage'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -45,6 +49,8 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/blog" element={<BlogPage />} />
+            <Route path="/blog/:slug" element={<BlogDetailPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/custom" element={<CustomProductDesigner />} />
             <Route path="/products/:id" element={<ProductDetail />} />
@@ -157,6 +163,21 @@ function App() {
             <Route path="/admin/viettelpost" element={
               <ProtectedRoute requireAdmin={true}>
                 <ViettelPostIntegration />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blog" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminBlogPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blog/create" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminBlogFormPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/blog/edit/:id" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminBlogFormPage />
               </ProtectedRoute>
             } />
           </Routes>

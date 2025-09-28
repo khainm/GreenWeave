@@ -28,6 +28,9 @@ namespace backend.Data
         public DbSet<WebhookLog> WebhookLogs { get; set; }
         public DbSet<EmailVerificationToken> EmailVerificationTokens { get; set; }
         public DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+        public DbSet<Blog> Blogs { get; set; }
+        public DbSet<BlogLike> BlogLikes { get; set; }
+        public DbSet<BlogView> BlogViews { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -359,6 +362,79 @@ namespace backend.Data
                 entity.HasOne(pws => pws.Warehouse)
                     .WithMany()
                     .HasForeignKey(pws => pws.WarehouseId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Blog configuration
+            modelBuilder.Entity<Blog>(entity =>
+            {
+                entity.HasKey(b => b.Id);
+                entity.HasIndex(b => b.Slug).IsUnique();
+                entity.HasIndex(b => b.Status);
+                entity.HasIndex(b => b.Category);
+                entity.HasIndex(b => b.AuthorId);
+                
+                entity.Property(b => b.Title).IsRequired().HasMaxLength(200);
+                entity.Property(b => b.Slug).IsRequired().HasMaxLength(500);
+                entity.Property(b => b.Excerpt).HasMaxLength(1000);
+                entity.Property(b => b.Content).IsRequired();
+                entity.Property(b => b.FeaturedImageUrl).HasMaxLength(500);
+                entity.Property(b => b.FeaturedImageAlt).HasMaxLength(100);
+                entity.Property(b => b.Status).IsRequired().HasMaxLength(50).HasDefaultValue("draft");
+                entity.Property(b => b.AuthorId).IsRequired();
+                entity.Property(b => b.AuthorName).HasMaxLength(100);
+                entity.Property(b => b.Tags).HasMaxLength(500);
+                entity.Property(b => b.Category).HasMaxLength(100);
+                entity.Property(b => b.MetaTitle).HasMaxLength(200);
+                entity.Property(b => b.MetaDescription).HasMaxLength(500);
+                entity.Property(b => b.MetaKeywords).HasMaxLength(200);
+                entity.Property(b => b.ViewCount).HasDefaultValue(0);
+                entity.Property(b => b.LikeCount).HasDefaultValue(0);
+                entity.Property(b => b.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(b => b.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Relationship with User (Author)
+                entity.HasOne(b => b.Author)
+                    .WithMany()
+                    .HasForeignKey(b => b.AuthorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // BlogLike configuration
+            modelBuilder.Entity<BlogLike>(entity =>
+            {
+                entity.HasKey(bl => bl.Id);
+                
+                // Composite unique index để tránh duplicate like
+                entity.HasIndex(bl => new { bl.BlogId, bl.UserId }).IsUnique();
+                
+                entity.Property(bl => bl.LikedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Foreign key relationships
+                entity.HasOne(bl => bl.Blog)
+                    .WithMany()
+                    .HasForeignKey(bl => bl.BlogId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                    
+                entity.HasOne(bl => bl.User)
+                    .WithMany()
+                    .HasForeignKey(bl => bl.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // BlogView configuration
+            modelBuilder.Entity<BlogView>(entity =>
+            {
+                entity.HasKey(bv => bv.Id);
+                
+                entity.Property(bv => bv.IpAddress).IsRequired().HasMaxLength(45);
+                entity.Property(bv => bv.UserAgent).HasMaxLength(500);
+                entity.Property(bv => bv.ViewedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Foreign key relationship
+                entity.HasOne(bv => bv.Blog)
+                    .WithMany()
+                    .HasForeignKey(bv => bv.BlogId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }
