@@ -7,7 +7,6 @@ const tabs = [
   { label: 'Đơn hàng' },
   { label: 'Khách hàng' },
   { label: 'Nhân Viên' },
-  { label: 'Kho hàng' },
   { label: 'Blog' },
   { label: 'Báo cáo', badge: 'Mới' },
   { label: 'Bán online' }
@@ -19,14 +18,21 @@ const Icon = ({ children }: { children: React.ReactNode }) => (
   </div>
 )
 
+
 const TopNav: React.FC = () => {
   const location = useLocation()
   const [isGoodsOpen, setIsGoodsOpen] = useState(false)
   const [isOrdersOpen, setIsOrdersOpen] = useState(false)
+  const [isCustomersOpen, setIsCustomersOpen] = useState(false)
+  const [isStaffOpen, setIsStaffOpen] = useState(false)
   const goodsRef = useRef<HTMLDivElement | null>(null)
   const ordersRef = useRef<HTMLDivElement | null>(null)
+  const customersRef = useRef<HTMLDivElement | null>(null)
+  const staffRef = useRef<HTMLDivElement | null>(null)
   const goodsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const ordersTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const customersTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const staffTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -36,6 +42,12 @@ const TopNav: React.FC = () => {
       if (ordersRef.current && !ordersRef.current.contains(e.target as Node)) {
         setIsOrdersOpen(false)
       }
+      if (customersRef.current && !customersRef.current.contains(e.target as Node)) {
+        setIsCustomersOpen(false)
+      }
+      if (staffRef.current && !staffRef.current.contains(e.target as Node)) {
+        setIsStaffOpen(false)
+      }
     }
     document.addEventListener('click', onClick)
     return () => {
@@ -43,6 +55,8 @@ const TopNav: React.FC = () => {
       // Cleanup timeouts
       if (goodsTimeoutRef.current) clearTimeout(goodsTimeoutRef.current)
       if (ordersTimeoutRef.current) clearTimeout(ordersTimeoutRef.current)
+      if (customersTimeoutRef.current) clearTimeout(customersTimeoutRef.current)
+      if (staffTimeoutRef.current) clearTimeout(staffTimeoutRef.current)
     }
   }, [])
 
@@ -98,7 +112,6 @@ const TopNav: React.FC = () => {
                                (t.label === 'Đơn hàng' && location.pathname.startsWith('/admin/orders')) ||
                                (t.label === 'Khách hàng' && location.pathname.startsWith('/admin/customers')) ||
                                (t.label === 'Nhân Viên' && location.pathname.startsWith('/admin/staff')) ||
-                               (t.label === 'Kho hàng' && location.pathname.startsWith('/admin/warehouses')) ||
                                (t.label === 'Blog' && location.pathname.startsWith('/admin/blog'))
 
               const base = `px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${isActive ? 'bg-white/20 ring-2 ring-white/50 shadow-[0_0_0_1px_rgba(255,255,255,0.25)]' : 'hover:bg-white/10'}`
@@ -176,17 +189,141 @@ const TopNav: React.FC = () => {
 
               if (t.label === 'Khách hàng') {
                 return (
-                  <NavLink key={t.label} to="/admin/customers" className={base}>
-                    {t.label}
-                  </NavLink>
+                  <div
+                    key={t.label}
+                    className="relative"
+                    onMouseEnter={() => setIsCustomersOpen(true)}
+                    onMouseLeave={() => {
+                      customersTimeoutRef.current = setTimeout(() => {
+                        setIsCustomersOpen(false)
+                      }, 100)
+                    }}
+                    ref={customersRef}
+                  >
+                    <button 
+                      className={base} 
+                      aria-haspopup="true" 
+                      aria-expanded={isCustomersOpen} 
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsCustomersOpen((v) => !v)
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                    {isCustomersOpen && (
+                      <div 
+                        className="absolute left-0 top-12 z-40"
+                        onMouseEnter={() => {
+                          if (customersTimeoutRef.current) {
+                            clearTimeout(customersTimeoutRef.current)
+                            customersTimeoutRef.current = null
+                          }
+                          setIsCustomersOpen(true)
+                        }}
+                        onMouseLeave={() => {
+                          customersTimeoutRef.current = setTimeout(() => {
+                            setIsCustomersOpen(false)
+                          }, 100)
+                        }}
+                      >
+                        <div className="h-2 w-full"></div>
+                        <div className="bg-white text-gray-900 rounded-2xl shadow-[0_20px_40px_rgba(13,110,253,0.15)] w-[720px] p-6 border border-blue-100">
+                          <div className="grid grid-cols-2 gap-8">
+                            <div>
+                              <div className="text-xl font-semibold mb-6">Khách hàng</div>
+                              <ul className="space-y-6 text-gray-800">
+                                <li><Link to="/admin/customers" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsCustomersOpen(false)}>Danh sách khách hàng</Link></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Thêm khách hàng mới</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Phân loại khách hàng</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Lịch sử mua hàng</button></li>
+                              </ul>
+                            </div>
+                            <div className="border-l border-gray-200 pl-8">
+                              <div className="text-xl font-semibold mb-6">Thống kê</div>
+                              <ul className="space-y-6 text-gray-800">
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Khách hàng VIP</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Khách hàng mới</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Khách hàng tiềm năng</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Báo cáo khách hàng</button></li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )
               }
 
               if (t.label === 'Nhân Viên') {
                 return (
-                  <NavLink key={t.label} to="/admin/staff" className={base}>
-                    {t.label}
-                  </NavLink>
+                  <div
+                    key={t.label}
+                    className="relative"
+                    onMouseEnter={() => setIsStaffOpen(true)}
+                    onMouseLeave={() => {
+                      staffTimeoutRef.current = setTimeout(() => {
+                        setIsStaffOpen(false)
+                      }, 100)
+                    }}
+                    ref={staffRef}
+                  >
+                    <button 
+                      className={base} 
+                      aria-haspopup="true" 
+                      aria-expanded={isStaffOpen} 
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setIsStaffOpen((v) => !v)
+                      }}
+                    >
+                      {t.label}
+                    </button>
+                    {isStaffOpen && (
+                      <div 
+                        className="absolute left-0 top-12 z-40"
+                        onMouseEnter={() => {
+                          if (staffTimeoutRef.current) {
+                            clearTimeout(staffTimeoutRef.current)
+                            staffTimeoutRef.current = null
+                          }
+                          setIsStaffOpen(true)
+                        }}
+                        onMouseLeave={() => {
+                          staffTimeoutRef.current = setTimeout(() => {
+                            setIsStaffOpen(false)
+                          }, 100)
+                        }}
+                      >
+                        <div className="h-2 w-full"></div>
+                        <div className="bg-white text-gray-900 rounded-2xl shadow-[0_20px_40px_rgba(13,110,253,0.15)] w-[720px] p-6 border border-blue-100">
+                          <div className="grid grid-cols-2 gap-8">
+                            <div>
+                              <div className="text-xl font-semibold mb-6">Nhân viên</div>
+                              <ul className="space-y-6 text-gray-800">
+                                <li><Link to="/admin/staff" className="hover:text-[#0a68ff] transition-colors" onClick={() => setIsStaffOpen(false)}>Danh sách nhân viên</Link></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Thêm nhân viên mới</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Phân quyền</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Quản lý ca làm việc</button></li>
+                              </ul>
+                            </div>
+                            <div className="border-l border-gray-200 pl-8">
+                              <div className="text-xl font-semibold mb-6">Báo cáo</div>
+                              <ul className="space-y-6 text-gray-800">
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Hiệu suất làm việc</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Lương thưởng</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Chấm công</button></li>
+                                <li><button className="hover:text-[#0a68ff] transition-colors">Đánh giá nhân viên</button></li>
+                              </ul>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )
               }
               // Thêm vận đơn chỗ này 
@@ -271,13 +408,6 @@ const TopNav: React.FC = () => {
                 )
               }
 
-              if (t.label === 'Kho hàng') {
-                return (
-                  <NavLink key={t.label} to="/admin/warehouses" className={base}>
-                    {t.label}
-                  </NavLink>
-                )
-              }
 
               if (t.label === 'Blog') {
                 return (
@@ -303,6 +433,7 @@ const TopNav: React.FC = () => {
           </button>
         </div>
       </div>
+
     </div>
   )
 }
