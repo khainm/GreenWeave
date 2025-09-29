@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import type { Blog } from '../../types/blog';
 import { blogService } from '../../services/blogService';
+import TopNav from '../../components/admin/TopNav';
 import { 
   PlusIcon,
   PencilIcon,
@@ -83,6 +84,7 @@ const AdminBlogPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <TopNav />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">

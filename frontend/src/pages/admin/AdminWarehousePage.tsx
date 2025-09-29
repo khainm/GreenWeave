@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import TopNav from '../../components/admin/TopNav'
 import WarehouseForm from '../../components/admin/WarehouseForm'
 import WarehouseTable from '../../components/admin/WarehouseTable'
 import warehouseService from '../../services/warehouseService'
@@ -158,8 +159,9 @@ const AdminWarehousePage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50">
+      <TopNav />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
           <div className="flex justify-between items-center">
