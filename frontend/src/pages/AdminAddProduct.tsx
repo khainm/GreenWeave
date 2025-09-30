@@ -21,8 +21,8 @@ const AdminAddProduct: React.FC = () => {
     originalPrice: 0,
     stock: 0,
     weight: 500,
-    colors: ['#10b981'],
-    selectedColor: '#10b981',
+    colors: [],
+    selectedColor: '',
     status: 'active',
     images: [],
     imageFiles: []
@@ -77,6 +77,13 @@ const AdminAddProduct: React.FC = () => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+
+    // Validation: Check if at least one color is selected
+    if (form.colors.length === 0) {
+      setError('Vui lòng chọn ít nhất một màu cho sản phẩm.')
+      setIsLoading(false)
+      return
+    }
 
     try {
       // Debug logging
@@ -199,17 +206,24 @@ const AdminAddProduct: React.FC = () => {
 
                   {/* Colors */}
                   <div className="flex space-x-2">
-                    {form.colors.map((color, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setForm(prev => ({ ...prev, selectedColor: color }))}
-                        className="w-4 h-4 rounded-full border-2 transition-all"
-                        style={{ 
-                          backgroundColor: color,
-                          borderColor: form.selectedColor === color ? '#10b981' : '#e5e7eb'
-                        }}
-                      />
-                    ))}
+                    {form.colors.length > 0 ? (
+                      form.colors.map((color, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setForm(prev => ({ ...prev, selectedColor: color }))}
+                          className="w-4 h-4 rounded-full border-2 transition-all"
+                          style={{ 
+                            backgroundColor: color,
+                            borderColor: form.selectedColor === color ? '#10b981' : '#e5e7eb'
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <div className="w-4 h-4 rounded-full border-2 border-dashed border-gray-300"></div>
+                        <span className="text-xs text-gray-400">Chưa chọn màu</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Stock info */}

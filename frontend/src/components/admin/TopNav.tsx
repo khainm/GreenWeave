@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 
 const tabs = [
   { label: 'Tổng quan' },
@@ -16,18 +17,22 @@ const tabs = [
 
 const TopNav: React.FC = () => {
   const location = useLocation()
+  const { user, logout } = useAuth()
   const [isGoodsOpen, setIsGoodsOpen] = useState(false)
   const [isOrdersOpen, setIsOrdersOpen] = useState(false)
   const [isCustomersOpen, setIsCustomersOpen] = useState(false)
   const [isStaffOpen, setIsStaffOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
   const goodsRef = useRef<HTMLDivElement | null>(null)
   const ordersRef = useRef<HTMLDivElement | null>(null)
   const customersRef = useRef<HTMLDivElement | null>(null)
   const staffRef = useRef<HTMLDivElement | null>(null)
+  const profileRef = useRef<HTMLDivElement | null>(null)
   const goodsTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const ordersTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const customersTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const staffTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const profileTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -43,6 +48,9 @@ const TopNav: React.FC = () => {
       if (staffRef.current && !staffRef.current.contains(e.target as Node)) {
         setIsStaffOpen(false)
       }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false)
+      }
     }
     document.addEventListener('click', onClick)
     return () => {
@@ -52,104 +60,155 @@ const TopNav: React.FC = () => {
       if (ordersTimeoutRef.current) clearTimeout(ordersTimeoutRef.current)
       if (customersTimeoutRef.current) clearTimeout(customersTimeoutRef.current)
       if (staffTimeoutRef.current) clearTimeout(staffTimeoutRef.current)
+      if (profileTimeoutRef.current) clearTimeout(profileTimeoutRef.current)
     }
   }, [])
 
   return (
     <div className="w-full">
-      {/* Top white bar */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-              <span className="text-lg">GW</span>
+      {/* Top bar */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 rounded-lg bg-green-600 text-white font-bold flex items-center justify-center text-sm">
+              GW
             </div>
-            <div className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent tracking-wide">
+            <div className="text-lg font-semibold text-gray-900">
               GreenWeave
             </div>
           </div>
-          <div className="flex items-center space-x-6 text-gray-700">
-            {/* Giao hàng */}
-            <div className="flex items-center space-x-2 cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <div className="relative">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
+          
+          <div className="flex items-center space-x-4 text-gray-600">
+            {/* Quick Actions */}
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-1 cursor-pointer hover:text-green-600 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M4 15a1 1 0 001 1h1l1 4h10l1-4h1a1 1 0 001-1v-4H4v4zm0-6h16l-2-5H6L4 9z"/>
                 </svg>
-                <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-white animate-pulse"></span>
+                <span className="text-sm">Giao hàng</span>
               </div>
-              <span className="text-sm font-semibold">Giao hàng</span>
-            </div>
-
-            {/* Separator dot */}
-            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-
-            {/* Chủ đề */}
-            <div className="flex items-center space-x-2 cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-              <span className="text-sm font-semibold">Chủ đề</span>
-            </div>
-
-            {/* Hỗ trợ */}
-            <div className="flex items-center space-x-2 cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-              </svg>
-              <span className="text-sm font-semibold">Hỗ trợ</span>
-            </div>
-
-            {/* Góp ý */}
-            <div className="flex items-center space-x-2 cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h4l4 4 4-4h4c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
-              </svg>
-              <span className="text-sm font-semibold">Góp ý</span>
-            </div>
-
-            {/* Language Selector */}
-            <div className="flex items-center space-x-2 cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <div className="flex items-center space-x-2">
-                <div className="w-6 h-4 bg-red-500 rounded-sm flex items-center justify-center shadow-sm">
-                  <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                </div>
-                <span className="text-sm font-semibold">Tiếng Việt</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                  <path d="M7 10l5 5 5-5z"/>
+              
+              <div className="flex items-center space-x-1 cursor-pointer hover:text-green-600 transition-colors">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 22a2 2 0 002-2H10a2 2 0 002 2zm6-6V11a6 6 0 10-12 0v5l-2 2v1h16v-1l-2-2z"/>
                 </svg>
+                <span className="text-sm">Thông báo</span>
+                <span className="w-2 h-2 bg-red-500 rounded-full"></span>
               </div>
-            </div>
-
-            {/* Notifications */}
-            <div className="relative cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                <path d="M12 22a2 2 0 002-2H10a2 2 0 002 2zm6-6V11a6 6 0 10-12 0v5l-2 2v1h16v-1l-2-2z"/>
-              </svg>
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow-lg animate-bounce">3</span>
-            </div>
-
-            {/* Settings */}
-            <div className="cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
-              </svg>
             </div>
 
             {/* User Profile */}
-            <div className="cursor-pointer hover:text-green-600 transition-all duration-300 hover:bg-green-50 px-3 py-2 rounded-lg">
-              <div className="w-10 h-10 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-green-600">
-                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            <div 
+              className="relative cursor-pointer"
+              onMouseEnter={() => setIsProfileOpen(true)}
+              onMouseLeave={() => {
+                profileTimeoutRef.current = setTimeout(() => {
+                  setIsProfileOpen(false)
+                }, 100)
+              }}
+              ref={profileRef}
+            >
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                  {user?.avatar ? (
+                    <img 
+                      src={user.avatar} 
+                      alt={user.fullName || 'User'} 
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-semibold text-xs">
+                      {user?.fullName ? user.fullName.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <div className="text-sm font-medium text-gray-900">
+                    {user?.fullName || 'User'}
+                  </div>
+                </div>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="text-gray-400">
+                  <path d="M7 10l5 5 5-5z"/>
                 </svg>
               </div>
+
+              {/* Profile Dropdown */}
+              {isProfileOpen && (
+                <div 
+                  className="absolute right-0 top-10 z-50 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+                  onMouseEnter={() => {
+                    if (profileTimeoutRef.current) {
+                      clearTimeout(profileTimeoutRef.current)
+                      profileTimeoutRef.current = null
+                    }
+                    setIsProfileOpen(true)
+                  }}
+                  onMouseLeave={() => {
+                    profileTimeoutRef.current = setTimeout(() => {
+                      setIsProfileOpen(false)
+                    }, 100)
+                  }}
+                >
+                  {/* User Info */}
+                  <div className="px-3 py-2 border-b border-gray-100">
+                    <div className="text-sm font-medium text-gray-900">
+                      {user?.fullName || 'User'}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {user?.email || 'user@example.com'}
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div className="py-1">
+                    <Link 
+                      to="/profile" 
+                      className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={() => setIsProfileOpen(false)}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      Thông tin cá nhân
+                    </Link>
+                    
+                    <Link 
+                      to="/admin/settings" 
+                      className="flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={() => setIsProfileOpen(false)}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      Cài đặt
+                    </Link>
+
+                    <div className="border-t border-gray-100 my-1"></div>
+                    
+                    <button 
+                      className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      onClick={() => {
+                        setIsProfileOpen(false)
+                        logout()
+                      }}
+                    >
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                      </svg>
+                      Đăng xuất
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Green tabs bar */}
-      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-green-700 text-white relative shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 h-12 flex items-center justify-between">
+      {/* Navigation tabs */}
+      <div className="bg-green-600 text-white">
+        <div className="max-w-7xl mx-auto px-4 h-10 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             {tabs.map((t) => {
               const isActive = (t.label === 'Tổng quan' && location.pathname === '/admin') ||
@@ -159,7 +218,7 @@ const TopNav: React.FC = () => {
                                (t.label === 'Nhân Viên' && location.pathname.startsWith('/admin/staff')) ||
                                (t.label === 'Blog' && location.pathname.startsWith('/admin/blog'))
 
-              const base = `px-4 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${isActive ? 'bg-white/20 ring-2 ring-white/50 shadow-[0_0_0_1px_rgba(255,255,255,0.25)]' : 'hover:bg-white/10'}`
+              const base = `px-3 py-1.5 rounded text-sm whitespace-nowrap transition-colors ${isActive ? 'bg-white/20' : 'hover:bg-white/10'}`
 
               if (t.label === 'Tổng quan') {
                 return (
@@ -186,7 +245,7 @@ const TopNav: React.FC = () => {
                     </button>
                     {isOrdersOpen && (
                       <div 
-                        className="absolute left-0 top-12 z-40"
+                        className="absolute left-0 top-10 z-40"
                         onMouseEnter={() => {
                           // Clear timeout khi di chuột vào dropdown
                           if (ordersTimeoutRef.current) {
@@ -259,7 +318,7 @@ const TopNav: React.FC = () => {
                     </button>
                     {isCustomersOpen && (
                       <div 
-                        className="absolute left-0 top-12 z-40"
+                        className="absolute left-0 top-10 z-40"
                         onMouseEnter={() => {
                           if (customersTimeoutRef.current) {
                             clearTimeout(customersTimeoutRef.current)
@@ -329,7 +388,7 @@ const TopNav: React.FC = () => {
                     </button>
                     {isStaffOpen && (
                       <div 
-                        className="absolute left-0 top-12 z-40"
+                        className="absolute left-0 top-10 z-40"
                         onMouseEnter={() => {
                           if (staffTimeoutRef.current) {
                             clearTimeout(staffTimeoutRef.current)
@@ -392,7 +451,7 @@ const TopNav: React.FC = () => {
                     </button>
                     {isGoodsOpen && (
                       <div 
-                        className="absolute left-0 top-12 z-40"
+                        className="absolute left-0 top-10 z-40"
                         onMouseEnter={() => {
                           // Clear timeout khi di chuột vào dropdown
                           if (goodsTimeoutRef.current) {

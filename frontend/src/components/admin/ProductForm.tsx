@@ -113,6 +113,16 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
     setValues(prev => ({ ...prev, colors: newColors, selectedColor: prev.selectedColor === oldColor ? newColor : prev.selectedColor }))
   }
 
+  const removeColor = (index: number) => {
+    const newColors = values.colors.filter((_, i) => i !== index)
+    const removedColor = values.colors[index]
+    setValues(prev => ({ 
+      ...prev, 
+      colors: newColors,
+      selectedColor: prev.selectedColor === removedColor ? (newColors[0] || '') : prev.selectedColor
+    }))
+  }
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -284,6 +294,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">Màu sắc sản phẩm</label>
+        {values.colors.length === 0 && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              💡 Chọn màu từ danh sách bên dưới để thêm vào sản phẩm
+            </p>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           {values.colors.map((color, idx) => (
             <div key={idx} className="relative group">
@@ -298,6 +315,18 @@ const ProductForm: React.FC<ProductFormProps> = ({ values, setValues, isSubmitti
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   title="Click để thay đổi màu"
                 />
+                {/* Delete button */}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    removeColor(idx)
+                  }}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-lg"
+                  title="Xóa màu này"
+                >
+                  ×
+                </button>
               </div>
             </div>
           ))}

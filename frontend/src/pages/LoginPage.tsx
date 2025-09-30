@@ -16,17 +16,26 @@ const LoginPage: React.FC = () => {
   const [message, setMessage] = useState('');
   const [showResendVerification, setShowResendVerification] = useState(false);
 
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
-      const from = (location.state as any)?.from?.pathname || '/';
-      navigate(from, { replace: true });
+    if (isAuthenticated && user) {
+      // Check if user is admin and redirect accordingly
+      const isAdmin = user.roles?.includes('Admin') || false;
+      
+      if (isAdmin) {
+        // Redirect admin users to admin dashboard
+        navigate('/admin', { replace: true });
+      } else {
+        // Redirect regular users to their intended destination or home
+        const from = (location.state as any)?.from?.pathname || '/';
+        navigate(from, { replace: true });
+      }
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, user, navigate, location]);
 
   // Check for message from email verification
   useEffect(() => {
@@ -58,8 +67,17 @@ const LoginPage: React.FC = () => {
       const response = await login(formData.email, formData.password, formData.rememberMe);
       
       if (response.success) {
-        const from = (location.state as any)?.from?.pathname || '/';
-        navigate(from, { replace: true });
+        // Check if user is admin and redirect accordingly
+        const isAdmin = response.user?.roles?.includes('Admin') || false;
+        
+        if (isAdmin) {
+          // Redirect admin users to admin dashboard
+          navigate('/admin', { replace: true });
+        } else {
+          // Redirect regular users to their intended destination or home
+          const from = (location.state as any)?.from?.pathname || '/';
+          navigate(from, { replace: true });
+        }
       } else {
         setErrors(response.errors || [response.message]);
       }
