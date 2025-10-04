@@ -52,7 +52,15 @@ const TrackingTimeline: React.FC<TrackingTimelineProps> = ({
       <div className={`tracking-timeline ${className}`}>
         <div className="text-center py-8 text-gray-500">
           <ClockIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-          <p>Chưa có thông tin vận chuyển</p>
+          <p>{currentStatus || 'Chưa có thông tin vận chuyển'}</p>
+          {currentStatus && (
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+              <p className="text-sm font-medium text-blue-900">Trạng thái hiện tại</p>
+              <p className={`text-sm ${getStatusColor(currentStatus, true)}`}>
+                {currentStatus}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -65,6 +73,22 @@ const TrackingTimeline: React.FC<TrackingTimelineProps> = ({
 
   return (
     <div className={`tracking-timeline ${className}`}>
+      {/* Status Header */}
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Lịch sử vận chuyển</h3>
+        {currentStatus && (
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            currentStatus.toLowerCase().includes('delivered') || currentStatus.toLowerCase().includes('giao') 
+              ? 'bg-green-100 text-green-800'
+              : currentStatus.toLowerCase().includes('failed') || currentStatus.toLowerCase().includes('thất bại')
+              ? 'bg-red-100 text-red-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}>
+            {currentStatus}
+          </span>
+        )}
+      </div>
+      
       <div className="flow-root">
         <ul className="-mb-8">
           {sortedEvents.map((event, index) => {
@@ -132,8 +156,8 @@ const TrackingTimeline: React.FC<TrackingTimelineProps> = ({
             <p className="text-sm font-medium text-gray-900">
               Trạng thái hiện tại
             </p>
-            <p className={`text-sm ${getStatusColor(sortedEvents[0]?.description || '', true)}`}>
-              {sortedEvents[0]?.description || 'Không có thông tin'}
+            <p className={`text-sm ${getStatusColor(currentStatus || sortedEvents[0]?.description || '', true)}`}>
+              {currentStatus || sortedEvents[0]?.description || 'Không có thông tin'}
             </p>
           </div>
           
