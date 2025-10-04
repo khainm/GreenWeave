@@ -84,7 +84,7 @@ namespace backend.Services
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
-                var response = await _httpClient.PostAsync("/v2/order/getPriceAll",
+                var response = await _httpClient.PostAsync("/v2/order/getPrice",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
 
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -97,41 +97,49 @@ namespace backend.Services
                         PropertyNameCaseInsensitive = true
                     };
                     
-                    // Try to deserialize as array first (success case)
+                    // Try to deserialize as single price response
                     try
                     {
-                        var services = JsonSerializer.Deserialize<List<ViettelPostPriceAllResponse>>(responseContent, options);
-                        _logger.LogInformation("Deserialized price all result as array: {Count} services found", services?.Count ?? 0);
+                        var priceResponse = JsonSerializer.Deserialize<ViettelPostPriceResponse>(responseContent, options);
+                        _logger.LogInformation("Deserialized getPrice result: Status {Status}, Message: {Message}", 
+                            priceResponse?.Status, priceResponse?.Message);
                         
-                        if (services != null && services.Count > 0)
+                        if (priceResponse != null && priceResponse.Status == 200 && priceResponse.Data != null)
                         {
-                            // Find the requested service or use the first one
-                            var selectedService = services.FirstOrDefault(s => s.MA_DV_CHINH == (request.ServiceId ?? _config.DefaultServiceId)) ?? services.First();
+                            var priceData = priceResponse.Data;
                             
-                            _logger.LogInformation("Selected service: {ServiceCode} - {ServiceName}, Price: {Price}", 
-                                selectedService.MA_DV_CHINH, selectedService.TEN_DICHVU, selectedService.GIA_CUOC);
-                            
-                            // Use the service name directly from API
-                            var serviceName = selectedService.TEN_DICHVU;
+                            _logger.LogInformation("GetPrice successful - Total Fee: {TotalFee}, Money Fee: {MoneyFee}", 
+                                priceData.MONEY_TOTAL, priceData.MONEY_FEE);
                             
                             return new FeeResult
                             {
                                 IsSuccess = true,
-                                Fee = selectedService.GIA_CUOC,
-                                ServiceId = selectedService.MA_DV_CHINH,
-                                ServiceName = serviceName,
-                                EstimatedDeliveryDays = ParseDeliveryTime(selectedService.THOI_GIAN),
+                                Fee = priceData.MONEY_TOTAL,
+                                ServiceId = request.ServiceId ?? _config.DefaultServiceId,
+                                ServiceName = "Viettel Post Standard", // Default service name for getPrice
+                                EstimatedDeliveryDays = 3, // Default delivery time since getPrice doesn't return this
                                 AdditionalData = new Dictionary<string, object>
                                 {
-                                    ["viettelpost_response"] = services,
-                                    ["selected_service"] = selectedService,
-                                    ["service_code"] = selectedService.MA_DV_CHINH,
-                                    ["service_name"] = selectedService.TEN_DICHVU,
-                                    ["delivery_time"] = selectedService.THOI_GIAN,
-                                    ["exchange_weight"] = selectedService.EXCHANGE_WEIGHT,
-                                    ["extra_services"] = selectedService.EXTRA_SERVICE ?? new List<ViettelPostExtraService>(),
-                                    ["all_services"] = services
+                                    ["viettelpost_response"] = priceResponse,
+                                    ["price_data"] = priceData,
+                                    ["money_total"] = priceData.MONEY_TOTAL,
+                                    ["money_fee"] = priceData.MONEY_FEE,
+                                    ["money_collection_fee"] = priceData.MONEY_COLLECTION_FEE,
+                                    ["money_other_fee"] = priceData.MONEY_OTHER_FEE,
+                                    ["money_vas"] = priceData.MONEY_VAS,
+                                    ["money_vat"] = priceData.MONEY_VAT
                                 }
+                            };
+                        }
+                        else
+                        {
+                            _logger.LogWarning("GetPrice API returned unsuccessful status: {Status} - {Message}", 
+                                priceResponse?.Status, priceResponse?.Message);
+                            
+                            return new FeeResult
+                            {
+                                IsSuccess = false,
+                                ErrorMessage = priceResponse?.Message ?? "Viettel Post API error"
                             };
                         }
                     }
@@ -822,11 +830,11 @@ namespace backend.Services
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
-                var response = await _httpClient.PostAsync("/v2/order/getPriceAll",
+                var response = await _httpClient.PostAsync("/v2/order/getPrice",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Viettel Post get all options response: {Response}", responseContent);
+                _logger.LogInformation("Viettel Post get price response: {Response}", responseContent);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -837,88 +845,40 @@ namespace backend.Services
                     
                     try
                     {
-                        var services = JsonSerializer.Deserialize<List<ViettelPostPriceAllResponse>>(responseContent, options);
-                        _logger.LogInformation("Deserialized price all result as array: {Count} services found", services?.Count ?? 0);
+                        var priceResponse = JsonSerializer.Deserialize<ViettelPostPriceResponse>(responseContent, options);
+                        _logger.LogInformation("Deserialized getPrice result: Status {Status}, Message: {Message}", 
+                            priceResponse?.Status, priceResponse?.Message);
                         
-                            if (services != null && services.Count > 0)
+                        if (priceResponse != null && priceResponse.Status == 200 && priceResponse.Data != null)
+                        {
+                            var priceData = priceResponse.Data;
+                            var shippingOptions = new List<ShippingOptionDto>();
+                            
+                            _logger.LogInformation("GetPrice successful - Creating single shipping option");
+                            _logger.LogInformation("💰 Total Fee: {TotalFee}, Money Fee: {MoneyFee}", 
+                                priceData.MONEY_TOTAL, priceData.MONEY_FEE);
+                            
+                            // Create a single shipping option with the getPrice result
+                            shippingOptions.Add(new ShippingOptionDto
                             {
-                                var shippingOptions = new List<ShippingOptionDto>();
-                                
-                                // Map ViettelPost service codes to user-friendly names
-                                // Use all services returned by API with TYPE = 2
-                                _logger.LogInformation("📦 [SERVICES] Using all services from API response");
-                                
-                                _logger.LogInformation("🔍 [API DEBUG] All services from ViettelPost API:");
-                                foreach (var service in services)
-                                {
-                                    _logger.LogInformation("  📦 {ServiceCode}: {ServiceName} - {Price} VND - {Time}", 
-                                        service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC, service.THOI_GIAN);
-                                }
-                                
-                                foreach (var service in services)
-                                {
-                                    _logger.LogInformation("Processing service: {ServiceCode} - {ServiceName}, Price: {Price}", 
-                                        service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC);
-                                    
-                                    try
-                                    {
-                                        var deliveryDays = ParseDeliveryTime(service.THOI_GIAN);
-                                        _logger.LogInformation("🔍 [DELIVERY TIME DEBUG] Service {ServiceCode}: {ServiceName}", 
-                                            service.MA_DV_CHINH, service.TEN_DICHVU);
-                                        _logger.LogInformation("💰 Price: {Price} VND", service.GIA_CUOC);
-                                        _logger.LogInformation("⏰ Raw time string: '{TimeString}'", service.THOI_GIAN);
-                                        _logger.LogInformation("📅 Parsed delivery days: {DeliveryDays}", deliveryDays);
-                                        _logger.LogInformation("🎯 Using API service name: {ServiceName}", service.TEN_DICHVU);
-                                        
-                                        // Use the service name directly from API
-                                        var serviceName = service.TEN_DICHVU;
-                                        
-                                        shippingOptions.Add(new ShippingOptionDto
-                                        {
-                                            Provider = ShippingProvider.ViettelPost,
-                                            ProviderName = "Viettel Post",
-                                            ServiceId = service.MA_DV_CHINH,
-                                            ServiceName = serviceName,
-                                            Fee = service.GIA_CUOC,
-                                            EstimatedDeliveryDays = deliveryDays,
-                                            IsAvailable = true,
-                                            ErrorMessage = null
-                                        });
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _logger.LogWarning(ex, "Error processing service {ServiceCode}: {ServiceName}", 
-                                            service.MA_DV_CHINH, service.TEN_DICHVU);
-                                    }
-                                }
-                                
-                                _logger.LogInformation("Returning {Count} main shipping options (filtered from {TotalCount} total)", 
-                                    shippingOptions.Count, services.Count);
-                                
-                                // Log before sorting
-                                _logger.LogInformation("🔀 [SORTING DEBUG] Before sorting:");
-                                foreach (var option in shippingOptions)
-                                {
-                                    _logger.LogInformation("  - {ServiceId}: {ServiceName} - {Price} VND - {Days} days", 
-                                        option.ServiceId, option.ServiceName, option.Fee, option.EstimatedDeliveryDays);
-                                }
-                                
-                                // Sort by price (cheapest first) and then by delivery time
-                                var sortedOptions = shippingOptions
-                                    .OrderBy(o => o.Fee)
-                                    .ThenBy(o => o.EstimatedDeliveryDays)
-                                    .ToList();
-                                
-                                // Log after sorting
-                                _logger.LogInformation("🔀 [SORTING DEBUG] After sorting:");
-                                foreach (var option in sortedOptions)
-                                {
-                                    _logger.LogInformation("  - {ServiceId}: {ServiceName} - {Price} VND - {Days} days", 
-                                        option.ServiceId, option.ServiceName, option.Fee, option.EstimatedDeliveryDays);
-                                }
-                                
-                                return sortedOptions;
-                            }
+                                Provider = ShippingProvider.ViettelPost,
+                                ProviderName = "Viettel Post",
+                                ServiceId = _config.DefaultServiceId,
+                                ServiceName = "Viettel Post Standard",
+                                Fee = priceData.MONEY_TOTAL,
+                                EstimatedDeliveryDays = 3, // Default delivery time since getPrice doesn't return this
+                                IsAvailable = true,
+                                ErrorMessage = null
+                            });
+                            
+                            _logger.LogInformation("Returning 1 shipping option with fee: {Fee} VND", priceData.MONEY_TOTAL);
+                            return shippingOptions;
+                        }
+                        else
+                        {
+                            _logger.LogWarning("GetPrice API returned unsuccessful status: {Status} - {Message}", 
+                                priceResponse?.Status, priceResponse?.Message);
+                        }
                     }
                     catch (JsonException)
                     {

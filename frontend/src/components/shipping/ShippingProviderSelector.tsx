@@ -42,15 +42,15 @@ const ShippingProviderSelector: React.FC<ShippingProviderSelectorProps> = ({
       console.log(`✅ [ShippingProviderSelector] [${requestId}] Available options:`, availableOptions);
       setShippingOptions(availableOptions);
       
-      // Auto-select cheapest option if none selected
-      if (!selectedOption && response.options.length > 0) {
-        const cheapestOption = response.options
-          .filter(option => option.isAvailable)
-          .sort((a, b) => a.fee - b.fee)[0];
+      // Auto-select cheapest option if none selected, or auto-select if only one option
+      if (!selectedOption && availableOptions.length > 0) {
+        const optionToSelect = availableOptions.length === 1 
+          ? availableOptions[0] // Auto-select if only one option
+          : availableOptions.sort((a, b) => a.fee - b.fee)[0]; // Select cheapest if multiple options
         
-        console.log(`💰 [ShippingProviderSelector] [${requestId}] Cheapest option:`, cheapestOption);
-        if (cheapestOption) {
-          onOptionSelect(cheapestOption);
+        console.log(`💰 [ShippingProviderSelector] [${requestId}] Auto-selecting option:`, optionToSelect);
+        if (optionToSelect) {
+          onOptionSelect(optionToSelect);
         }
       }
     } catch (err: any) {
@@ -97,6 +97,18 @@ const ShippingProviderSelector: React.FC<ShippingProviderSelectorProps> = ({
   return (
     <div className={`shipping-provider-selector ${className}`}>
       <h3 className="text-lg font-semibold mb-4">Phương thức vận chuyển</h3>
+      
+      {/* Show helpful message if only one option */}
+      {shippingOptions.length === 1 && (
+        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-blue-500">ℹ️</span>
+            <span className="text-sm text-blue-700 font-medium">
+              Phương thức vận chuyển khả dụng
+            </span>
+          </div>
+        </div>
+      )}
       
       {shippingOptions.length === 0 ? (
         <div className="text-gray-500 bg-gray-50 p-4 rounded-lg">

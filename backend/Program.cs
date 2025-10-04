@@ -10,8 +10,73 @@ using backend.Interfaces.Repositories;
 using backend.Interfaces.Services;
 using backend.Repositories;
 using backend.Swagger;
+using backend.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load .env file to set environment variables
+builder.Configuration.AddDotEnvFile(".env");
+
+// Override connection string from environment variable
+var dbConnectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+if (!string.IsNullOrEmpty(dbConnectionString))
+{
+    builder.Configuration["ConnectionStrings:DefaultConnection"] = dbConnectionString;
+}
+
+// Override other sensitive settings from environment variables
+var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
+var jwtSecretKeyDev = Environment.GetEnvironmentVariable("JWT_SECRET_KEY_DEV");
+var isDevelopment = builder.Environment.IsDevelopment();
+
+if (isDevelopment && !string.IsNullOrEmpty(jwtSecretKeyDev))
+{
+    builder.Configuration["JwtSettings:SecretKey"] = jwtSecretKeyDev;
+}
+else if (!string.IsNullOrEmpty(jwtSecretKey))
+{
+    builder.Configuration["JwtSettings:SecretKey"] = jwtSecretKey;
+}
+
+var cloudinaryCloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME");
+var cloudinaryApiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY");
+var cloudinaryApiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET");
+if (!string.IsNullOrEmpty(cloudinaryCloudName))
+{
+    builder.Configuration["Cloudinary:CloudName"] = cloudinaryCloudName;
+    builder.Configuration["Cloudinary:ApiKey"] = cloudinaryApiKey;
+    builder.Configuration["Cloudinary:ApiSecret"] = cloudinaryApiSecret;
+}
+
+var sendGridApiKey = Environment.GetEnvironmentVariable("SENDGRID_API_KEY");
+if (!string.IsNullOrEmpty(sendGridApiKey))
+{
+    builder.Configuration["SendGrid:ApiKey"] = sendGridApiKey;
+}
+
+var viettelPostToken = Environment.GetEnvironmentVariable("VIETTELPOST_TOKEN");
+var viettelPostPrintToken = Environment.GetEnvironmentVariable("VIETTELPOST_PRINT_TOKEN");
+var viettelPostWebhookSecret = Environment.GetEnvironmentVariable("VIETTELPOST_WEBHOOK_SECRET");
+if (!string.IsNullOrEmpty(viettelPostToken))
+{
+    builder.Configuration["Shipping:ViettelPost:Token"] = viettelPostToken;
+    builder.Configuration["Shipping:ViettelPost:PrintToken"] = viettelPostPrintToken;
+    builder.Configuration["Shipping:ViettelPost:WebhookSecret"] = viettelPostWebhookSecret;
+}
+
+// Debug: Check connection string
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+Console.WriteLine($"🔗 Connection String: {(string.IsNullOrEmpty(connectionString) ? "NULL/EMPTY" : "[LOADED]")}");
+if (!string.IsNullOrEmpty(connectionString))
+{
+    Console.WriteLine($"📏 Length: {connectionString.Length} characters");
+    Console.WriteLine($"🔍 Contains 'Server=': {connectionString.Contains("Server=")}");
+    Console.WriteLine($"🔍 Contains 'Database=': {connectionString.Contains("Database=")}");
+    // Show first 50 characters to debug without exposing password
+    Console.WriteLine($"🔍 Preview: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+}
+Console.WriteLine($"📧 SendGrid API Key: {(string.IsNullOrEmpty(builder.Configuration["SendGrid:ApiKey"]) ? "NULL/EMPTY" : "[LOADED]")}");
+Console.WriteLine($"🚚 ViettelPost Token: {(string.IsNullOrEmpty(builder.Configuration["Shipping:ViettelPost:Token"]) ? "NULL/EMPTY" : "[LOADED]")}");
 
 // Add services to the container.
 builder.Services.AddControllers()

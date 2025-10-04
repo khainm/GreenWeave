@@ -6,8 +6,10 @@ import CategoryService from '../../services/categoryService'
 import OrderService from '../../services/orderService'
 import viettelPostAddressService from '../../services/viettelPostAddressService'
 import ShippingService from '../../services/shippingService'
+import warehouseService from '../../services/warehouseService'
 import type { Category } from '../../types/category'
 import type { ShippingOption, CalculateShippingFeeRequest } from '../../types/shipping'
+import type { Warehouse } from '../../types/warehouse'
 // import type { AddressOption } from '../../types/address' // Not found, using any for now
 // import type { CreateOrderRequest } from '../../types/order' // Not used
 
@@ -45,6 +47,10 @@ const AdminCreateCustomOrderPage: React.FC = () => {
   const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingOption | null>(null)
   const [loadingShipping, setLoadingShipping] = useState(false)
   const [shippingFee, setShippingFee] = useState(0)
+  
+  // Warehouse data
+  const [defaultWarehouse, setDefaultWarehouse] = useState<Warehouse | null>(null)
+  const [loadingWarehouse, setLoadingWarehouse] = useState(false)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -90,7 +96,26 @@ const AdminCreateCustomOrderPage: React.FC = () => {
   // Auto-calculate shipping fee when items or address change
   useEffect(() => {
     calculateShippingFee()
-  }, [formData.customProducts, formData.shippingAddress.province, formData.shippingAddress.district, formData.shippingAddress.ward, formData.paymentMethod])
+  }, [formData.customProducts, formData.shippingAddress.province, formData.shippingAddress.district, formData.shippingAddress.ward, formData.paymentMethod, defaultWarehouse])
+
+  const loadDefaultWarehouse = async () => {
+    try {
+      setLoadingWarehouse(true)
+      const response = await warehouseService.getDefaultWarehouse()
+      if (response.success && response.warehouse) {
+        setDefaultWarehouse(response.warehouse)
+        console.log('✅ Loaded default warehouse:', response.warehouse)
+      } else {
+        console.warn('⚠️ No default warehouse found, will use config fallback')
+        setDefaultWarehouse(null)
+      }
+    } catch (error) {
+      console.error('❌ Error loading default warehouse:', error)
+      setDefaultWarehouse(null)
+    } finally {
+      setLoadingWarehouse(false)
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -111,6 +136,9 @@ const AdminCreateCustomOrderPage: React.FC = () => {
         value: province.id.toString()
       }))
       setProvinces(provincesFormatted)
+      
+      // Load warehouse separately
+      await loadDefaultWarehouse()
     } catch (err) {
       console.error('Error loading data:', err)
       setError('Không thể tải dữ liệu. Vui lòng thử lại.')
@@ -210,17 +238,38 @@ const AdminCreateCustomOrderPage: React.FC = () => {
         return
       }
 
+      // Build fromAddress based on warehouse data or fallback to config
+      const fromAddress = defaultWarehouse ? {
+        name: defaultWarehouse.name,
+        phone: defaultWarehouse.phone,
+        addressDetail: defaultWarehouse.addressDetail,
+        province: defaultWarehouse.provinceName,
+        district: defaultWarehouse.districtName,
+        ward: defaultWarehouse.wardName,
+        provinceId: defaultWarehouse.provinceId,
+        districtId: defaultWarehouse.districtId,
+        wardId: defaultWarehouse.wardId
+      } : {
+        // Fallback to config default if no warehouse found
+        name: 'GreenWeave Store',
+        phone: '0359994361',
+        addressDetail: '19 ĐƯỜNG Định Bộ Lĩnh, P.Hải Cảng',
+        province: 'Bình Định',
+        district: 'TP.Qui Nhơn',
+        ward: 'P.Hải Cảng',
+        provinceId: 40,
+        districtId: 464,
+        wardId: 8541
+      }
+
+      console.log('📦 Calculating shipping from warehouse:', {
+        using: defaultWarehouse ? 'database warehouse' : 'config fallback',
+        fromAddress
+      })
+
       const request: CalculateShippingFeeRequest = {
         provider: 'ViettelPost',
-        fromAddress: {
-          name: 'GreenWeave Store',
-          phone: '0123456789',
-          addressDetail: '123 Store Street',
-          province: 'Hồ Chí Minh',
-          district: 'Quận 1',
-          provinceId: 79, // HCM
-          districtId: 760 // Quận 1
-        },
+        fromAddress,
         toAddress: {
           name: formData.shippingAddress.fullName,
           phone: formData.shippingAddress.phone,
