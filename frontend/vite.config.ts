@@ -8,6 +8,15 @@ export default defineConfig({
   plugins: [react(),
     tailwindcss(),
   ],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:7146',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
+  },
   build: {
     rollupOptions: {
       output: {

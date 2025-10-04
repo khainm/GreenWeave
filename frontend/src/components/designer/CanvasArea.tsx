@@ -1,228 +1,303 @@
-import React, { forwardRef } from 'react'
-import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva'
-import useImage from 'use-image'
-
-type Sticker = {
-  id: string
-  src: string
-  x: number
-  y: number
-  scaleX: number
-  scaleY: number
-  rotation: number
-}
-
-// Component để hiển thị ảnh full size trong canvas với tỷ lệ tối ưu
-const FullImageNode: React.FC<{ src: string; canvasSize: number }> = ({ src, canvasSize }) => {
-  const [image] = useImage(src, 'anonymous')
-  const [imageDimensions, setImageDimensions] = React.useState({ width: 0, height: 0 })
-
-  React.useEffect(() => {
-    if (image) {
-      // Tính toán kích thước để ảnh vừa khít canvas nhưng vẫn giữ tỷ lệ
-      const imgWidth = image.width
-      const imgHeight = image.height
-      const aspectRatio = imgWidth / imgHeight
-      
-      let displayWidth = canvasSize
-      let displayHeight = canvasSize
-      
-      // Điều chỉnh để ảnh hiển thị full mà không bị cắt
-      if (aspectRatio > 1) {
-        // Ảnh ngang
-        displayHeight = canvasSize / aspectRatio
-      } else {
-        // Ảnh dọc
-        displayWidth = canvasSize * aspectRatio
-      }
-      
-      setImageDimensions({ width: displayWidth, height: displayHeight })
-    }
-  }, [image, canvasSize])
-
-  if (!image) return null
-
-  return (
-    <KonvaImage
-      image={image as any}
-      x={(canvasSize - imageDimensions.width) / 2} // Căn giữa
-      y={(canvasSize - imageDimensions.height) / 2} // Căn giữa
-      width={imageDimensions.width}
-      height={imageDimensions.height}
-      listening={false}
-    />
-  )
-}
-
-// Component để hiển thị sticker trong canvas
-const KonvaImageNode: React.FC<{ 
-  name?: string; 
-  src: string; 
-  x?: number; 
-  y?: number; 
-  scaleX?: number; 
-  scaleY?: number; 
-  rotation?: number; 
-  draggable?: boolean; 
-  onClick?: () => void; 
-  onDragEnd?: (pos: { x: number; y: number }) => void; 
-  onTransformEnd?: (attrs: { scaleX: number; scaleY: number; rotation: number }) => void 
-}> = ({ name, src, x = 0, y = 0, scaleX = 1, scaleY = 1, rotation = 0, draggable, onClick, onDragEnd, onTransformEnd }) => {
-  const [image] = useImage(src, 'anonymous')
-
-  return (
-    <KonvaImage
-      name={name}
-      image={image as any}
-      x={x}
-      y={y}
-      scaleX={scaleX}
-      scaleY={scaleY}
-      rotation={rotation}
-      draggable={draggable}
-      onClick={onClick}
-      onDragEnd={(e) => onDragEnd?.({ x: e.target.x(), y: e.target.y() })}
-      onTransformEnd={(e) => {
-        const node = e.target
-        onTransformEnd?.({
-          scaleX: node.scaleX(),
-          scaleY: node.scaleY(),
-          rotation: node.rotation()
-        })
-      }}
-    />
-  )
-}
+import React, { useRef, useEffect, useState } from 'react';
+import { Stage, Layer, Image as KonvaImage, Transformer } from 'react-konva';
+import { PhotoIcon } from '@heroicons/react/24/outline';
+import useImage from 'use-image';
+import type { ProductResponseDto, DesignElement, CustomDesign } from './types';
 
 interface CanvasAreaProps {
-  canvasSize: number
-  baseImageSrc: string
-  stickers: Sticker[]
-  selectedId: string | null
-  onClearSelection: () => void
-  onSelectSticker: (id: string) => void
-  onUpdateSticker: (id: string, updates: Partial<Sticker>) => void
-  onRemoveSelected: () => void
+  selectedProduct: ProductResponseDto | null;
+  selectedColorCode?: string;
+  design: CustomDesign | null;
+  onDesignChange: (design: CustomDesign) => void;
 }
 
-const CanvasArea = forwardRef<{ stage: any; transformer: any }, CanvasAreaProps>(({
-  canvasSize,
-  baseImageSrc,
-  stickers,
-  selectedId,
-  onClearSelection,
-  onSelectSticker,
-  onUpdateSticker,
-  onRemoveSelected
-}, ref) => {
-  const stageRef = React.useRef<any>(null)
-  const trRef = React.useRef<any>(null)
+// Component để hiển thị ảnh trong Konva
+const CanvasImage: React.FC<{
+  element: DesignElement;
+  isSelected: boolean;
+  onSelect: () => void;
+  onChange: (newAttrs: any) => void;
+}> = ({ element, isSelected, onSelect, onChange }) => {
+  const [image] = useImage(element.src || '');
+  const imageRef = useRef<any>(null);
+  const transformerRef = useRef<any>(null);
 
-  // Expose refs to parent component
-  React.useImperativeHandle(ref, () => ({
-    stage: stageRef.current,
-    transformer: trRef.current,
-  }))
-
-  // Update transformer when selection changes
-  React.useEffect(() => {
-    const tr = trRef.current
-    const stage = stageRef.current
-    if (!tr || !stage) return
-    
-    if (!selectedId) {
-      tr.nodes([])
-      tr.getLayer()?.batchDraw()
-      return
+  useEffect(() => {
+    if (isSelected && transformerRef.current && imageRef.current) {
+      transformerRef.current.nodes([imageRef.current]);
+      transformerRef.current.getLayer()?.batchDraw();
     }
-    
-    const node = stage.findOne(`.${selectedId}`)
-    if (node) {
-      tr.nodes([node])
-      tr.getLayer()?.batchDraw()
-    }
-  }, [selectedId, stickers])
+  }, [isSelected]);
 
   return (
-    <div className="relative w-full h-full">
-      {/* Simple canvas container */}
-      <div className="w-full h-full flex items-center justify-center bg-gray-50 rounded-lg">
-        {/* Canvas wrapper */}
-        <div 
-          className="relative bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-          style={{ 
-            width: canvasSize, 
-            height: canvasSize,
-            minWidth: 300,
-            minHeight: 300
+    <>
+      <KonvaImage
+        ref={imageRef}
+        {...element}
+        image={image}
+        draggable
+        onClick={onSelect}
+        onTap={onSelect}
+        onDragEnd={(e) => {
+          onChange({
+            ...element,
+            x: e.target.x(),
+            y: e.target.y(),
+          });
+        }}
+        onTransformEnd={() => {
+          const node = imageRef.current;
+          const scaleX = node.scaleX();
+          const scaleY = node.scaleY();
+
+          node.scaleX(1);
+          node.scaleY(1);
+
+          onChange({
+            ...element,
+            x: node.x(),
+            y: node.y(),
+            width: Math.max(5, node.width() * scaleX),
+            height: Math.max(5, node.height() * scaleY),
+            rotation: node.rotation(),
+          });
+        }}
+      />
+      {isSelected && (
+        <Transformer
+          ref={transformerRef}
+          flipEnabled={false}
+          boundBoxFunc={(oldBox, newBox) => {
+            if (Math.abs(newBox.width) < 5 || Math.abs(newBox.height) < 5) {
+              return oldBox;
+            }
+            return newBox;
           }}
-        >
-          {/* Canvas */}
-          <Stage
-            ref={stageRef}
-            width={canvasSize}
-            height={canvasSize}
-            onMouseDown={(e) => { if (e.target === e.target.getStage()) onClearSelection() }}
-          >
-            <Layer>
-              {baseImageSrc && (
-                <FullImageNode src={baseImageSrc} canvasSize={canvasSize} />
-              )}
-              {stickers.map(s => (
-                <KonvaImageNode
-                  key={s.id}
-                  name={s.id}
-                  src={s.src}
-                  x={s.x}
-                  y={s.y}
-                  scaleX={s.scaleX}
-                  scaleY={s.scaleY}
-                  rotation={s.rotation}
-                  draggable
-                  onClick={() => onSelectSticker(s.id)}
-                  onDragEnd={({ x, y }) => onUpdateSticker(s.id, { x, y })}
-                  onTransformEnd={({ scaleX, scaleY, rotation }) => onUpdateSticker(s.id, { scaleX, scaleY, rotation })}
-                />
-              ))}
-              <Transformer
-                ref={trRef}
-                rotateEnabled
-                enabledAnchors={["top-left","top-right","bottom-left","bottom-right"]}
-                rotateAnchorOffset={30}
-                padding={5}
-                borderStroke="#3b82f6"
-                borderStrokeWidth={2}
-                anchorStroke="#3b82f6"
-                anchorFill="#ffffff"
-                anchorSize={8}
-                anchorCornerRadius={4}
-              />
-            </Layer>
-          </Stage>
-        </div>
-      </div>
+        />
+      )}
+    </>
+  );
+};
+
+const CanvasArea: React.FC<CanvasAreaProps> = ({
+  selectedProduct,
+  selectedColorCode,
+  design,
+  onDesignChange,
+}) => {
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const stageRef = useRef<any>(null);
+  const canvasWidth = 600;
+  const canvasHeight = 400;
+
+  // Lấy ảnh sản phẩm theo màu được chọn
+  const getProductImage = () => {
+    if (!selectedProduct) return null;
+    
+    // Nếu có màu được chọn, tìm ảnh theo màu đó
+    if (selectedColorCode) {
+      // Tìm ảnh có colorCode khớp với màu được chọn
+      const colorImage = selectedProduct.images.find(img => 
+        img.colorCode && img.colorCode.toLowerCase() === selectedColorCode.toLowerCase()
+      );
       
-      {/* Selected sticker controls */}
-      {selectedId && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-20">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={onRemoveSelected}
-              className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-md transition-all duration-200 hover:shadow-md"
-              title="Xóa sticker"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-            <span className="text-sm text-gray-600">Sticker đã chọn</span>
+      if (colorImage) {
+        return colorImage.imageUrl;
+      }
+      
+      // Fallback: sử dụng colorImageMap nếu có
+      if (selectedProduct.colorImageMap && selectedProduct.colorImageMap[selectedColorCode.toLowerCase()]) {
+        return selectedProduct.colorImageMap[selectedColorCode.toLowerCase()];
+      }
+    }
+    
+    // Fallback: ảnh chính hoặc ảnh đầu tiên
+    const primaryImage = selectedProduct.images?.find(img => img.isPrimary);
+    if (primaryImage) {
+      return primaryImage.imageUrl;
+    }
+    
+    // Cuối cùng là ảnh đầu tiên nếu có
+    return selectedProduct.images?.[0]?.imageUrl || null;
+  };
+
+  const [productImage] = useImage(getProductImage() || '');
+
+  // Thêm element mới vào design
+  const addElement = (element: Omit<DesignElement, 'id'>) => {
+    if (!selectedProduct) return;
+
+    const newElement: DesignElement = {
+      ...element,
+      id: `element_${Date.now()}`,
+    };
+
+    const newDesign: CustomDesign = design || {
+      productId: selectedProduct.id,
+      selectedColorCode,
+      elements: [],
+      canvasWidth,
+      canvasHeight,
+    };
+
+    onDesignChange({
+      ...newDesign,
+      elements: [...newDesign.elements, newElement],
+    });
+  };
+
+  // Cập nhật element
+  const updateElement = (elementId: string, newAttrs: Partial<DesignElement>) => {
+    if (!design) return;
+
+    onDesignChange({
+      ...design,
+      elements: design.elements.map(el =>
+        el.id === elementId ? { ...el, ...newAttrs } : el
+      ),
+    });
+  };
+
+  // Xóa element
+  const deleteElement = (elementId: string) => {
+    if (!design) return;
+
+    onDesignChange({
+      ...design,
+      elements: design.elements.filter(el => el.id !== elementId),
+    });
+    setSelectedElementId(null);
+  };
+
+  // Handle keyboard events
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' && selectedElementId) {
+        deleteElement(selectedElementId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [selectedElementId]);
+
+  // Handle stage click to deselect
+  const handleStageClick = (e: any) => {
+    if (e.target === e.target.getStage()) {
+      setSelectedElementId(null);
+    }
+  };
+
+  // Export canvas as image
+  const exportAsImage = () => {
+    if (!stageRef.current) return;
+
+    const dataURL = stageRef.current.toDataURL({
+      mimeType: 'image/png',
+      quality: 1,
+    });
+
+    const link = document.createElement('a');
+    link.download = `custom-design-${selectedProduct?.name || 'product'}.png`;
+    link.href = dataURL;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Expose methods to parent
+  useEffect(() => {
+    if (window.customDesigner) {
+      window.customDesigner.addImage = (src: string) => {
+        addElement({
+          type: 'image',
+          x: canvasWidth / 2 - 50,
+          y: canvasHeight / 2 - 50,
+          width: 100,
+          height: 100,
+          rotation: 0,
+          src,
+        });
+      };
+
+      window.customDesigner.exportImage = exportAsImage;
+    }
+  }, [selectedProduct, design]);
+
+  if (!selectedProduct) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="bg-gray-200 rounded-xl w-full max-w-3xl h-[500px] flex items-center justify-center border border-gray-300">
+          <div className="text-center text-gray-500">
+            <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
+              <PhotoIcon className="w-8 h-8 text-gray-400" />
+            </div>
+            <h3 className="text-lg font-medium mb-2">Chọn sản phẩm để bắt đầu</h3>
+            <p className="text-sm">Chọn một sản phẩm từ danh sách để bắt đầu thiết kế</p>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 flex items-center justify-center p-6">
+      <div className="bg-white rounded-xl border border-gray-300 p-4">
+        <Stage
+          ref={stageRef}
+          width={canvasWidth}
+          height={canvasHeight}
+          onClick={handleStageClick}
+          onTap={handleStageClick}
+        >
+          <Layer>
+            {/* Product background image */}
+            {productImage && (
+              <KonvaImage
+                image={productImage}
+                x={0}
+                y={0}
+                width={canvasWidth}
+                height={canvasHeight}
+                listening={false}
+              />
+            )}
+
+            {/* Design elements */}
+            {design?.elements.map((element) => (
+              <CanvasImage
+                key={element.id}
+                element={element}
+                isSelected={selectedElementId === element.id}
+                onSelect={() => setSelectedElementId(element.id)}
+                onChange={(newAttrs) => updateElement(element.id, newAttrs)}
+              />
+            ))}
+          </Layer>
+        </Stage>
+
+        {/* Canvas info */}
+        <div className="mt-2 text-center text-xs text-gray-500">
+          {selectedProduct.name} - {canvasWidth} x {canvasHeight}px
+          {selectedElementId && (
+            <span className="ml-4 text-blue-600">
+              Element được chọn (nhấn Delete để xóa)
+            </span>
+          )}
+        </div>
+      </div>
     </div>
-  )
-})
+  );
+};
 
-CanvasArea.displayName = 'CanvasArea'
+// Declare global interface for methods
+declare global {
+  interface Window {
+    customDesigner: {
+      addImage: (src: string) => void;
+      exportImage: () => void;
+    };
+  }
+}
 
-export default CanvasArea
+export default CanvasArea;
