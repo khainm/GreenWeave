@@ -16,6 +16,13 @@ namespace backend.Interfaces.Services
         Task<ShippingOptionsResponseDto> GetShippingOptionsAsync(CalculateShippingFeeRequest request);
 
         /// <summary>
+        /// ✅ NEW: Get e-commerce shipping options (warehouse → customer)
+        /// </summary>
+        /// <param name="request">E-commerce shipping fee calculation request</param>
+        /// <returns>Available shipping options with fees</returns>
+        Task<ShippingOptionsResponseDto> GetEcommerceShippingOptionsAsync(CalculateEcommerceShippingFeeRequest request);
+
+        /// <summary>
         /// Calculate shipping fee for a specific provider
         /// </summary>
         /// <param name="request">Fee calculation request</param>

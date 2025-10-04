@@ -28,13 +28,11 @@ export interface CustomerListResponse {
 
 export interface CreateCustomerRequest {
   email: string
-  password: string
-  confirmPassword: string
   fullName: string
   phoneNumber?: string
   dateOfBirth?: string
   address?: string
-  role?: string
+  password: string
 }
 
 export interface UpdateCustomerRoleRequest {
@@ -62,11 +60,4 @@ export interface CustomerWithOrders extends Customer {
     paymentStatus: string
     createdAt: string
   }>
-}
-
-export interface ApiResponse<T> {
-  data?: T
-  message?: string
-  success: boolean
-  errors?: string[]
 }

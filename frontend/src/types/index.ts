@@ -1,4 +1,5 @@
 // Re-export all types from their respective files
+export * from './common';
 export * from './shipping';
 export * from './order';
 export * from './cart';

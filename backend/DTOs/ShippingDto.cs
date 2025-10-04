@@ -108,6 +108,29 @@ namespace backend.DTOs
     }
 
     /// <summary>
+    /// ✅ NEW: Request DTO for e-commerce shipping fee calculation (warehouse → customer)
+    /// </summary>
+    public class CalculateEcommerceShippingFeeRequest
+    {
+        [Required]
+        public ShippingAddressDto ToAddress { get; set; } = new();
+
+        [Required]
+        [Range(1, 50000)]
+        public int Weight { get; set; }
+
+        public ShippingDimensionsDto? Dimensions { get; set; }
+
+        [Range(0, double.MaxValue)]
+        public decimal InsuranceValue { get; set; } = 0;
+
+        [Range(0, double.MaxValue)]
+        public decimal CodAmount { get; set; } = 0;
+
+        public string? ServiceId { get; set; }
+    }
+
+    /// <summary>
     /// Request DTO for creating a shipment
     /// </summary>
     public class CreateShipmentRequest

@@ -1,3 +1,6 @@
+// Order types for frontend
+import type { ShippingAddress } from './common';
+
 export interface OrderItem {
   id: number
   orderId: number
@@ -26,17 +29,6 @@ export interface UserInfo {
   email: string
   fullName?: string
   phoneNumber?: string
-}
-
-export interface ShippingAddress {
-  id: number
-  fullName: string
-  phoneNumber: string
-  addressLine: string
-  ward: string
-  district: string
-  province: string
-  isDefault: boolean
 }
 
 export type OrderStatus = 
@@ -156,8 +148,3 @@ export interface OrderStats {
   todayOrders: number
 }
 
-export interface ApiResponse<T> {
-  data?: T
-  message?: string
-  success: boolean
-}

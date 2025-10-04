@@ -830,11 +830,12 @@ namespace backend.Services
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
-                var response = await _httpClient.PostAsync("/v2/order/getPrice",
+                // ✅ NEW: Use getPriceAll API instead of getPrice
+                var response = await _httpClient.PostAsync("/v2/order/getPriceAll",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Viettel Post get price response: {Response}", responseContent);
+                _logger.LogInformation("📦 ViettelPost getPriceAll response: {Response}", responseContent);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -845,53 +846,66 @@ namespace backend.Services
                     
                     try
                     {
-                        var priceResponse = JsonSerializer.Deserialize<ViettelPostPriceResponse>(responseContent, options);
-                        _logger.LogInformation("Deserialized getPrice result: Status {Status}, Message: {Message}", 
-                            priceResponse?.Status, priceResponse?.Message);
+                        // ✅ NEW: Parse getPriceAll response (returns array of services)
+                        var priceAllResponse = JsonSerializer.Deserialize<List<ViettelPostPriceAllResponse>>(responseContent, options);
                         
-                        if (priceResponse != null && priceResponse.Status == 200 && priceResponse.Data != null)
+                        if (priceAllResponse != null && priceAllResponse.Count > 0)
                         {
-                            var priceData = priceResponse.Data;
                             var shippingOptions = new List<ShippingOptionDto>();
                             
-                            _logger.LogInformation("GetPrice successful - Creating single shipping option");
-                            _logger.LogInformation("💰 Total Fee: {TotalFee}, Money Fee: {MoneyFee}", 
-                                priceData.MONEY_TOTAL, priceData.MONEY_FEE);
+                            _logger.LogInformation("✅ GetPriceAll successful - Found {ServiceCount} services", priceAllResponse.Count);
                             
-                            // Create a single shipping option with the getPrice result
-                            shippingOptions.Add(new ShippingOptionDto
+                            foreach (var service in priceAllResponse)
                             {
-                                Provider = ShippingProvider.ViettelPost,
-                                ProviderName = "Viettel Post",
-                                ServiceId = _config.DefaultServiceId,
-                                ServiceName = "Viettel Post Standard",
-                                Fee = priceData.MONEY_TOTAL,
-                                EstimatedDeliveryDays = 3, // Default delivery time since getPrice doesn't return this
-                                IsAvailable = true,
-                                ErrorMessage = null
-                            });
+                                var deliveryDays = ParseDeliveryTime(service.THOI_GIAN);
+                                
+                                var option = new ShippingOptionDto
+                                {
+                                    Provider = ShippingProvider.ViettelPost,
+                                    ProviderName = "Viettel Post",
+                                    ServiceId = service.MA_DV_CHINH,
+                                    ServiceName = service.TEN_DICHVU,
+                                    Fee = service.GIA_CUOC,
+                                    EstimatedDeliveryDays = deliveryDays,
+                                    IsAvailable = true,
+                                    ErrorMessage = null
+                                };
+                                
+                                shippingOptions.Add(option);
+                                
+                                _logger.LogInformation("🚚 Service: {ServiceCode} - {ServiceName} | Fee: {Fee:C} | Time: {DeliveryTime} ({DeliveryDays} days)", 
+                                    service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC, service.THOI_GIAN, deliveryDays);
+                            }
                             
-                            _logger.LogInformation("Returning 1 shipping option with fee: {Fee} VND", priceData.MONEY_TOTAL);
+                            // Sort by price (cheapest first)
+                            shippingOptions = shippingOptions.OrderBy(s => s.Fee).ToList();
+                            
+                            _logger.LogInformation("💰 Returning {OptionsCount} shipping options, cheapest: {CheapestService} - {CheapestFee:C}", 
+                                shippingOptions.Count, 
+                                shippingOptions.FirstOrDefault()?.ServiceName,
+                                shippingOptions.FirstOrDefault()?.Fee ?? 0);
+                            
                             return shippingOptions;
                         }
                         else
                         {
-                            _logger.LogWarning("GetPrice API returned unsuccessful status: {Status} - {Message}", 
-                                priceResponse?.Status, priceResponse?.Message);
+                            _logger.LogWarning("GetPriceAll API returned empty array or null");
                         }
                     }
-                    catch (JsonException)
+                    catch (JsonException ex)
                     {
-                        // Try to deserialize as error response
+                        _logger.LogError(ex, "Failed to deserialize ViettelPost getPriceAll response: {Response}", responseContent);
+                        
+                        // Try to parse as error response
                         try
                         {
                             var errorResponse = JsonSerializer.Deserialize<ViettelPostErrorResponse>(responseContent, options);
-                            _logger.LogWarning("Viettel Post API returned error: {Status} - {Message}", 
+                            _logger.LogWarning("ViettelPost getPriceAll API returned error: {Status} - {Message}", 
                                 errorResponse?.Status, errorResponse?.Message);
                         }
-                        catch (JsonException ex)
+                        catch (JsonException)
                         {
-                            _logger.LogError(ex, "Failed to deserialize Viettel Post response: {Response}", responseContent);
+                            _logger.LogError("Cannot parse response as error either");
                         }
                     }
                 }

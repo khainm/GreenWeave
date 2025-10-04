@@ -56,6 +56,36 @@ namespace backend.Controllers
         }
 
         /// <summary>
+        /// ✅ NEW: Calculate e-commerce shipping fees (warehouse → customer)
+        /// </summary>
+        /// <param name="request">E-commerce fee calculation request</param>
+        /// <returns>Available shipping options with fees</returns>
+        /// <response code="200">Returns shipping options successfully</response>
+        /// <response code="400">Invalid request data</response>
+        /// <response code="500">Internal server error</response>
+        [HttpPost("calculate-ecommerce-fee")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ShippingOptionsResponseDto>> CalculateEcommerceFee(
+            [FromBody] CalculateEcommerceShippingFeeRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
+
+                var options = await _shippingService.GetEcommerceShippingOptionsAsync(request);
+                return Ok(new { success = true, data = options });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error calculating e-commerce shipping fees");
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi tính phí vận chuyển e-commerce" });
+            }
+        }
+
+        /// <summary>
         /// Create shipment for an order (Admin/Staff only)
         /// </summary>
         /// <param name="orderId">Order ID</param>

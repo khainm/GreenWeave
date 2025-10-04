@@ -40,24 +40,19 @@ export interface InvoiceFilters {
   search?: string // Tìm theo invoice number, customer name, email
   dateFrom?: string
   dateTo?: string
-  orderId?: number
+  page?: number
+  pageSize?: number
 }
 
 export interface InvoiceListResponse {
-  invoices: InvoiceDto[]
+  data: InvoiceDto[]
   total: number
   page: number
   pageSize: number
   totalPages: number
 }
 
-export interface DownloadInvoiceResponse {
+export interface InvoiceDownloadResponse {
   fileName: string
   content: Blob
-}
-
-export interface ApiResponse<T> {
-  data?: T
-  message?: string
-  success: boolean
 }

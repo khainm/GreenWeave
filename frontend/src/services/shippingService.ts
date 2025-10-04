@@ -1,6 +1,7 @@
 import { apiClient } from './apiClient';
 import type {
   CalculateShippingFeeRequest,
+  CalculateEcommerceShippingFeeRequest,
   ShippingOptionsResponse,
   ShippingOption,
   CreateShipmentRequest,
@@ -60,6 +61,35 @@ export class ShippingService {
     } catch (error) {
       console.error('Error cancelling shipment:', error);
       throw new Error('Không thể hủy vận đơn');
+    }
+  }
+
+  /**
+   * ✅ NEW: Calculate e-commerce shipping fees (warehouse → customer)
+   */
+  static async calculateEcommerceShippingFees(request: CalculateEcommerceShippingFeeRequest): Promise<ShippingOptionsResponse> {
+    try {
+      const timestamp = new Date().toISOString();
+      const requestId = Math.random().toString(36).substr(2, 9);
+      console.log(`🛒 [ShippingService] [${requestId}] [${timestamp}] Calculating e-commerce shipping fees with request:`, request);
+      const response = await apiClient.post<{ success: boolean; data: { options: ShippingOption[] } }>('/api/shipping/calculate-ecommerce-fee', request);
+      console.log(`📦 [ShippingService] [${requestId}] [${timestamp}] Received e-commerce response:`, response);
+      
+      if (!response || !response.success || !response.data || !response.data.options) {
+        console.error(`❌ [ShippingService] [${requestId}] [${timestamp}] Invalid e-commerce response structure:`, response);
+        throw new Error('Cấu trúc phản hồi không hợp lệ');
+      }
+      
+      console.log(`✅ [ShippingService] [${requestId}] [${timestamp}] Returning e-commerce options:`, response.data.options);
+      console.log(`💰 [ShippingService] [${requestId}] [${timestamp}] E-commerce fee details:`, response.data.options.map(opt => ({ 
+        serviceId: opt.serviceId, 
+        serviceName: opt.serviceName, 
+        fee: opt.fee 
+      })));
+      return { options: response.data.options };
+    } catch (error) {
+      console.error('❌ [ShippingService] Error calculating e-commerce shipping fees:', error);
+      throw new Error('Không thể tính phí vận chuyển e-commerce');
     }
   }
 

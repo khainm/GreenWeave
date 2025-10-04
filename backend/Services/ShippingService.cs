@@ -4,11 +4,14 @@ using backend.Interfaces.Services;
 using backend.Models;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
+using backend.Data;
+using Microsoft.EntityFrameworkCore;
+
 
 namespace backend.Services
 {
     /// <summary>
-    /// Service for managing shipping operations across multiple providers
+    /// Shipping service orchestrates shipping operations across multiple providers
     /// </summary>
     public class ShippingService : IShippingService
     {
@@ -19,6 +22,7 @@ namespace backend.Services
         private readonly IEnumerable<IShippingProvider> _shippingProviders;
         private readonly ShippingConfiguration _config;
         private readonly ILogger<ShippingService> _logger;
+        private readonly ApplicationDbContext _dbContext;
 
         public ShippingService(
             IOrderRepository orderRepository,
@@ -27,7 +31,8 @@ namespace backend.Services
             IWebhookLogService webhookLogService,
             IEnumerable<IShippingProvider> shippingProviders,
             IOptions<ShippingConfiguration> shippingConfig,
-            ILogger<ShippingService> logger)
+            ILogger<ShippingService> logger,
+            ApplicationDbContext dbContext)
         {
             _orderRepository = orderRepository;
             _shippingRequestRepository = shippingRequestRepository;
@@ -36,7 +41,9 @@ namespace backend.Services
             _shippingProviders = shippingProviders;
             _config = shippingConfig.Value;
             _logger = logger;
+            _dbContext = dbContext;
         }
+        
 
         public async Task<ShippingOptionsResponseDto> GetShippingOptionsAsync(CalculateShippingFeeRequest request)
         {
@@ -102,6 +109,30 @@ namespace backend.Services
             {
                 Options = options.OrderBy(o => o.Fee).ToList()
             };
+        }
+
+        /// <summary>
+        /// ✅ NEW: Get e-commerce shipping options (warehouse → customer)
+        /// </summary>
+        public async Task<ShippingOptionsResponseDto> GetEcommerceShippingOptionsAsync(CalculateEcommerceShippingFeeRequest request)
+        {
+            _logger.LogInformation("Getting e-commerce shipping options");
+
+            // Convert to standard request using default warehouse as FROM address
+            var warehouseAddress = await GetDefaultWarehouseAddressAsync();
+            
+            var standardRequest = new CalculateShippingFeeRequest
+            {
+                FromAddress = warehouseAddress,
+                ToAddress = request.ToAddress,
+                Weight = request.Weight,
+                Dimensions = request.Dimensions,
+                InsuranceValue = request.InsuranceValue,
+                CodAmount = request.CodAmount,
+                ServiceId = request.ServiceId
+            };
+
+            return await GetShippingOptionsAsync(standardRequest);
         }
 
         public async Task<FeeResult> CalculateShippingFeeAsync(CalculateShippingFeeRequest request)
@@ -648,6 +679,16 @@ namespace backend.Services
                 DistrictId = _config.ViettelPost.DefaultPickupAddress.DistrictId,
                 WardId = _config.ViettelPost.DefaultPickupAddress.WardId
             };
+        }
+
+        /// <summary>
+        /// ✅ NEW: Get default warehouse address for e-commerce shipping
+        /// </summary>
+        private Task<ShippingAddressDto> GetDefaultWarehouseAddressAsync()
+        {
+            // For now, use the default pickup address from config
+            // In the future, this could be enhanced to select the best warehouse based on location
+            return Task.FromResult(GetDefaultFromAddress());
         }
 
         private static ShippingAddressDto MapOrderAddressToShippingAddress(UserAddress address)

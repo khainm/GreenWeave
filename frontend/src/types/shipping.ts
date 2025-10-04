@@ -1,4 +1,6 @@
 // Shipping types for frontend
+import type { ShippingAddress } from './common';
+
 export const ShippingProvider = {
   ViettelPost: 'ViettelPost'
 } as const;
@@ -19,28 +21,26 @@ export const ShippingStatus = {
 
 export type ShippingStatus = typeof ShippingStatus[keyof typeof ShippingStatus];
 
-export interface ShippingAddress {
-  name: string;
-  phone: string;
-  addressDetail: string;
-  ward?: string;
-  district: string;
-  province: string;
-  provinceId?: number;
-  districtId?: number;
-  wardId?: number;
-}
-
 export interface ShippingDimensions {
   length: number; // cm
   width: number;  // cm
   height: number; // cm
 }
 
+// ✅ Basic shipping request (with both FROM and TO addresses)
 export interface CalculateShippingFeeRequest {
-  provider: ShippingProvider;
   fromAddress: ShippingAddress;
   toAddress: ShippingAddress;
+  weight: number; // grams
+  dimensions?: ShippingDimensions;
+  insuranceValue: number;
+  codAmount: number;
+  serviceId?: string;
+}
+
+// ✅ NEW: E-commerce shipping request (warehouse → customer)
+export interface CalculateEcommerceShippingFeeRequest {
+  toAddress: ShippingAddress; // Only delivery address needed
   weight: number; // grams
   dimensions?: ShippingDimensions;
   insuranceValue: number;

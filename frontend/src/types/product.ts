@@ -64,9 +64,3 @@ export interface CreateProductRequest {
     sortOrder: number
   }>
 }
-
-export interface ApiResponse<T> {
-  data?: T
-  message?: string
-  success: boolean
-}
