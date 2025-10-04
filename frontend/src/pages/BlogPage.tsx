@@ -4,6 +4,7 @@ import type { Blog } from '../types/blog';
 import { blogService } from '../services/blogService';
 import BlogList from '../components/blog/BlogList';
 import BlogSearch from '../components/blog/BlogSearch';
+import Header from '../components/layout/Header';
 import { 
   NewspaperIcon,
   FireIcon,
@@ -78,6 +79,8 @@ const BlogPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
+      <Header />
+    
       <div className="bg-gradient-to-r from-green-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">

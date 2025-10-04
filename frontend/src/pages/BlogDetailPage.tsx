@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import type { Blog } from '../types/blog';
 import { blogService } from '../services/blogService';
+import Header from '../components/layout/Header';
 import { 
   ArrowLeftIcon,
   HeartIcon,
@@ -147,6 +148,9 @@ const BlogDetailPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <Header />
+      
       {/* Back Button */}
       <div className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
