@@ -342,8 +342,9 @@ else
     app.UseHsts();
 }
 
-// Disable HTTPS redirection in development to avoid issues with localhost
-if (!app.Environment.IsDevelopment())
+// Only use HTTPS redirection if HTTPS is actually configured
+var useHttps = Environment.GetEnvironmentVariable("ASPNETCORE_HTTPS_PORT");
+if (!string.IsNullOrEmpty(useHttps) && !app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
@@ -360,6 +361,20 @@ app.UseAuthorization();
 // Add custom JWT middleware
 app.UseMiddleware<backend.Middleware.JwtTokenValidationMiddleware>();
 app.UseMiddleware<backend.Middleware.JwtAuthenticationMiddleware>();
+
+// Add health check endpoint for load balancer
+app.MapGet("/health", () => Results.Ok(new { 
+    status = "healthy", 
+    timestamp = DateTime.UtcNow 
+}));
+
+// Add simple root endpoint for production
+app.MapGet("/", () => Results.Ok(new { 
+    message = "GreenWeave API is running", 
+    version = "1.0.0",
+    endpoints = new[] { "/health", "/api", "/swagger" },
+    timestamp = DateTime.UtcNow 
+}));
 
 // Only map API controllers, remove Razor Pages
 app.MapControllers();

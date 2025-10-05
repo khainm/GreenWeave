@@ -3,10 +3,10 @@ import type {
   InvoiceDto, 
   CreateInvoiceDto,
   InvoiceGenerationRequest,
-  DownloadInvoiceResponse
+  InvoiceDownloadResponse
 } from '../types/invoice'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://greenweave.ap-southeast-2.elasticbeanstalk.com'
 
 export class InvoiceService {
   private static readonly BASE_PATH = '/api/invoices'
@@ -146,7 +146,7 @@ export class InvoiceService {
   /**
    * Tải xuống file PDF hóa đơn
    */
-  static async downloadInvoice(invoiceId: number): Promise<DownloadInvoiceResponse> {
+  static async downloadInvoice(invoiceId: number): Promise<InvoiceDownloadResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}${this.BASE_PATH}/${invoiceId}/download`, {
         headers: {
@@ -191,7 +191,7 @@ export class InvoiceService {
   /**
    * Tải xuống file PDF hóa đơn theo số hóa đơn
    */
-  static async downloadInvoiceByNumber(invoiceNumber: string): Promise<DownloadInvoiceResponse> {
+  static async downloadInvoiceByNumber(invoiceNumber: string): Promise<InvoiceDownloadResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}${this.BASE_PATH}/number/${invoiceNumber}/download`, {
         headers: {
