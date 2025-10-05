@@ -65,9 +65,8 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
           console.log('🔐 [ApiClient] Added auth token to request');
-        } else {
-          console.log('⚠️ [ApiClient] No auth token found');
         }
+        // Note: No auth token is normal for login/public endpoints
         
         return config
       },

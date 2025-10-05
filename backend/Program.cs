@@ -306,8 +306,8 @@ builder.Services.AddCors(options =>
             }
             else
             {
-                // In production, restrict to specific origins
-                policy.WithOrigins("https://greenweave.vn")
+                // Allow both HTTP and HTTPS for greenweave.vn during transition
+                policy.WithOrigins("https://greenweave.vn", "http://greenweave.vn")
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
