@@ -79,8 +79,10 @@ namespace backend.Services
                 _context.PasswordResetTokens.Add(passwordResetToken);
                 await _context.SaveChangesAsync();
 
-                // Send email
-                var resetLink = $"http://localhost:5173/reset-password?token={resetToken}&uid={user.Id}";
+                // Create reset link
+            var resetLink = $"https://greenweave.vn/reset-password?token={resetToken}&uid={user.Id}";
+            
+            // Send reset email
                 _logger.LogInformation("Sending password reset email to {Email} with link {Link}", user.Email, resetLink);
                 var emailSent = await _emailService.SendPasswordResetEmailAsync(user.Email ?? string.Empty, user.FullName, resetLink);
 

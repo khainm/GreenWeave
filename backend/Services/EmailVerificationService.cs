@@ -82,7 +82,10 @@ namespace backend.Services
 
                 // Gửi email
                 
-               var verificationLink = $"http://localhost:5173/verify-email?token={token}&uid={user.Id}";
+               // Create verification link
+            var verificationLink = $"https://greenweave.vn/verify-email?token={token}&uid={user.Id}";
+            
+            // Send verification email
 
                 _logger.LogInformation("Sending verification email to {Email} with link {Link}", user.Email, verificationLink);
                 var emailSent = await _emailService.SendEmailConfirmationAsync(user.Email ?? string.Empty, user.FullName, verificationLink);

@@ -307,7 +307,7 @@ builder.Services.AddCors(options =>
             else
             {
                 // In production, restrict to specific origins
-                policy.WithOrigins("http://localhost:3000", "http://localhost:5173", "http://localhost:5174")
+                policy.WithOrigins("https://greenweave.vn")
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
@@ -342,9 +342,8 @@ else
     app.UseHsts();
 }
 
-// Only use HTTPS redirection if HTTPS is actually configured
-var useHttps = Environment.GetEnvironmentVariable("ASPNETCORE_HTTPS_PORT");
-if (!string.IsNullOrEmpty(useHttps) && !app.Environment.IsDevelopment())
+// Force HTTPS redirection in production
+if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
