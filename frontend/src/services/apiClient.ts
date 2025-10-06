@@ -1,7 +1,7 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://greenweave.ap-southeast-2.elasticbeanstalk.com'  
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'  
 //const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7146' 
 
 

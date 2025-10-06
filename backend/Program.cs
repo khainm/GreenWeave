@@ -104,6 +104,18 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
+    // Add servers for different environments
+    c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+    {
+        Url = "https://api.greenweave.vn",
+        Description = "Production API Server (AWS Elastic Beanstalk HTTPS)"
+    });
+    c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+    {
+        Url = "http://api.greenweave.vn",
+        Description = "AWS Elastic Beanstalk HTTP Server"
+    });
+
     // Add JWT Bearer Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
     {
@@ -306,8 +318,10 @@ builder.Services.AddCors(options =>
             }
             else
             {
-                // Allow both HTTP and HTTPS for greenweave.vn during transition
-                policy.WithOrigins("https://greenweave.vn", "http://greenweave.vn")
+                // Allow frontend domains
+                policy.WithOrigins("https://greenweave.vn", "http://greenweave.vn", 
+                                 "http://api.greenweave.vn",
+                                 "https://api.greenweave.vn")
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();

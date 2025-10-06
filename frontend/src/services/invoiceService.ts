@@ -6,7 +6,7 @@ import type {
   InvoiceDownloadResponse
 } from '../types/invoice'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://greenweave.ap-southeast-2.elasticbeanstalk.com'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'
 
 export class InvoiceService {
   private static readonly BASE_PATH = '/api/invoices'
