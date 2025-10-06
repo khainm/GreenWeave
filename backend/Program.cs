@@ -115,6 +115,16 @@ builder.Services.AddSwaggerGen(c =>
         Url = "http://api.greenweave.vn",
         Description = "AWS Elastic Beanstalk HTTP Server"
     });
+    c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+    {
+        Url = "https://localhost:5001",
+        Description = "Local Development HTTPS"
+    });
+    c.AddServer(new Microsoft.OpenApi.Models.OpenApiServer
+    {
+        Url = "http://localhost:5000",
+        Description = "Local Development HTTP"
+    });
 
     // Add JWT Bearer Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -321,7 +331,9 @@ builder.Services.AddCors(options =>
                 // Allow frontend domains
                 policy.WithOrigins("https://greenweave.vn", "http://greenweave.vn", 
                                  "http://api.greenweave.vn",
-                                 "https://api.greenweave.vn")
+                                 "https://api.greenweave.vn",
+                                 "https://www.greenweave.vn",
+                                 "http://www.greenweave.vn")
                       .AllowAnyHeader()
                       .AllowAnyMethod()
                       .AllowCredentials();
