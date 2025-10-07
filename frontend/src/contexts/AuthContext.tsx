@@ -111,9 +111,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setIsLoading(true);
     try {
       const response = await authService.register(userData);
-      if (response.success && response.user) {
-        setUser(response.user);
-      }
+      // Không auto-login khi register, yêu cầu xác thực email trước
+      // if (response.success && response.user) {
+      //   setUser(response.user);
+      // }
       return response;
     } catch (error: any) {
       console.error('Register error:', error);

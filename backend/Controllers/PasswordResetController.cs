@@ -58,7 +58,24 @@ namespace backend.Controllers
         public async Task<ActionResult<PasswordResetResponse>> ResetPassword([FromBody] ResetPasswordDto dto)
         {
             _logger.LogInformation("Received request to reset password for UserId: {UserId}", dto.UserId);
-            var result = await _passwordResetService.ResetPasswordAsync(dto.Token, dto.UserId, dto.NewPassword);
+            _logger.LogInformation("Request data - Token: {Token}, NewPassword length: {PasswordLength}, ConfirmPassword length: {ConfirmPasswordLength}", 
+                dto.Token?.Substring(0, Math.Min(30, dto.Token?.Length ?? 0)), 
+                dto.NewPassword?.Length, 
+                dto.ConfirmNewPassword?.Length);
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors.Select(e => e.ErrorMessage)).ToList();
+                _logger.LogWarning("Model validation failed for reset password. Errors: {Errors}", string.Join(", ", errors));
+                return BadRequest(new PasswordResetResponse
+                {
+                    Success = false,
+                    Message = "Dữ liệu không hợp lệ",
+                    Errors = errors
+                });
+            }
+
+            var result = await _passwordResetService.ResetPasswordAsync(dto.Token ?? string.Empty, dto.UserId ?? string.Empty, dto.NewPassword ?? string.Empty);
             if (!result.Success)
             {
                 _logger.LogWarning("Failed to reset password for UserId: {UserId}. Message: {Message}", dto.UserId, result.Message);

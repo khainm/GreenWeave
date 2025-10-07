@@ -80,6 +80,11 @@ const LoginPage: React.FC = () => {
         }
       } else {
         setErrors(response.errors || [response.message]);
+        
+        // Show resend verification option if error is about email verification
+        const isEmailVerificationError = response.message?.includes('Email chưa được xác thực') || 
+                                        response.errors?.some(error => error.includes('xác thực')) || false;
+        setShowResendVerification(isEmailVerificationError);
       }
     } catch (error: any) {
       console.error('Login page error:', error);

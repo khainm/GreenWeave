@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.DataProtection;
 using System.Text;
 using backend.Data;
 using backend.Models;
@@ -13,6 +14,12 @@ using backend.Swagger;
 using backend.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure URLs for production (bind to all interfaces)
+if (!builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+}
 
 // Load .env file to set environment variables
 builder.Configuration.AddDotEnvFile(".env");
@@ -197,9 +204,24 @@ builder.Services.AddIdentity<User, IdentityRole>(options =>
     // Sign in settings
     options.SignIn.RequireConfirmedEmail = true;
     options.SignIn.RequireConfirmedPhoneNumber = false;
+    
+    // Token settings - tăng thời gian sống của tokens
+    options.Tokens.EmailConfirmationTokenProvider = TokenOptions.DefaultEmailProvider;
+    options.Tokens.PasswordResetTokenProvider = TokenOptions.DefaultEmailProvider;
 })
 .AddEntityFrameworkStores<ApplicationDbContext>()
 .AddDefaultTokenProviders();
+
+// Configure Data Protection for consistent token generation
+builder.Services.AddDataProtection()
+    .SetApplicationName("GreenWeave");
+
+// Configure token lifespan for email confirmation and password reset
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
+{
+    // Tăng thời gian sống của tokens lên 24 giờ
+    options.TokenLifespan = TimeSpan.FromHours(24);
+});
 
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -313,6 +335,9 @@ builder.Services.AddScoped<IWarehouseSelectionService, WarehouseSelectionService
 builder.Services.AddScoped<IBlogRepository, BlogRepository>();
 builder.Services.AddScoped<IBlogService, BlogService>();
 
+// Add Dashboard services
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
 {
@@ -329,7 +354,7 @@ builder.Services.AddCors(options =>
             else
             {
                 // Allow frontend domains
-                policy.WithOrigins("https://greenweave.vn", "http://greenweave.vn", 
+                policy.WithOrigins(" http://localhost:5173","https://greenweave.vn", "http://greenweave.vn", 
                                  "http://api.greenweave.vn",
                                  "https://api.greenweave.vn",
                                  "https://www.greenweave.vn",

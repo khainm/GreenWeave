@@ -92,6 +92,9 @@ const RegisterPage: React.FC = () => {
       const response = await register(formData);
       
       if (response.success) {
+        // Lưu email để có thể resend verification sau này
+        localStorage.setItem('pending_verification_email', formData.email);
+        
         // Hiển thị popup thông báo xác thực email
         setShowSuccessModal(true);
         setMessage('Đăng ký thành công! Email xác thực đã được gửi đến hộp thư của bạn. Vui lòng kiểm tra email và click vào link xác thực để kích hoạt tài khoản.');

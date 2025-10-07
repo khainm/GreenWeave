@@ -2,7 +2,11 @@ import axios from 'axios'
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'  
-//const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7146' 
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'
+
+// Debug: Log the API base URL
+console.log('🔧 [ApiClient] API_BASE_URL:', API_BASE_URL)
+console.log('🔧 [ApiClient] VITE_API_BASE_URL from env:', import.meta.env.VITE_API_BASE_URL) 
 
 
 // API Response types

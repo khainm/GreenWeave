@@ -33,6 +33,9 @@ const EmailVerificationPage: React.FC = () => {
         setIsSuccess(true);
         setMessage(result.message);
         
+        // Clean up pending email since verification is successful
+        localStorage.removeItem('pending_verification_email');
+        
         // Redirect to login after 3 seconds
         setTimeout(() => {
           navigate('/login', { 
@@ -56,13 +59,36 @@ const EmailVerificationPage: React.FC = () => {
   };
 
   const handleResendEmail = async () => {
-    // This would need the user's email, which we don't have in the URL
-    // For now, redirect to login page
-    navigate('/login', { 
-      state: { 
-        message: 'Vui lòng đăng nhập để gửi lại email xác thực' 
+    try {
+      // Get email from URL params hoặc từ localStorage nếu có
+      const email = searchParams.get('email') || localStorage.getItem('pending_verification_email');
+      
+      if (!email) {
+        // Nếu không có email, redirect về login
+        navigate('/login', { 
+          state: { 
+            message: 'Vui lòng đăng nhập để gửi lại email xác thực' 
+          }
+        });
+        return;
       }
-    });
+
+      setIsLoading(true);
+      const result = await emailVerificationService.sendVerificationEmail(email);
+      
+      if (result.success) {
+        setMessage('Email xác thực đã được gửi lại thành công!');
+        setErrors([]);
+      } else {
+        setMessage('Không thể gửi lại email xác thực');
+        setErrors(result.errors || ['Vui lòng thử lại sau']);
+      }
+    } catch (error) {
+      setMessage('Có lỗi xảy ra khi gửi lại email');
+      setErrors(['Vui lòng thử lại sau']);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {

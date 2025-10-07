@@ -81,12 +81,12 @@ function App() {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={
-              <ProtectedRoute requireAuth={true}>
+              <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                 <ProfilePage />
               </ProtectedRoute>
             } />
             <Route path="/addresses" element={
-              <ProtectedRoute requireAuth={true}>
+              <ProtectedRoute requireAuth={true} requireEmailVerification={true}>
                 <AddressPage />
               </ProtectedRoute>
             } />

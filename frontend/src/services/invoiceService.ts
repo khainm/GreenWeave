@@ -7,6 +7,7 @@ import type {
 } from '../types/invoice'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'
+// const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'
 
 export class InvoiceService {
   private static readonly BASE_PATH = '/api/invoices'
