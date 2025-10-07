@@ -96,7 +96,7 @@ namespace backend.Repositories
 
         private async Task UnsetAllDefaultsAsync(Guid? excludeId = null)
         {
-            var query = _context.Warehouses.Where(w => w.IsDefault);
+            var query = _context.Warehouses.Where(w => w.IsDefault && w.IsActive);
             
             if (excludeId.HasValue)
             {
@@ -109,6 +109,12 @@ namespace backend.Repositories
                 warehouse.IsDefault = false;
                 warehouse.UpdatedAt = DateTime.UtcNow;
             }
+            
+            // Save changes after updating all warehouses
+            if (warehouses.Any())
+            {
+                await _context.SaveChangesAsync();
+            }
         }
 
         public async Task<Warehouse?> GetByAddressAsync(int provinceId, int districtId, int wardId, string addressDetail)
@@ -120,6 +126,12 @@ namespace backend.Repositories
                     w.WardId == wardId && 
                     w.AddressDetail.ToLower() == addressDetail.ToLower() &&
                     w.IsActive);
+        }
+
+        public async Task<bool> HasDefaultWarehouseAsync()
+        {
+            return await _context.Warehouses
+                .AnyAsync(w => w.IsDefault && w.IsActive);
         }
     }
 }

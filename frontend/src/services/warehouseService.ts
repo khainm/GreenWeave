@@ -1,6 +1,5 @@
 import { apiClient } from './apiClient'
 import type { 
-  Warehouse, 
   CreateWarehouseRequest, 
   UpdateWarehouseRequest, 
   WarehouseResponse,
@@ -14,9 +13,14 @@ class WarehouseService {
     try {
       const response: WarehouseResponse = await apiClient.get<WarehouseResponse>(this.baseUrl)
       return response || { success: false, message: 'Không có dữ liệu', warehouses: [], errors: [] }
-    } catch (error) {
+    } catch (error: any) {
       console.error('📝 [WarehouseService] Get all warehouses error:', error)
-      throw error
+      return {
+        success: false,
+        message: error.message || 'Lỗi khi tải danh sách kho hàng',
+        warehouses: [],
+        errors: [error.message || 'Lỗi không xác định']
+      }
     }
   }
 
@@ -44,9 +48,14 @@ class WarehouseService {
     try {
       const response: WarehouseResponse = await apiClient.post<WarehouseResponse>(this.baseUrl, data)
       return response || { success: false, message: 'Tạo kho hàng thất bại', warehouse: undefined, errors: [] }
-    } catch (error) {
+    } catch (error: any) {
       console.error('📝 [WarehouseService] Create warehouse error:', error)
-      throw error
+      return {
+        success: false,
+        message: error.message || 'Lỗi khi tạo kho hàng',
+        warehouse: undefined,
+        errors: error.details?.errors || [error.message || 'Lỗi không xác định']
+      }
     }
   }
 
@@ -54,9 +63,14 @@ class WarehouseService {
     try {
       const response: WarehouseResponse = await apiClient.put<WarehouseResponse>(`${this.baseUrl}/${id}`, data)
       return response || { success: false, message: 'Cập nhật kho hàng thất bại', warehouse: undefined, errors: [] }
-    } catch (error) {
+    } catch (error: any) {
       console.error('📝 [WarehouseService] Update warehouse error:', error)
-      throw error
+      return {
+        success: false,
+        message: error.message || 'Lỗi khi cập nhật kho hàng',
+        warehouse: undefined,
+        errors: error.details?.errors || [error.message || 'Lỗi không xác định']
+      }
     }
   }
 
@@ -84,9 +98,13 @@ class WarehouseService {
     try {
       const response: RegisterWarehouseResult = await apiClient.post<RegisterWarehouseResult>(`${this.baseUrl}/${id}/register`)
       return response || { isSuccess: false, message: 'Đăng ký với ViettelPost thất bại', errorMessage: 'Không có dữ liệu phản hồi' }
-    } catch (error) {
+    } catch (error: any) {
       console.error('📝 [WarehouseService] Register with ViettelPost error:', error)
-      throw error
+      return {
+        isSuccess: false,
+        message: 'Đăng ký với ViettelPost thất bại',
+        errorMessage: error.message || 'Lỗi không xác định'
+      }
     }
   }
 }

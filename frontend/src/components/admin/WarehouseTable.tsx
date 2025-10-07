@@ -8,6 +8,7 @@ interface WarehouseTableProps {
   onDelete: (id: string) => void
   onSetDefault: (id: string) => void
   onRegister: (id: string) => void
+  registeringWarehouse?: string | null
 }
 
 const WarehouseTable: React.FC<WarehouseTableProps> = ({
@@ -16,7 +17,8 @@ const WarehouseTable: React.FC<WarehouseTableProps> = ({
   onEdit,
   onDelete,
   onSetDefault,
-  onRegister
+  onRegister,
+  registeringWarehouse
 }) => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
@@ -167,9 +169,14 @@ const WarehouseTable: React.FC<WarehouseTableProps> = ({
                     {!warehouse.isRegistered && (
                       <button
                         onClick={() => handleRegister(warehouse.id)}
-                        className="text-blue-600 hover:text-blue-900 text-xs bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded"
+                        disabled={registeringWarehouse === warehouse.id}
+                        className={`text-xs px-2 py-1 rounded ${
+                          registeringWarehouse === warehouse.id
+                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                            : 'text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100'
+                        }`}
                       >
-                        Đăng ký
+                        {registeringWarehouse === warehouse.id ? 'Đang đăng ký...' : 'Đăng ký'}
                       </button>
                     )}
                     

@@ -137,7 +137,15 @@ namespace backend.Services
                     };
                 }
 
-                // 2. Tạo kho hàng mới
+                // 2. Kiểm tra nếu đây là kho mặc định đầu tiên
+                var hasDefaultWarehouse = await _warehouseRepository.HasDefaultWarehouseAsync();
+                if (!hasDefaultWarehouse)
+                {
+                    // Nếu chưa có kho mặc định nào, tự động đặt làm mặc định
+                    createWarehouseDto.IsDefault = true;
+                }
+
+                // 3. Tạo kho hàng mới
                 var warehouse = new Warehouse
                 {
                     Name = createWarehouseDto.Name,
@@ -158,7 +166,7 @@ namespace backend.Services
 
                 var createdWarehouse = await _warehouseRepository.CreateAsync(warehouse);
 
-                // 3. Tự động đăng ký với ViettelPost
+                // 4. Tự động đăng ký với ViettelPost
                 try
                 {
                     _logger.LogInformation("🔄 [AUTO-REGISTER] Starting automatic registration for warehouse: {WarehouseId}", createdWarehouse.Id);
@@ -226,6 +234,24 @@ namespace backend.Services
                         Success = false,
                         Message = "Không tìm thấy kho hàng",
                         Errors = new List<string> { "Kho hàng không tồn tại" }
+                    };
+                }
+
+                // Kiểm tra trùng lặp địa chỉ (trừ chính nó)
+                var existingWarehouse = await _warehouseRepository.GetByAddressAsync(
+                    updateWarehouseDto.ProvinceId, 
+                    updateWarehouseDto.DistrictId, 
+                    updateWarehouseDto.WardId, 
+                    updateWarehouseDto.AddressDetail
+                );
+
+                if (existingWarehouse != null && existingWarehouse.Id != id)
+                {
+                    return new WarehouseResponseDto
+                    {
+                        Success = false,
+                        Message = "Kho hàng với địa chỉ này đã tồn tại",
+                        Errors = new List<string> { "Địa chỉ đã được sử dụng bởi kho khác" }
                     };
                 }
 

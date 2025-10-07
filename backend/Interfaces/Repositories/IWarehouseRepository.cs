@@ -13,5 +13,6 @@ namespace backend.Interfaces.Repositories
         Task<bool> SetAsDefaultAsync(Guid id);
         Task<bool> ExistsAsync(Guid id);
         Task<Warehouse?> GetByAddressAsync(int provinceId, int districtId, int wardId, string addressDetail);
+        Task<bool> HasDefaultWarehouseAsync();
     }
 }

@@ -17,6 +17,7 @@ const AdminWarehousePage: React.FC = () => {
   const [showForm, setShowForm] = useState(false)
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | undefined>()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [registeringWarehouse, setRegisteringWarehouse] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   useEffect(() => {
@@ -30,7 +31,10 @@ const AdminWarehousePage: React.FC = () => {
       if (response.success && response.warehouses) {
         setWarehouses(response.warehouses)
       } else {
-        showMessage('error', response.message || 'Không thể tải danh sách kho hàng')
+        const errorMessage = response.errors && response.errors.length > 0 
+          ? response.errors.join(', ') 
+          : response.message || 'Không thể tải danh sách kho hàng'
+        showMessage('error', errorMessage)
       }
     } catch (error) {
       console.error('Error fetching warehouses:', error)
@@ -55,7 +59,10 @@ const AdminWarehousePage: React.FC = () => {
         setShowForm(false)
         fetchWarehouses()
       } else {
-        showMessage('error', response.message || 'Tạo kho hàng thất bại')
+        const errorMessage = response.errors && response.errors.length > 0 
+          ? response.errors.join(', ') 
+          : response.message || 'Tạo kho hàng thất bại'
+        showMessage('error', errorMessage)
       }
     } catch (error) {
       console.error('Error creating warehouse:', error)
@@ -78,7 +85,10 @@ const AdminWarehousePage: React.FC = () => {
         setEditingWarehouse(undefined)
         fetchWarehouses()
       } else {
-        showMessage('error', response.message || 'Cập nhật kho hàng thất bại')
+        const errorMessage = response.errors && response.errors.length > 0 
+          ? response.errors.join(', ') 
+          : response.message || 'Cập nhật kho hàng thất bại'
+        showMessage('error', errorMessage)
       }
     } catch (error) {
       console.error('Error updating warehouse:', error)
@@ -131,6 +141,7 @@ const AdminWarehousePage: React.FC = () => {
 
   const handleRegisterWithViettelPost = async (id: string) => {
     try {
+      setRegisteringWarehouse(id)
       const response: RegisterWarehouseResult = await warehouseService.registerWithViettelPost(id)
       
       if (response.isSuccess) {
@@ -142,6 +153,8 @@ const AdminWarehousePage: React.FC = () => {
     } catch (error) {
       console.error('Error registering with ViettelPost:', error)
       showMessage('error', 'Lỗi khi đăng ký với ViettelPost')
+    } finally {
+      setRegisteringWarehouse(null)
     }
   }
 
@@ -228,6 +241,7 @@ const AdminWarehousePage: React.FC = () => {
             onSetDefault={handleSetDefault}
             onRegister={handleRegisterWithViettelPost}
             loading={isLoading}
+            registeringWarehouse={registeringWarehouse}
           />
         )}
       </div>
