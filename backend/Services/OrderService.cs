@@ -17,8 +17,10 @@ namespace backend.Services
         private readonly IEmailService _emailService;
         private readonly IWarehouseSelectionService _warehouseSelectionService;
         private readonly IProductWarehouseStockRepository _productWarehouseStockRepository;
-        private readonly ILogger<OrderService> _logger;
+    private readonly ILogger<OrderService> _logger;
+    private readonly Microsoft.AspNetCore.SignalR.IHubContext<backend.Hubs.StockHub> _stockHubContext;
         private readonly ShippingConfiguration _shippingConfig;
+    private readonly OrderSettings _orderSettings;
         
         public OrderService(
             IOrderRepository orderRepository,
@@ -30,7 +32,9 @@ namespace backend.Services
             IWarehouseSelectionService warehouseSelectionService,
             IProductWarehouseStockRepository productWarehouseStockRepository,
             ILogger<OrderService> logger,
-            IOptions<ShippingConfiguration> shippingConfig)
+            IOptions<ShippingConfiguration> shippingConfig,
+            IOptions<OrderSettings> orderSettings,
+            Microsoft.AspNetCore.SignalR.IHubContext<backend.Hubs.StockHub> stockHubContext)
         {
             _orderRepository = orderRepository;
             _productRepository = productRepository;
@@ -42,6 +46,8 @@ namespace backend.Services
             _productWarehouseStockRepository = productWarehouseStockRepository;
             _logger = logger;
             _shippingConfig = shippingConfig.Value;
+            _orderSettings = orderSettings?.Value ?? new OrderSettings();
+            _stockHubContext = stockHubContext;
         }
         
         public async Task<IEnumerable<OrderResponseDto>> GetAllOrdersAsync()
@@ -787,6 +793,45 @@ namespace backend.Services
 
                 _logger.LogInformation("Payment processed successfully for order: {OrderId}", orderId);
 
+                // Nếu cấu hình bật auto-confirm, chuyển đơn sang Confirmed và reduce stock
+                var paymentMethodName = order.PaymentMethod.ToString();
+                var canAutoConfirmForMethod = _orderSettings.AutoConfirmPaymentMethods != null &&
+                                              _orderSettings.AutoConfirmPaymentMethods.Contains(paymentMethodName);
+
+                if (_orderSettings.AutoConfirmOnPayment && order.Status == OrderStatus.Pending && canAutoConfirmForMethod)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Auto-confirming order {OrderId} after payment", orderId);
+                        // Update order status to Confirmed
+                        order.Status = OrderStatus.Confirmed;
+                        order.ConfirmedAt = DateTime.UtcNow;
+                        order.UpdatedAt = DateTime.UtcNow;
+                        var updatedOrder = await _orderRepository.UpdateAsync(order);
+
+                        // Reduce stock for confirmed order (this method updates product totals)
+                        await ReduceStockForConfirmedOrderAsync(orderId);
+
+                        // Create invoice and shipment as in UpdateOrderStatusAsync
+                        try
+                        {
+                            await _invoiceService.ProcessOrderConfirmationAsync(orderId);
+                        }
+                        catch (Exception exInv)
+                        {
+                            _logger.LogError(exInv, "Failed to create invoice during auto-confirm for order {OrderId}", orderId);
+                        }
+                    }
+                    catch (Exception exAuto)
+                    {
+                        // If auto-confirm fails (e.g., not enough reserved stock), mark Processing and notify via logs
+                        _logger.LogError(exAuto, "Auto-confirm failed for order {OrderId}. Marking as Processing for manual review.", orderId);
+                        order.Status = OrderStatus.Processing;
+                        order.UpdatedAt = DateTime.UtcNow;
+                        await _orderRepository.UpdateAsync(order);
+                    }
+                }
+
                 return MapToResponseDto(order);
             }
             catch (Exception ex)
@@ -828,6 +873,16 @@ namespace backend.Services
                             
                             _logger.LogInformation("Reserved {Quantity} units of product {ProductId} for order {OrderId}", 
                                 item.Quantity, item.ProductId, orderId);
+                            // Broadcast stock change
+                            try
+                            {
+                                var payload = new { productId = item.ProductId, availableStock = warehouseStock.AvailableStock };
+                                await _stockHubContext.Clients.All.SendCoreAsync("StockChanged", new object[] { payload });
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to broadcast stock change for product {ProductId}", item.ProductId);
+                            }
                         }
                         else
                         {
@@ -877,6 +932,16 @@ namespace backend.Services
                             
                             _logger.LogInformation("Reduced stock for product {ProductId} in warehouse {WarehouseId}: Stock -{Quantity}, Reserved -{Quantity}", 
                                 item.ProductId, warehouseStock.WarehouseId, item.Quantity, item.Quantity);
+                            // Broadcast stock change
+                            try
+                            {
+                                var payload = new { productId = item.ProductId, availableStock = warehouseStock.AvailableStock };
+                                await _stockHubContext.Clients.All.SendCoreAsync("StockChanged", new object[] { payload });
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogWarning(ex, "Failed to broadcast stock change for product {ProductId}", item.ProductId);
+                            }
                             break;
                         }
                     }
@@ -919,6 +984,16 @@ namespace backend.Services
                             
                             _logger.LogInformation("Returned reserved stock for product {ProductId} in warehouse {WarehouseId}: Reserved -{Quantity}", 
                                 item.ProductId, warehouseStock.WarehouseId, item.Quantity);
+                                // Broadcast stock change
+                                try
+                                {
+                                    var payload = new { productId = item.ProductId, availableStock = warehouseStock.AvailableStock };
+                                    await _stockHubContext.Clients.All.SendCoreAsync("StockChanged", new object[] { payload });
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogWarning(ex, "Failed to broadcast stock change for product {ProductId}", item.ProductId);
+                                }
                             break;
                         }
                     }

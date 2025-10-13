@@ -39,6 +39,23 @@ const CheckoutPage: React.FC = () => {
     }
     
     loadCheckoutData();
+    // Subscribe to stock changes to refresh cart state when an item's availability changes
+    const onStockChanged = (e: any) => {
+      try {
+        const detail = e?.detail as { productId: number; availableStock: number } | undefined
+        if (!detail) return
+        // If cart contains the product, reload checkout data
+        if (cartItems.some(ci => ci.productId === detail.productId)) {
+          loadCheckoutData();
+        }
+      } catch (err) {
+        console.error('Error handling stock change in CheckoutPage', err)
+      }
+    }
+    window.addEventListener('stock:changed', onStockChanged as EventListener)
+    return () => {
+      window.removeEventListener('stock:changed', onStockChanged as EventListener)
+    }
   }, [user, navigate]);
 
   const loadCheckoutData = async () => {
@@ -160,10 +177,33 @@ const CheckoutPage: React.FC = () => {
       };
 
       const order = await OrderService.createOrder(orderData);
-      
-      // Clear cart after successful order
+
+      // If PayOS selected, create payment link and redirect
+      if (paymentMethod === 'PayOS') {
+        try {
+          const paymentUrl = await OrderService.createPayOSPaymentLink({
+            orderId: order.orderNumber,
+            amount: order.total,
+            description: `Thanh toán cho đơn hàng ${order.orderNumber}`,
+            returnUrl: `${window.location.origin}/orders/${order.id}`
+          });
+
+          if (paymentUrl) {
+            // Clear cart before redirect
+            localStorage.removeItem('gw_cart_id');
+            window.location.href = paymentUrl;
+            return;
+          }
+        } catch (err) {
+          console.error('Error creating PayOS payment link', err);
+          setError('Không thể khởi tạo liên kết thanh toán PayOS. Vui lòng thử lại sau.');
+          return;
+        }
+      }
+
+      // Clear cart after successful order (non-PayOS flows or if PayOS link not returned)
       localStorage.removeItem('gw_cart_id');
-      
+
       // Navigate to order success page
       navigate(`/orders/${order.id}`, { 
         state: { 
@@ -385,10 +425,12 @@ const CheckoutPage: React.FC = () => {
                   </div>
                 </label>
 
-                {/* Bank Transfer */}
+                {/* Bank Transfer option intentionally removed per product requirement */}
+
+                {/* PayOS */}
                 <label className={`
                   relative flex items-start p-4 border rounded-lg cursor-pointer transition-all
-                  ${paymentMethod === 'BankTransfer'
+                  ${paymentMethod === 'PayOS'
                     ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
                     : 'border-gray-200 hover:border-gray-300'
                   }
@@ -396,30 +438,30 @@ const CheckoutPage: React.FC = () => {
                   <input
                     type="radio"
                     name="payment-method"
-                    value="BankTransfer"
-                    checked={paymentMethod === 'BankTransfer'}
-                    onChange={() => setPaymentMethod('BankTransfer')}
+                    value="PayOS"
+                    checked={paymentMethod === 'PayOS'}
+                    onChange={() => setPaymentMethod('PayOS')}
                     className="sr-only"
                   />
-                  
+
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-medium text-gray-900">Thanh toán chuyển khoản</h3>
+                      <h3 className="font-medium text-gray-900">Thanh toán qua PayOS</h3>
                     </div>
                     <p className="text-sm text-gray-600">
-                      Bạn sẽ chuyển khoản trước qua cổng thanh toán. Sau khi xác nhận thanh toán, chúng tôi sẽ giao hàng cho bạn.
+                      Thanh toán trực tuyến qua cổng PayOS. Sau khi thanh toán thành công, đơn hàng sẽ được xác nhận tự động nếu cấu hình cho phép.
                     </p>
                   </div>
-                  
+
                   {/* Custom radio indicator */}
                   <div className={`
                     w-4 h-4 rounded-full border-2 transition-all
-                    ${paymentMethod === 'BankTransfer'
+                    ${paymentMethod === 'PayOS'
                       ? 'border-green-500 bg-green-500'
                       : 'border-gray-300'
                     }
                   `}>
-                    {paymentMethod === 'BankTransfer' && (
+                    {paymentMethod === 'PayOS' && (
                       <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
                     )}
                   </div>

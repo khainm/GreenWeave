@@ -8,13 +8,41 @@ using System.Text;
 using backend.Data;
 using backend.Models;
 using backend.Services;
-using backend.Interfaces.Repositories;
 using backend.Interfaces.Services;
+using backend.Interfaces.Repositories;
+
 using backend.Repositories;
 using backend.Swagger;
 using backend.Extensions;
+using backend.DTOs;
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Load .env file early so Environment.GetEnvironmentVariable can pick up values during startup
+builder.Configuration.AddDotEnvFile(".env");
+
+// Override PayOS settings from environment variables (or .env)
+var payosClientId = Environment.GetEnvironmentVariable("PAYOS_CLIENT_ID");
+var payosApiKey = Environment.GetEnvironmentVariable("PAYOS_API_KEY");
+var payosChecksumKey = Environment.GetEnvironmentVariable("PAYOS_CHECKSUM_KEY");
+var payosEndpoint = Environment.GetEnvironmentVariable("PAYOS_ENDPOINT");
+if (!string.IsNullOrEmpty(payosClientId))
+{
+    builder.Configuration["PayOS:ClientId"] = payosClientId;
+}
+if (!string.IsNullOrEmpty(payosApiKey))
+{
+    builder.Configuration["PayOS:ApiKey"] = payosApiKey;
+}
+if (!string.IsNullOrEmpty(payosChecksumKey))
+{
+    builder.Configuration["PayOS:ChecksumKey"] = payosChecksumKey;
+}
+if (!string.IsNullOrEmpty(payosEndpoint))
+{
+    builder.Configuration["PayOS:Endpoint"] = payosEndpoint;
+}
 
 // Configure URLs for production (bind to all interfaces)
 if (!builder.Environment.IsDevelopment())
@@ -22,10 +50,33 @@ if (!builder.Environment.IsDevelopment())
     builder.WebHost.UseUrls("http://0.0.0.0:5000");
 }
 
-// Load .env file to set environment variables
-builder.Configuration.AddDotEnvFile(".env");
 
 // Override connection string from environment variable
+// Đăng ký PayOSService với cấu hình từ appsettings
+builder.Services.AddHttpClient<backend.Services.PayOSService>((serviceProvider, client) =>
+{
+    // Configure HttpClient BaseAddress when PayOS endpoint is an absolute URI
+    var config = serviceProvider.GetRequiredService<IConfiguration>();
+    var payosEndpointCfg = config["PayOS:Endpoint"] ?? string.Empty;
+    if (!string.IsNullOrWhiteSpace(payosEndpointCfg))
+    {
+        if (Uri.TryCreate(payosEndpointCfg, UriKind.Absolute, out var absoluteUri))
+        {
+            client.BaseAddress = absoluteUri;
+        }
+        // If it's not absolute, we intentionally do not set BaseAddress here and allow the service
+        // to combine relative endpoints with the typed HttpClient's BaseAddress if needed.
+    }
+})
+    .AddTypedClient((httpClient, serviceProvider) =>
+    {
+        var config = serviceProvider.GetRequiredService<IConfiguration>();
+        var payosSection = config.GetSection("PayOS");
+        var apiKey = payosSection["ApiKey"] ?? string.Empty;
+        var clientId = payosSection["ClientId"] ?? string.Empty;
+        var endpoint = payosSection["Endpoint"] ?? string.Empty;
+        return new backend.Services.PayOSService(httpClient, apiKey, clientId, endpoint);
+    });
 var dbConnectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
 if (!string.IsNullOrEmpty(dbConnectionString))
 {
@@ -183,6 +234,9 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Bind Order settings
+builder.Services.Configure<OrderSettings>(builder.Configuration.GetSection("Order"));
+
 // Add Identity
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
@@ -330,7 +384,8 @@ builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<IProductWarehouseStockRepository, ProductWarehouseStockRepository>();
 builder.Services.AddScoped<IWarehouseService, WarehouseService>();
-builder.Services.AddScoped<IWarehouseSelectionService, WarehouseSelectionService>();
+    builder.Services.AddScoped<IWarehouseSelectionService, WarehouseSelectionService>();
+    // builder.Services.AddScoped<IWarehouseSelectionService, WarehouseSelectionService>(); // Đã loại bỏ service cũ
 
 // Add Blog services
 builder.Services.AddScoped<IBlogRepository, BlogRepository>();
@@ -369,6 +424,8 @@ builder.Services.AddCors(options =>
 
 // Add logging
 builder.Services.AddLogging();
+// Register SignalR
+builder.Services.AddSignalR();
 
 var app = builder.Build();
 
@@ -440,6 +497,9 @@ app.MapControllers();
 
 // Seed data
 await DataSeeder.SeedDataAsync(app.Services);
+
+// Map SignalR hubs
+app.MapHub<backend.Hubs.StockHub>("/hubs/stock");
 
 
 app.Run();

@@ -28,6 +28,25 @@ const ProductDetail: React.FC = () => {
       }
     }
     load()
+    // Listen for stock change events and update product state if matching
+    const onStockChanged = (e: any) => {
+      try {
+        const detail = e?.detail as { productId: number; availableStock: number } | undefined
+        if (!detail) return
+        if (!product) return
+        if (detail.productId === product.id) {
+          setProduct({ ...product, stock: detail.availableStock })
+          // ensure quantity doesn't exceed new stock
+          setQuantity(q => Math.min(q, detail.availableStock || 1))
+        }
+      } catch (err) {
+        console.error('Error handling stock change in ProductDetail', err)
+      }
+    }
+    window.addEventListener('stock:changed', onStockChanged as EventListener)
+    return () => {
+      window.removeEventListener('stock:changed', onStockChanged as EventListener)
+    }
   }, [id])
 
   const images = useMemo(() => product?.images?.slice().sort((a,b)=>a.sortOrder-b.sortOrder) || [], [product])

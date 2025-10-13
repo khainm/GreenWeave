@@ -42,7 +42,7 @@ namespace backend.Services
                 var token = await _userManager.GeneratePasswordResetTokenAsync(user);
                 var encodedToken = HttpUtility.UrlEncode(token);
 
-               // var resetLink = $"http://localhost:5173/reset-password?token={encodedToken}&uid={user.Id}";
+            //    var resetLink = $"http://localhost:5173/reset-password?token={encodedToken}&uid={user.Id}";
                 var resetLink = $"https://greenweave.vn/reset-password?token={encodedToken}&uid={user.Id}";
 
                 _logger.LogInformation("Sending password reset email to {Email} with link {Link}", user.Email, resetLink);

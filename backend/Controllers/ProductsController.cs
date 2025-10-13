@@ -122,6 +122,26 @@ namespace backend.Controllers
                 return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy thông tin sản phẩm" });
             }
         }
+
+        /// <summary>
+        /// Lấy tổng số lượng có thể bán (available stock) cho một sản phẩm
+        /// </summary>
+        [HttpGet("{id}/available-stock")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult> GetAvailableStock([Required] int id, [FromServices] backend.Interfaces.Repositories.IProductWarehouseStockRepository pwsRepo)
+        {
+            try
+            {
+                var total = await pwsRepo.GetAvailableStockByProductIdAsync(id);
+                return Ok(new { success = true, data = new { productId = id, availableStock = total } });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting available stock for product {ProductId}", id);
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy thông tin tồn kho" });
+            }
+        }
         
         /// <summary>
         /// Lấy sản phẩm theo SKU
@@ -206,9 +226,10 @@ namespace backend.Controllers
                 
                 if (weight == 0 && Request.Form?.ContainsKey("Weight") == true)
                 {
-                    var weightFromForm = Request.Form["Weight"];
+                    var weightFromFormObj = Request.Form["Weight"];
+                    var weightFromForm = !Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(weightFromFormObj) ? weightFromFormObj.ToString() : string.Empty;
                     _logger.LogInformation("Found Weight in form: {WeightFromForm}", weightFromForm);
-                    
+
                     if (decimal.TryParse(weightFromForm, out var parsedWeight))
                     {
                         weight = parsedWeight;
@@ -363,9 +384,10 @@ namespace backend.Controllers
                 
                 if (weight == 0 && Request.Form?.ContainsKey("Weight") == true)
                 {
-                    var weightFromForm = Request.Form["Weight"];
+                    var weightFromFormObj = Request.Form["Weight"];
+                    var weightFromForm = !Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(weightFromFormObj) ? weightFromFormObj.ToString() : string.Empty;
                     _logger.LogInformation("Found Weight in form: {WeightFromForm}", weightFromForm);
-                    
+
                     if (decimal.TryParse(weightFromForm, out var parsedWeight))
                     {
                         weight = parsedWeight;

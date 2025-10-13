@@ -192,6 +192,22 @@ export class OrderService {
   static async payOrder(orderId: number): Promise<Order> {
     return await apiClient.post<Order>(`${this.BASE_PATH}/${orderId}/payment`)
   }
+
+  /**
+   * Gọi API backend để tạo link thanh toán PayOS cho đơn hàng
+   */
+  static async createPayOSPaymentLink(params: {
+    orderId: string;
+    amount: number;
+    description: string;
+    returnUrl: string;
+  }): Promise<string> {
+    const res = await apiClient.post<{ paymentUrl: string }>(
+      '/api/PayOS/create-payment-link',
+      params
+    );
+    return res.paymentUrl;
+  }
 }
 
 export default OrderService

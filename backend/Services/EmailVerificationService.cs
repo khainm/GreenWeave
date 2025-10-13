@@ -53,7 +53,7 @@ namespace backend.Services
                 var encodedToken = HttpUtility.UrlEncode(token);
 
                 // Create verification link
-                //var verificationLink = $"http://localhost:5173/verify-email?token={encodedToken}&uid={user.Id}";
+                // var verificationLink = $"http://localhost:5173/verify-email?token={encodedToken}&uid={user.Id}";
                  var verificationLink = $"https://greenweave.vn/verify-email?token={encodedToken}&uid={user.Id}";
 
                 _logger.LogInformation("Sending verification email to {Email} with link {Link}", user.Email, verificationLink);

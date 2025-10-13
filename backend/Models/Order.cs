@@ -26,6 +26,7 @@ namespace backend.Models
     {
         CashOnDelivery = 1,  // Thanh toán khi nhận hàng (COD)
         BankTransfer = 2     // Thanh toán chuyển khoản
+        , PayOS = 3          // Thanh toán qua PayOS
     }
 
     public class Order

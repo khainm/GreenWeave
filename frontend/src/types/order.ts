@@ -49,6 +49,7 @@ export type PaymentStatus =
 export type PaymentMethod = 
   | 'CashOnDelivery'  // Thanh toán khi nhận hàng (COD)
   | 'BankTransfer'    // Thanh toán chuyển khoản
+  | 'PayOS'           // Thanh toán qua PayOS
 
 export interface Order {
   id: number

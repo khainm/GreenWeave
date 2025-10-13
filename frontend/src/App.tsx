@@ -38,6 +38,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import AddressPage from './pages/AddressPage'
+import PaymentResultPage from './pages/PaymentResultPage';
 import './App.css'
 
 function App() {
@@ -180,6 +181,7 @@ function App() {
                 <AdminBlogFormPage />
               </ProtectedRoute>
             } />
+            <Route path="/payment-result" element={<PaymentResultPage />} />
           </Routes>
           </div>
         </Router>

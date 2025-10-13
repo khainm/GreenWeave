@@ -141,20 +141,24 @@ namespace backend.Services
         {
             try
             {
+                var orderNumber = webhookData.DATA.ORDER_NUMBER;
+                var status = webhookData.DATA.ORDER_STATUS;
+                var note = webhookData.DATA.NOTE;
+
                 var webhookLog = new WebhookLog
                 {
-                    OrderNumber = webhookData.ORDER_NUMBER,
-                    OrderReference = webhookData.ORDER_REFERENCE,
-                    OrderStatusDate = webhookData.ORDER_STATUSDATE,
-                    OrderStatus = webhookData.ORDER_STATUS,
-                    StatusDescription = GetViettelPostStatusDescription(webhookData.ORDER_STATUS),
-                    Note = webhookData.NOTE,
-                    MoneyCollection = webhookData.MONEY_COLLECTION,
-                    MoneyFeeCod = webhookData.MONEY_FEECOD,
-                    MoneyTotal = webhookData.MONEY_TOTAL,
-                    ExpectedDelivery = webhookData.EXPECTED_DELIVERY,
-                    ProductWeight = webhookData.PRODUCT_WEIGHT,
-                    OrderService = webhookData.ORDER_SERVICE,
+                    OrderNumber = orderNumber,
+                    OrderReference = webhookData.DATA.ORDER_REFERENCE,
+                    OrderStatusDate = webhookData.DATA.ORDER_STATUSDATE,
+                    OrderStatus = status,
+                    StatusDescription = GetViettelPostStatusDescription(status),
+                    Note = note,
+                    MoneyCollection = webhookData.DATA.MONEY_COLLECTION,
+                    MoneyFeeCod = webhookData.DATA.MONEY_FEECOD,
+                    MoneyTotal = webhookData.DATA.MONEY_TOTAL,
+                    ExpectedDelivery = webhookData.DATA.EXPECTED_DELIVERY,
+                    ProductWeight = webhookData.DATA.PRODUCT_WEIGHT,
+                    OrderService = webhookData.DATA.ORDER_SERVICE,
                     Token = webhookData.TOKEN,
                     IsSuccess = isSuccess,
                     ErrorMessage = errorMessage,
@@ -166,13 +170,13 @@ namespace backend.Services
                 };
 
                 var createdLog = await _webhookLogRepository.AddAsync(webhookLog);
-                _logger.LogInformation("Webhook logged successfully for order {OrderNumber}", webhookData.ORDER_NUMBER);
+                _logger.LogInformation("Webhook logged successfully for order {OrderNumber}", orderNumber);
                 
                 return MapToDto(createdLog);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error logging webhook for order {OrderNumber}", webhookData.ORDER_NUMBER);
+                _logger.LogError(ex, "Error logging webhook for order {OrderNumber}", webhookData.DATA.ORDER_NUMBER);
                 throw;
             }
         }

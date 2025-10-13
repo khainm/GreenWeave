@@ -625,7 +625,7 @@ namespace backend.Services
                 }
 
                 // Validate required fields
-                if (string.IsNullOrEmpty(webhookPayload.ORDER_NUMBER))
+                if (string.IsNullOrEmpty(webhookPayload.DATA.ORDER_NUMBER))
                 {
                     _logger.LogWarning("ORDER_NUMBER is missing in webhook data");
                     return Task.FromResult<ShippingWebhookDto?>(null);
@@ -633,38 +633,38 @@ namespace backend.Services
 
                 // Parse status date
                 DateTime statusDate;
-                if (!DateTime.TryParseExact(webhookPayload.ORDER_STATUSDATE, "dd/MM/yyyy H:m:s", 
+                if (!DateTime.TryParseExact(webhookPayload.DATA.ORDER_STATUSDATE, "dd/MM/yyyy H:m:s", 
                     System.Globalization.CultureInfo.InvariantCulture, 
                     System.Globalization.DateTimeStyles.None, out statusDate))
                 {
-                    _logger.LogWarning("Invalid ORDER_STATUSDATE format: {StatusDate}", webhookPayload.ORDER_STATUSDATE);
+                    _logger.LogWarning("Invalid ORDER_STATUSDATE format: {StatusDate}", webhookPayload.DATA.ORDER_STATUSDATE);
                     statusDate = DateTime.UtcNow;
                 }
 
                 // Map status to description
-                var statusDescription = GetViettelPostStatusDescription(webhookPayload.ORDER_STATUS);
+                var statusDescription = GetViettelPostStatusDescription(webhookPayload.DATA.ORDER_STATUS);
 
                 _logger.LogInformation("Processed webhook for order {OrderNumber} with status {Status} ({StatusDescription})", 
-                    webhookPayload.ORDER_NUMBER, webhookPayload.ORDER_STATUS, statusDescription);
+                    webhookPayload.DATA.ORDER_NUMBER, webhookPayload.DATA.ORDER_STATUS, statusDescription);
 
                 return Task.FromResult<ShippingWebhookDto?>(new ShippingWebhookDto
                 {
-                    TrackingCode = webhookPayload.ORDER_NUMBER,
-                    Status = webhookPayload.ORDER_STATUS.ToString(),
+                    TrackingCode = webhookPayload.DATA.ORDER_NUMBER,
+                    Status = webhookPayload.DATA.ORDER_STATUS.ToString(),
                     Timestamp = statusDate,
                     Description = statusDescription,
-                    Location = webhookPayload.NOTE,
+                    Location = webhookPayload.DATA.NOTE,
                     RawData = new Dictionary<string, object>
                     {
-                        ["ORDER_REFERENCE"] = webhookPayload.ORDER_REFERENCE,
-                        ["ORDER_STATUSDATE"] = webhookPayload.ORDER_STATUSDATE,
-                        ["ORDER_STATUS"] = webhookPayload.ORDER_STATUS,
-                        ["NOTE"] = webhookPayload.NOTE,
-                        ["MONEY_COLLECTION"] = webhookPayload.MONEY_COLLECTION,
-                        ["MONEY_TOTAL"] = webhookPayload.MONEY_TOTAL,
-                        ["EXPECTED_DELIVERY"] = webhookPayload.EXPECTED_DELIVERY,
-                        ["PRODUCT_WEIGHT"] = webhookPayload.PRODUCT_WEIGHT,
-                        ["ORDER_SERVICE"] = webhookPayload.ORDER_SERVICE
+                        ["ORDER_REFERENCE"] = webhookPayload.DATA.ORDER_REFERENCE,
+                        ["ORDER_STATUSDATE"] = webhookPayload.DATA.ORDER_STATUSDATE,
+                        ["ORDER_STATUS"] = webhookPayload.DATA.ORDER_STATUS,
+                        ["NOTE"] = webhookPayload.DATA.NOTE,
+                        ["MONEY_COLLECTION"] = webhookPayload.DATA.MONEY_COLLECTION,
+                        ["MONEY_TOTAL"] = webhookPayload.DATA.MONEY_TOTAL,
+                        ["EXPECTED_DELIVERY"] = webhookPayload.DATA.EXPECTED_DELIVERY,
+                        ["PRODUCT_WEIGHT"] = webhookPayload.DATA.PRODUCT_WEIGHT,
+                        ["ORDER_SERVICE"] = webhookPayload.DATA.ORDER_SERVICE
                     }
                 });
             }
