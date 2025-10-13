@@ -197,7 +197,7 @@ export class OrderService {
    * Gọi API backend để tạo link thanh toán PayOS cho đơn hàng
    */
   static async createPayOSPaymentLink(params: {
-    orderId: string;
+    orderCode: string;
     amount: number;
     description: string;
     returnUrl: string;

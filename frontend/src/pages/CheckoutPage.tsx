@@ -182,7 +182,7 @@ const CheckoutPage: React.FC = () => {
       if (paymentMethod === 'PayOS') {
         try {
           const paymentUrl = await OrderService.createPayOSPaymentLink({
-            orderId: order.orderNumber,
+            orderCode: order.orderNumber,
             amount: order.total,
             description: `Thanh toán cho đơn hàng ${order.orderNumber}`,
             returnUrl: `${window.location.origin}/orders/${order.id}`
