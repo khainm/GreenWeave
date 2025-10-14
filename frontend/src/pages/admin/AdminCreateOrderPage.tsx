@@ -6,11 +6,9 @@ import ProductService from '../../services/productService'
 import OrderService from '../../services/orderService'
 import viettelPostAddressService from '../../services/viettelPostAddressService'
 import ShippingService from '../../services/shippingService'
-import warehouseService from '../../services/warehouseService'
 import type { Product } from '../../types/product'
 import type { OrderItem } from '../../types/order'
-import type { ShippingOption, CalculateShippingFeeRequest } from '../../types/shipping'
-import type { Warehouse } from '../../types/warehouse'
+import type { ShippingOption } from '../../types/shipping'
 // import type { AddressOption } from '../../types/address' // Not found, using any for now
 
 const AdminCreateOrderPage: React.FC = () => {
@@ -34,9 +32,7 @@ const AdminCreateOrderPage: React.FC = () => {
   const [loadingShipping, setLoadingShipping] = useState(false)
   const [shippingFee, setShippingFee] = useState(0)
   
-  // Warehouse data
-  const [defaultWarehouse, setDefaultWarehouse] = useState<Warehouse | null>(null)
-  const [loadingWarehouse, setLoadingWarehouse] = useState(false)
+  // Warehouse data - removed as backend handles warehouse selection automatically
   
   // Form state
   const [formData, setFormData] = useState({
@@ -68,7 +64,7 @@ const AdminCreateOrderPage: React.FC = () => {
   // Auto-calculate shipping fee when items or address change
   useEffect(() => {
     calculateShippingFee()
-  }, [formData.items, formData.shippingAddress.province, formData.shippingAddress.district, formData.shippingAddress.ward, formData.paymentMethod, defaultWarehouse])
+  }, [formData.items, formData.shippingAddress.province, formData.shippingAddress.district, formData.shippingAddress.ward, formData.paymentMethod])
 
   const loadData = async () => {
     try {
@@ -92,26 +88,6 @@ const AdminCreateOrderPage: React.FC = () => {
       setError('Không thể tải dữ liệu. Vui lòng thử lại.')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const loadDefaultWarehouse = async () => {
-    try {
-      setLoadingWarehouse(true)
-      const response = await warehouseService.getDefaultWarehouse()
-      if (response.success && response.warehouse) {
-        setDefaultWarehouse(response.warehouse)
-        console.log('✅ Loaded default warehouse:', response.warehouse)
-      } else {
-        console.warn('⚠️ No default warehouse found, will use config fallback')
-        setDefaultWarehouse(null)
-      }
-    } catch (err) {
-      console.error('❌ Error loading default warehouse:', err)
-      // Fallback to config if service fails
-      setDefaultWarehouse(null)
-    } finally {
-      setLoadingWarehouse(false)
     }
   }
 
@@ -193,63 +169,24 @@ const AdminCreateOrderPage: React.FC = () => {
         return weight + (product?.weight || 0) * item.quantity
       }, 0)
 
-      // Get province and district IDs
-      const provinceId = provinces.find(p => p.label === formData.shippingAddress.province)?.value
-      const districtId = districts.find(d => d.label === formData.shippingAddress.district)?.value
+      console.log('📦 Calculating e-commerce shipping with backend warehouse selection')
 
-      if (!provinceId || !districtId) {
-        console.warn('Province or district ID not found')
-        return
-      }
-
-      // Build fromAddress based on warehouse data or fallback to config
-      const fromAddress = defaultWarehouse ? {
-        name: defaultWarehouse.name,
-        phone: defaultWarehouse.phone || '0359994361',
-        addressDetail: defaultWarehouse.addressDetail,
-        province: defaultWarehouse.provinceName,
-        district: defaultWarehouse.districtName,
-        ward: defaultWarehouse.wardName,
-        provinceId: defaultWarehouse.provinceId,
-        districtId: defaultWarehouse.districtId,
-        wardId: defaultWarehouse.wardId
-      } : {
-        // Fallback to config default if no warehouse found
-        name: 'GreenWeave Store',
-        phone: '0359994361',
-        addressDetail: '19 ĐƯỜNG Định Bộ Lĩnh, P.Hải Cảng',
-        province: 'Bình Định',
-        district: 'TP.Qui Nhơn',
-        ward: 'P.Hải Cảng',
-        provinceId: 40,
-        districtId: 464,
-        wardId: 8541
-      }
-
-      console.log('📦 Calculating shipping from warehouse:', {
-        using: defaultWarehouse ? 'database warehouse' : 'config fallback',
-        fromAddress
-      })
-
-      const request: CalculateShippingFeeRequest = {
-        provider: 'ViettelPost',
-        fromAddress,
+      // Use e-commerce shipping calculation (warehouse → customer)
+      const request = {
         toAddress: {
           name: formData.shippingAddress.fullName,
           phone: formData.shippingAddress.phone,
           addressDetail: formData.shippingAddress.addressLine,
-          province: formData.shippingAddress.province,
-          district: formData.shippingAddress.district,
           ward: formData.shippingAddress.ward,
-          provinceId: Number(provinceId),
-          districtId: Number(districtId)
+          district: formData.shippingAddress.district,
+          province: formData.shippingAddress.province
         },
         weight: totalWeight,
         insuranceValue: calculateTotal(),
         codAmount: formData.paymentMethod === 'COD' ? calculateTotal() : 0
       }
 
-      const response = await ShippingService.calculateShippingFees(request)
+      const response = await ShippingService.calculateEcommerceShippingFees(request)
       setShippingOptions(response.options)
       
       // Auto-select the first available option
@@ -678,7 +615,7 @@ const AdminCreateOrderPage: React.FC = () => {
                             <div className="font-medium text-gray-900">
                               {option.serviceName || 'Viettel Post'}
                             </div>
-                            {option.estimatedDeliveryDays && (
+                            {option.estimatedDeliveryDays !== undefined && option.estimatedDeliveryDays !== null && (
                               <div className="text-sm text-gray-500">
                                 Dự kiến: {option.estimatedDeliveryDays} ngày
                               </div>

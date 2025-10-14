@@ -28,12 +28,21 @@ namespace backend.Controllers
         [HttpGet]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetAllProducts()
+        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetAllProducts([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
         {
             try
             {
-                var products = await _productService.GetAllProductsAsync();
-                return Ok(new { success = true, data = products });
+                var result = await _productService.GetAllProductsAsync(page, pageSize);
+                return Ok(new {
+                    success = true,
+                    data = result.Items,
+                    pagination = new {
+                        page = result.Page,
+                        pageSize = result.PageSize,
+                        totalItems = result.TotalItems,
+                        totalPages = result.TotalPages
+                    }
+                });
             }
             catch (Exception ex)
             {

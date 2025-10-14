@@ -5,6 +5,7 @@ using backend.DTOs;
 using backend.Models;
 using backend.Extensions;
 using System.ComponentModel.DataAnnotations;
+using backend.Services;
 
 namespace backend.Controllers
 {
@@ -15,11 +16,13 @@ namespace backend.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly ILogger<OrdersController> _logger;
-        
-        public OrdersController(IOrderService orderService, ILogger<OrdersController> logger)
+        private readonly PayOSService _payosService;
+
+        public OrdersController(IOrderService orderService, ILogger<OrdersController> logger, PayOSService payosService)
         {
             _orderService = orderService;
             _logger = logger;
+            _payosService = payosService;
         }
         
         /// <summary>
@@ -263,10 +266,15 @@ namespace backend.Controllers
                 _logger.LogWarning(ex, "Invalid data when creating order");
                 return BadRequest(new { success = false, message = ex.Message });
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
                 _logger.LogError(ex, "Error creating order");
-                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi tạo đơn hàng" });
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error occurred while creating order");
+                return StatusCode(500, new { message = "An unexpected error occurred. Please try again later." });
             }
         }
 
@@ -488,8 +496,34 @@ namespace backend.Controllers
                     return Unauthorized(new { success = false, message = "Người dùng chưa đăng nhập" });
                 }
 
-                var order = await _orderService.ProcessPaymentAsync(id, customerId);
-                return Ok(new { success = true, data = order, message = "Thanh toán thành công" });
+                // Load order info
+                var orderDto = await _orderService.GetOrderByIdAsync(id);
+                if (orderDto == null)
+                    return NotFound(new { success = false, message = "Không tìm thấy đơn hàng" });
+
+                // Ensure ownership / permission
+                var isAdminOrStaff = User.IsInRole(UserRoles.Admin) || User.IsInRole(UserRoles.Staff);
+                if (!isAdminOrStaff && orderDto.CustomerId != customerId)
+                    return Forbid();
+
+                // If order uses PayOS, create a PayOS checkout link and return it to the client.
+                if (string.Equals(orderDto.PaymentMethod, "PayOS", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Build return/cancel URLs. Prefer Origin header (frontend) when available.
+                    var origin = Request.Headers.ContainsKey("Origin") ? Request.Headers["Origin"].ToString() : string.Empty;
+                    var safeOrigin = !string.IsNullOrEmpty(origin) ? origin : $"{Request.Scheme}://{Request.Host}";
+                    var returnUrl = $"{safeOrigin}/payment/success?orderNumber={orderDto.OrderNumber}";
+                    var cancelUrl = $"{safeOrigin}/payment/cancel?orderNumber={orderDto.OrderNumber}";
+
+                    var paymentUrl = await _payosService.CreatePaymentLinkAsync(orderDto.Total, orderDto.OrderNumber, $"Thanh toán đơn hàng {orderDto.OrderNumber}", returnUrl, cancelUrl);
+
+                    // Do not mark as paid here. PayOS webhook will update the order's payment status when payment completes.
+                    return Ok(new { success = true, paymentUrl });
+                }
+
+                // Fallback: existing immediate payment processing (e.g., COD/Bank transfer simulated auto-pay)
+                var processedOrder = await _orderService.ProcessPaymentAsync(id, customerId);
+                return Ok(new { success = true, data = processedOrder, message = "Thanh toán thành công" });
             }
             catch (ArgumentException ex)
             {

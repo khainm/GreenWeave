@@ -34,5 +34,8 @@ namespace backend.Interfaces.Services
 
         // Payment processing
         Task<OrderResponseDto> ProcessPaymentAsync(int orderId, string customerId);
+        
+        // Update payment status based on external webhook (e.g., PayOS)
+        Task<OrderResponseDto?> UpdatePaymentStatusFromWebhookAsync(string orderNumber, decimal amount, DateTime paidAt);
     }
 }

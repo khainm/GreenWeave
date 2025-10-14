@@ -2,19 +2,27 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
-import { startStockConnection, stopStockConnection } from './signalr/stockClient'
+import signalRService from './services/signalrService'
 
-// Start SignalR connection and re-dispatch events as a DOM CustomEvent so pages can subscribe
-startStockConnection((payload: { productId: number; availableStock: number }) => {
-  try {
-    window.dispatchEvent(new CustomEvent('stock:changed', { detail: payload }));
-  } catch (e) {
-    console.error('Failed to dispatch stock:changed event', e);
-  }
+// 🚀 Start SignalR connection for realtime stock updates
+signalRService.start().then(() => {
+  console.log('🎯 [Main] SignalR service started for realtime stock updates');
+}).catch((error) => {
+  console.error('❌ [Main] Failed to start SignalR service:', error);
 });
 
+// Cleanup on page unload
 window.addEventListener('beforeunload', () => {
-  stopStockConnection().catch(() => {});
+  signalRService.stop();
+});
+
+// Optional: Clean up on page visibility change (when user switches tabs)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Could pause connection or reduce polling if needed
+  } else {
+    // Resume if needed
+  }
 });
 
 createRoot(document.getElementById('root')!).render(

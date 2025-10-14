@@ -1,6 +1,64 @@
 import { apiClient } from './apiClient'
 import type { Product, CreateProductRequest } from '../types/product'
 
+// 🚀 Performance optimization: Add caching system
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  ttl: number; // Time to live in milliseconds
+}
+
+class ProductCache {
+  private cache = new Map<string, CacheEntry<any>>();
+  private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
+
+  set<T>(key: string, data: T, ttl?: number): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl: ttl || this.DEFAULT_TTL
+    });
+    console.log(`📦 [ProductCache] Cached: ${key}`);
+  }
+
+  get<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    // Check if cache entry is still valid
+    if (Date.now() - entry.timestamp > entry.ttl) {
+      this.cache.delete(key);
+      console.log(`🗑️ [ProductCache] Expired: ${key}`);
+      return null;
+    }
+
+    console.log(`✅ [ProductCache] Hit: ${key}`);
+    return entry.data as T;
+  }
+
+  invalidate(key: string): void {
+    this.cache.delete(key);
+    console.log(`🔄 [ProductCache] Invalidated: ${key}`);
+  }
+
+  invalidateAll(): void {
+    this.cache.clear();
+    console.log(`🔄 [ProductCache] Cleared all cache`);
+  }
+
+  // Invalidate products by pattern
+  invalidatePattern(pattern: RegExp): void {
+    for (const key of this.cache.keys()) {
+      if (pattern.test(key)) {
+        this.cache.delete(key);
+        console.log(`🔄 [ProductCache] Pattern invalidated: ${key}`);
+      }
+    }
+  }
+}
+
+const productCache = new ProductCache();
+
 export class ProductService {
   private static readonly BASE_PATH = '/api/products'
 
@@ -73,25 +131,96 @@ export class ProductService {
     return formData
   }
 
-  // Lấy tất cả sản phẩm
-  static async getAllProducts(): Promise<Product[]> {
+  // 🚀 Lấy tất cả sản phẩm với caching
+  static async getAllProducts(useCache: boolean = true): Promise<Product[]> {
     try {
-      return await apiClient.get<Product[]>(this.BASE_PATH)
+      const cacheKey = 'all_products';
+      
+      // Check cache first if enabled
+      if (useCache) {
+        const cached = productCache.get<Product[]>(cacheKey);
+        if (cached) {
+          console.log('📦 [ProductService] Returning cached products');
+          return cached;
+        }
+      }
+      
+      console.log('🌐 [ProductService] Fetching products from API');
+      const products = await apiClient.get<Product[]>(this.BASE_PATH);
+      
+      // Cache the result
+      if (useCache) {
+        productCache.set(cacheKey, products);
+      }
+      
+      return products;
     } catch (error) {
-      console.error('Error fetching products:', error)
-      throw error
+      console.error('Error fetching products:', error);
+      throw error;
     }
   }
 
-  // Customizable products (for CustomProductDesigner)
-  static async getCustomizableProducts(): Promise<Product[]> {
+  // 🚀 Customizable products với caching
+  static async getCustomizableProducts(useCache: boolean = true): Promise<Product[]> {
     try {
-      // apiClient.get unwraps { success, data } and returns data directly
-      return await apiClient.get<Product[]>(`${this.BASE_PATH}/customizable`)
+      const cacheKey = 'customizable_products';
+      
+      // Check cache first if enabled
+      if (useCache) {
+        const cached = productCache.get<Product[]>(cacheKey);
+        if (cached) {
+          console.log('📦 [ProductService] Returning cached customizable products');
+          return cached;
+        }
+      }
+      
+      console.log('🌐 [ProductService] Fetching customizable products from API');
+      const products = await apiClient.get<Product[]>(`${this.BASE_PATH}/customizable`);
+      
+      // Cache the result
+      if (useCache) {
+        productCache.set(cacheKey, products);
+      }
+      
+      return products;
     } catch (error) {
-      console.error('Error fetching customizable products:', error)
-      throw error
+      console.error('Error fetching customizable products:', error);
+      throw error;
     }
+  }
+
+  // 🚀 Cache management methods
+  static invalidateCache(): void {
+    productCache.invalidateAll();
+  }
+
+  static invalidateProductCache(productId?: number): void {
+    if (productId) {
+      productCache.invalidatePattern(new RegExp(`product_${productId}`));
+    }
+    productCache.invalidate('all_products');
+    productCache.invalidate('customizable_products');
+  }
+
+  static refreshProduct(productId: number, newStock: number): void {
+    // Update cached products with new stock
+    const allProducts = productCache.get<Product[]>('all_products');
+    if (allProducts) {
+      const updated = allProducts.map(p => 
+        p.id === productId ? { ...p, stock: newStock } : p
+      );
+      productCache.set('all_products', updated);
+    }
+
+    const customizableProducts = productCache.get<Product[]>('customizable_products');
+    if (customizableProducts) {
+      const updated = customizableProducts.map(p => 
+        p.id === productId ? { ...p, stock: newStock } : p
+      );
+      productCache.set('customizable_products', updated);
+    }
+    
+    console.log(`🔄 [ProductService] Updated product ${productId} stock to ${newStock}`);
   }
 
   static async getCustomizableProductById(id: number): Promise<Product> {

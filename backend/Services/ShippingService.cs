@@ -489,7 +489,7 @@ namespace backend.Services
                 }
 
                 // Parse webhook data for logging
-                var webhookPayload = JsonSerializer.Deserialize<ViettelPostWebhookData>(webhookData, new JsonSerializerOptions
+                var webhookPayload = JsonSerializer.Deserialize<DTOs.ViettelPostWebhookData>(webhookData, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });

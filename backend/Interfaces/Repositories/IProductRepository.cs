@@ -5,6 +5,8 @@ namespace backend.Interfaces.Repositories
     public interface IProductRepository
     {
         Task<IEnumerable<Product>> GetAllAsync();
+        Task<IEnumerable<Product>> GetAllAsync(int page, int pageSize);
+        Task<int> GetTotalCountAsync();
         Task<Product?> GetByIdAsync(int id);
         Task<Product?> GetBySkuAsync(string sku);
         Task<Product> CreateAsync(Product product);

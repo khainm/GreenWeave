@@ -1,7 +1,21 @@
 import * as signalR from '@microsoft/signalr';
 
+// Get the base URL for SignalR hub
+const getSignalRUrl = () => {
+  if (typeof window !== 'undefined') {
+    // Use current origin for browser environment
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/hubs/stock`;
+  }
+  // Fallback for non-browser environments
+  return '/hubs/stock';
+};
+
 const connection = new signalR.HubConnectionBuilder()
-  .withUrl('/hubs/stock')
+  .withUrl(getSignalRUrl(), {
+    skipNegotiation: false,
+    transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.ServerSentEvents | signalR.HttpTransportType.LongPolling
+  })
   .withAutomaticReconnect()
   .configureLogging(signalR.LogLevel.Information)
   .build();

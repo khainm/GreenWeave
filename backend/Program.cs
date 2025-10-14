@@ -1,7 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.DataProtection;
 using System.Text;
@@ -15,7 +14,7 @@ using backend.Repositories;
 using backend.Swagger;
 using backend.Extensions;
 using backend.DTOs;
-
+using Net.payOS;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -23,10 +22,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddDotEnvFile(".env");
 
 // Override PayOS settings from environment variables (or .env)
+
 var payosClientId = Environment.GetEnvironmentVariable("PAYOS_CLIENT_ID");
 var payosApiKey = Environment.GetEnvironmentVariable("PAYOS_API_KEY");
 var payosChecksumKey = Environment.GetEnvironmentVariable("PAYOS_CHECKSUM_KEY");
-var payosEndpoint = Environment.GetEnvironmentVariable("PAYOS_ENDPOINT");
+
+
+
 if (!string.IsNullOrEmpty(payosClientId))
 {
     builder.Configuration["PayOS:ClientId"] = payosClientId;
@@ -39,10 +41,8 @@ if (!string.IsNullOrEmpty(payosChecksumKey))
 {
     builder.Configuration["PayOS:ChecksumKey"] = payosChecksumKey;
 }
-if (!string.IsNullOrEmpty(payosEndpoint))
-{
-    builder.Configuration["PayOS:Endpoint"] = payosEndpoint;
-}
+
+
 
 // Configure URLs for production (bind to all interfaces)
 if (!builder.Environment.IsDevelopment())
@@ -51,32 +51,16 @@ if (!builder.Environment.IsDevelopment())
 }
 
 
-// Override connection string from environment variable
-// Đăng ký PayOSService với cấu hình từ appsettings
-builder.Services.AddHttpClient<backend.Services.PayOSService>((serviceProvider, client) =>
-{
-    // Configure HttpClient BaseAddress when PayOS endpoint is an absolute URI
-    var config = serviceProvider.GetRequiredService<IConfiguration>();
-    var payosEndpointCfg = config["PayOS:Endpoint"] ?? string.Empty;
-    if (!string.IsNullOrWhiteSpace(payosEndpointCfg))
-    {
-        if (Uri.TryCreate(payosEndpointCfg, UriKind.Absolute, out var absoluteUri))
-        {
-            client.BaseAddress = absoluteUri;
-        }
-        // If it's not absolute, we intentionally do not set BaseAddress here and allow the service
-        // to combine relative endpoints with the typed HttpClient's BaseAddress if needed.
-    }
-})
-    .AddTypedClient((httpClient, serviceProvider) =>
-    {
-        var config = serviceProvider.GetRequiredService<IConfiguration>();
-        var payosSection = config.GetSection("PayOS");
-        var apiKey = payosSection["ApiKey"] ?? string.Empty;
-        var clientId = payosSection["ClientId"] ?? string.Empty;
-        var endpoint = payosSection["Endpoint"] ?? string.Empty;
-        return new backend.Services.PayOSService(httpClient, apiKey, clientId, endpoint);
-    });
+
+// Đăng ký PayOS SDK chính thức
+builder.Services.AddSingleton(sp => new PayOS(
+    builder.Configuration["PayOS:ClientId"]!,
+    builder.Configuration["PayOS:ApiKey"]!,
+    builder.Configuration["PayOS:ChecksumKey"]!
+));
+// Đăng ký PayOSService sử dụng SDK chính thức
+builder.Services.AddScoped<PayOSService>();
+
 var dbConnectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
 if (!string.IsNullOrEmpty(dbConnectionString))
 {
@@ -397,28 +381,12 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 // Add CORS for React frontend
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend",
-        policy =>
+    options.AddPolicy("AllowSpecificOrigins",
+        builder =>
         {
-            if (builder.Environment.IsDevelopment())
-            {
-                // In development, allow all origins for testing
-                policy.AllowAnyOrigin()
-                      .AllowAnyHeader()
-                      .AllowAnyMethod();
-            }
-            else
-            {
-                // Allow frontend domains
-                policy.WithOrigins(" http://localhost:5173","https://greenweave.vn", "http://greenweave.vn", 
-                                 "http://api.greenweave.vn",
-                                 "https://api.greenweave.vn",
-                                 "https://www.greenweave.vn",
-                                 "http://www.greenweave.vn")
-                      .AllowAnyHeader()
-                      .AllowAnyMethod()
-                      .AllowCredentials();
-            }
+            builder.WithOrigins("https://greenweave.vn")
+                   .AllowAnyHeader()
+                   .AllowAnyMethod();
         });
 });
 
@@ -468,7 +436,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseRouting();
 
 // Apply CORS after routing and before auth per ASP.NET Core guidance
-app.UseCors("AllowFrontend");
+app.UseCors("AllowSpecificOrigins");
 
 // Add Authentication & Authorization middleware
 app.UseAuthentication();
@@ -501,6 +469,18 @@ await DataSeeder.SeedDataAsync(app.Services);
 // Map SignalR hubs
 app.MapHub<backend.Hubs.StockHub>("/hubs/stock");
 
+
+// Ensure all required PayOS configurations are present
+var missingConfigurations = new List<string>();
+if (string.IsNullOrEmpty(payosClientId)) missingConfigurations.Add("PAYOS_CLIENT_ID");
+if (string.IsNullOrEmpty(payosApiKey)) missingConfigurations.Add("PAYOS_API_KEY");
+if (string.IsNullOrEmpty(payosChecksumKey)) missingConfigurations.Add("PAYOS_CHECKSUM_KEY");
+
+
+if (missingConfigurations.Any())
+{
+    throw new InvalidOperationException($"Missing required PayOS configurations: {string.Join(", ", missingConfigurations)}");
+}
 
 app.Run();
 

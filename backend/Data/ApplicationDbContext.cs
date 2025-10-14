@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using backend.Models;
+using GreenWeave.Models;
 
 namespace backend.Data
 {
@@ -31,6 +32,8 @@ namespace backend.Data
         public DbSet<Blog> Blogs { get; set; }
         public DbSet<BlogLike> BlogLikes { get; set; }
         public DbSet<BlogView> BlogViews { get; set; }
+        public DbSet<CustomDesign> CustomDesigns { get; set; }
+        public DbSet<ConsultationRequest> ConsultationRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -436,6 +439,74 @@ namespace backend.Data
                     .WithMany()
                     .HasForeignKey(bv => bv.BlogId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Configure CustomDesign
+            modelBuilder.Entity<CustomDesign>(entity =>
+            {
+                entity.HasKey(cd => cd.Id);
+                
+                entity.Property(cd => cd.ProductId).IsRequired();
+                entity.Property(cd => cd.UserId).IsRequired().HasMaxLength(450);
+                entity.Property(cd => cd.DesignJson).IsRequired().HasColumnType("NVARCHAR(MAX)");
+                entity.Property(cd => cd.PreviewUrl).HasMaxLength(500);
+                entity.Property(cd => cd.ThumbnailUrl).HasMaxLength(500);
+                entity.Property(cd => cd.Status).IsRequired().HasMaxLength(20);
+                entity.Property(cd => cd.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(cd => cd.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // Index for performance
+                entity.HasIndex(cd => cd.ProductId);
+                entity.HasIndex(cd => cd.UserId);
+                entity.HasIndex(cd => cd.Status);
+                entity.HasIndex(cd => cd.CreatedAt);
+                
+                // Foreign key relationship
+                entity.HasOne<Product>()
+                    .WithMany()
+                    .HasForeignKey(cd => cd.ProductId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure ConsultationRequest
+            modelBuilder.Entity<ConsultationRequest>(entity =>
+            {
+                entity.HasKey(cr => cr.Id);
+                
+                entity.Property(cr => cr.ProductId).IsRequired();
+                entity.Property(cr => cr.CustomerName).IsRequired().HasMaxLength(100);
+                entity.Property(cr => cr.PreferredContact).IsRequired().HasMaxLength(20);
+                entity.Property(cr => cr.Phone).HasMaxLength(20);
+                entity.Property(cr => cr.Zalo).HasMaxLength(100);
+                entity.Property(cr => cr.Facebook).HasMaxLength(200);
+                entity.Property(cr => cr.Email).HasMaxLength(100);
+                entity.Property(cr => cr.Notes).HasMaxLength(1000);
+                entity.Property(cr => cr.ProductName).HasMaxLength(200);
+                entity.Property(cr => cr.DesignPreview).HasMaxLength(500);
+                entity.Property(cr => cr.EstimatedPrice).HasPrecision(18, 2);
+                entity.Property(cr => cr.Status).IsRequired().HasMaxLength(50);
+                entity.Property(cr => cr.AssignedTo).HasMaxLength(100);
+                entity.Property(cr => cr.RequestedAt).HasDefaultValueSql("GETUTCDATE()");
+                entity.Property(cr => cr.ContactedAt);
+                entity.Property(cr => cr.CompletedAt);
+                
+                // Index for performance
+                entity.HasIndex(cr => cr.DesignId);
+                entity.HasIndex(cr => cr.ProductId);
+                entity.HasIndex(cr => cr.Status);
+                entity.HasIndex(cr => cr.Email);
+                entity.HasIndex(cr => cr.RequestedAt);
+                
+                // Foreign key relationships
+                entity.HasOne(cr => cr.Design)
+                    .WithMany()
+                    .HasForeignKey(cr => cr.DesignId)
+                    .OnDelete(DeleteBehavior.SetNull);
+                    
+                entity.HasOne<Product>()
+                    .WithMany()
+                    .HasForeignKey(cr => cr.ProductId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

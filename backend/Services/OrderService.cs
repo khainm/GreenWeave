@@ -841,6 +841,81 @@ namespace backend.Services
             }
         }
 
+        public async Task<OrderResponseDto?> UpdatePaymentStatusFromWebhookAsync(string orderNumber, decimal amount, DateTime paidAt)
+        {
+            try
+            {
+                var order = await _orderRepository.GetByOrderNumberAsync(orderNumber);
+                if (order == null)
+                {
+                    _logger.LogWarning("Webhook attempted to update payment for unknown order: {OrderNumber}", orderNumber);
+                    return null;
+                }
+
+                // If already paid, return current state
+                if (order.PaymentStatus == PaymentStatus.Paid)
+                {
+                    _logger.LogInformation("Order {OrderNumber} already marked as paid", orderNumber);
+                    return MapToResponseDto(order);
+                }
+
+                // Optional: verify amount matches expected total
+                if (amount != order.Total)
+                {
+                    _logger.LogWarning("Payment amount {Amount} for order {OrderNumber} does not match order total {Total}", amount, orderNumber, order.Total);
+                    // Continue marking as paid to avoid blocking shipments; alternatively you could reject or flag the order.
+                }
+
+                order.PaymentStatus = PaymentStatus.Paid;
+                order.PaidAt = paidAt;
+                order.UpdatedAt = DateTime.UtcNow;
+
+                var updated = await _orderRepository.UpdateAsync(order);
+
+                // Run the same auto-confirm flow if enabled for the payment method
+                var paymentMethodName = order.PaymentMethod.ToString();
+                var canAutoConfirmForMethod = _orderSettings.AutoConfirmPaymentMethods != null &&
+                                              _orderSettings.AutoConfirmPaymentMethods.Contains(paymentMethodName);
+
+                if (_orderSettings.AutoConfirmOnPayment && order.Status == OrderStatus.Pending && canAutoConfirmForMethod)
+                {
+                    try
+                    {
+                        _logger.LogInformation("Auto-confirming order {OrderNumber} after webhook payment", orderNumber);
+                        order.Status = OrderStatus.Confirmed;
+                        order.ConfirmedAt = DateTime.UtcNow;
+                        order.UpdatedAt = DateTime.UtcNow;
+                        await _orderRepository.UpdateAsync(order);
+
+                        // Reduce stock and create invoice/shipments similar to existing code
+                        await ReduceStockForConfirmedOrderAsync(order.Id);
+                        try
+                        {
+                            await _invoiceService.ProcessOrderConfirmationAsync(order.Id);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to create invoice during auto-confirm for order {OrderNumber}", orderNumber);
+                        }
+                    }
+                    catch (Exception exAuto)
+                    {
+                        _logger.LogError(exAuto, "Auto-confirm failed for order {OrderNumber}. Marking as Processing for manual review.", orderNumber);
+                        order.Status = OrderStatus.Processing;
+                        order.UpdatedAt = DateTime.UtcNow;
+                        await _orderRepository.UpdateAsync(order);
+                    }
+                }
+
+                return MapToResponseDto(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating payment status from webhook for order {OrderNumber}", orderNumber);
+                throw;
+            }
+        }
+
         /// <summary>
         /// Get shipping provider (always ViettelPost in production)
         /// </summary>

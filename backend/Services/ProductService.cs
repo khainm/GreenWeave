@@ -36,10 +36,20 @@ namespace backend.Services
             _logger = logger;
         }
         
-        public async Task<IEnumerable<ProductResponseDto>> GetAllProductsAsync()
+        public async Task<PaginatedResult<ProductResponseDto>> GetAllProductsAsync(int page = 1, int pageSize = 20)
         {
-            var products = await _productRepository.GetAllAsync();
-            return products.Select(MapToResponseDto);
+            var totalItems = await _productRepository.GetTotalCountAsync();
+            var products = await _productRepository.GetAllAsync(page, pageSize);
+            var items = products.Select(MapToResponseDto);
+
+            return new PaginatedResult<ProductResponseDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = (int)Math.Ceiling((double)totalItems / pageSize)
+            };
         }
         
         public async Task<ProductResponseDto?> GetProductByIdAsync(int id)
@@ -814,5 +824,14 @@ namespace backend.Services
                 };
             }
         }
+    }
+
+    public class PaginatedResult<T>
+    {
+        public IEnumerable<T> Items { get; set; } = new List<T>();
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public int TotalItems { get; set; }
+        public int TotalPages { get; set; }
     }
 }

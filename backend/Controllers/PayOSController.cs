@@ -18,20 +18,31 @@ namespace backend.Controllers
         [HttpPost("create-payment-link")]
         public async Task<IActionResult> CreatePaymentLink([FromBody] CreatePaymentRequest request)
         {
-            if (string.IsNullOrEmpty(request.OrderId) || string.IsNullOrEmpty(request.Description) || string.IsNullOrEmpty(request.ReturnUrl))
+            if (string.IsNullOrEmpty(request.OrderCode) || 
+                string.IsNullOrEmpty(request.Description) || 
+                string.IsNullOrEmpty(request.ReturnUrl))
             {
-                return BadRequest("OrderId, Description, and ReturnUrl are required.");
+                return BadRequest("OrderCode, Description, and ReturnUrl are required.");
             }
-            var paymentUrl = await _payosService.CreatePaymentLinkAsync(request.Amount, request.OrderId!, request.Description!, request.ReturnUrl!);
+
+            var paymentUrl = await _payosService.CreatePaymentLinkAsync(
+                request.Amount, 
+                request.OrderCode!, 
+                request.Description!, 
+                request.ReturnUrl!, 
+                request.CancelUrl
+            );
+
             return Ok(new { paymentUrl });
         }
     }
 
     public class CreatePaymentRequest
     {
-    public decimal Amount { get; set; }
-    public string? OrderId { get; set; }
-    public string? Description { get; set; }
-    public string? ReturnUrl { get; set; }
+        public decimal Amount { get; set; }
+        public string? OrderCode { get; set; }
+        public string? Description { get; set; }
+        public string? ReturnUrl { get; set; }
+        public string? CancelUrl { get; set; }
     }
 }

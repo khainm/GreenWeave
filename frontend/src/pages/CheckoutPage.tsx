@@ -4,9 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/layout/Header';
 import ShippingProviderSelector from '../components/shipping/ShippingProviderSelector';
 import type { 
-  ShippingProvider, 
   ShippingOption, 
-  CalculateShippingFeeRequest,
   UserAddress,
   CartItem,
   PaymentMethod
@@ -98,19 +96,11 @@ const CheckoutPage: React.FC = () => {
   // Get selected address
   const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
 
-  // Create shipping fee request
-  const createShippingRequest = (): CalculateShippingFeeRequest | null => {
+  // Create e-commerce shipping fee request (warehouse → customer)
+  const createEcommerceShippingRequest = (): any | null => {
     if (!selectedAddress) return null;
 
     return {
-      provider: 'ViettelPost' as ShippingProvider, // Default to ViettelPost
-      fromAddress: {
-        name: 'GreenWeave Store',
-        phone: '0359994361',
-        addressDetail: '19 ĐƯỜNG Định Bộ Lĩnh, P.Hải Cảng',
-        district: 'TP.Qui Nhơn',
-        province: 'Bình Định'
-      },
       toAddress: {
         name: selectedAddress.fullName,
         phone: selectedAddress.phoneNumber,
@@ -121,7 +111,7 @@ const CheckoutPage: React.FC = () => {
       },
       weight: getTotalWeight(),
       insuranceValue: subtotal,
-      codAmount: 0 // Assuming prepaid orders
+      codAmount: paymentMethod === 'CashOnDelivery' ? total : 0
     };
   };
 
@@ -178,20 +168,19 @@ const CheckoutPage: React.FC = () => {
 
       const order = await OrderService.createOrder(orderData);
 
-      // If PayOS selected, create payment link and redirect
+      // If PayOS selected, use order payment endpoint to get payment link
       if (paymentMethod === 'PayOS') {
         try {
-          const paymentUrl = await OrderService.createPayOSPaymentLink({
-            orderCode: order.orderNumber,
-            amount: order.total,
-            description: `Thanh toán cho đơn hàng ${order.orderNumber}`,
-            returnUrl: `${window.location.origin}/orders/${order.id}`
-          });
-
-          if (paymentUrl) {
+          const paymentResponse = await OrderService.payOrder(order.id);
+          
+          // Backend returns { success: true, paymentUrl: "..." } for PayOS orders
+          if (paymentResponse && 'paymentUrl' in paymentResponse) {
             // Clear cart before redirect
             localStorage.removeItem('gw_cart_id');
-            window.location.href = paymentUrl;
+            window.location.href = (paymentResponse as any).paymentUrl;
+            return;
+          } else {
+            setError('Không nhận được link thanh toán từ PayOS. Vui lòng thử lại.');
             return;
           }
         } catch (err) {
@@ -270,9 +259,7 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  const shippingRequest = createShippingRequest();
-
-  return (
+        const shippingRequest = createEcommerceShippingRequest();  return (
     <div className="min-h-screen bg-gray-50">
       <Header />
       
@@ -369,16 +356,16 @@ const CheckoutPage: React.FC = () => {
               )}
             </div>
 
-            {/* Shipping Provider */}
-            {selectedAddress && shippingRequest && (
-              <div className="bg-white p-6 rounded-lg shadow">
-                <ShippingProviderSelector
-                  request={shippingRequest}
-                  selectedOption={selectedShippingOption}
-                  onOptionSelect={handleOptionSelect}
-                />
-              </div>
-            )}
+        {/* Shipping Provider */}
+        {selectedAddress && shippingRequest && (
+          <div className="bg-white p-6 rounded-lg shadow">
+            <ShippingProviderSelector
+              request={shippingRequest}
+              selectedOption={selectedShippingOption}
+              onOptionSelect={handleOptionSelect}
+            />
+          </div>
+        )}
 
             {/* Payment Method */}
             <div className="bg-white p-6 rounded-lg shadow">

@@ -1,11 +1,12 @@
 using backend.DTOs;
 using backend.Models;
+using backend.Services;
 
 namespace backend.Interfaces.Services
 {
     public interface IProductService
     {
-        Task<IEnumerable<ProductResponseDto>> GetAllProductsAsync();
+        Task<PaginatedResult<ProductResponseDto>> GetAllProductsAsync(int page = 1, int pageSize = 20);
         Task<ProductResponseDto?> GetProductByIdAsync(int id);
         Task<ProductResponseDto?> GetProductBySkuAsync(string sku);
         Task<ProductResponseDto> CreateProductAsync(CreateProductDto createProductDto, List<IFormFile>? imageFiles = null, Dictionary<string, IFormFile>? colorImages = null, List<IFormFile>? stickerFiles = null);

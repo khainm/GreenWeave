@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { ShippingService } from '../../services/shippingService';
 import type { 
-  ShippingOption, 
-  CalculateShippingFeeRequest
+  ShippingOption
 } from '../../types';
 
 interface ShippingProviderSelectorProps {
-  request: CalculateShippingFeeRequest;
+  request: any; // E-commerce shipping request
   selectedOption: ShippingOption | null;
   onOptionSelect: (option: ShippingOption) => void;
   className?: string;
@@ -34,12 +33,12 @@ const ShippingProviderSelector: React.FC<ShippingProviderSelectorProps> = ({
     
     try {
       const requestId = Math.random().toString(36).substr(2, 9);
-      console.log(`🚀 [ShippingProviderSelector] [${requestId}] Calculating fees with request:`, request);
-      const response = await ShippingService.calculateShippingFees(request);
-      console.log(`📦 [ShippingProviderSelector] [${requestId}] Received response:`, response);
+      console.log(`🚀 [ShippingProviderSelector] [${requestId}] Calculating e-commerce fees with request:`, request);
+      const response = await ShippingService.calculateEcommerceShippingFees(request);
+      console.log(`📦 [ShippingProviderSelector] [${requestId}] Received e-commerce response:`, response);
       
       const availableOptions = response.options.filter(option => option.isAvailable);
-      console.log(`✅ [ShippingProviderSelector] [${requestId}] Available options:`, availableOptions);
+      console.log(`✅ [ShippingProviderSelector] [${requestId}] Available e-commerce options:`, availableOptions);
       setShippingOptions(availableOptions);
       
       // Auto-select cheapest option if none selected, or auto-select if only one option
@@ -158,7 +157,7 @@ const ShippingProviderSelector: React.FC<ShippingProviderSelectorProps> = ({
                     {option.serviceName && (
                       <p className="text-sm text-gray-600">{option.serviceName}</p>
                     )}
-                    {option.estimatedDeliveryDays && (
+                    {option.estimatedDeliveryDays !== undefined && option.estimatedDeliveryDays !== null && (
                       <p className="text-sm text-blue-600">
                         Dự kiến: {option.estimatedDeliveryDays} ngày
                       </p>

@@ -86,18 +86,41 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, selectedColor, onCol
           )}
         </div>
 
-        {/* Stock Info */}
+        {/* Stock Info - Enhanced with realtime updates */}
         <div className="mb-3 text-sm text-gray-600">
           <div className="flex items-center justify-between">
             <span>Tồn kho:</span>
-            <span className={`font-semibold ${product.stock === 0 ? 'text-red-500' : product.stock < 10 ? 'text-orange-500' : 'text-green-600'}`}>
-              {product.stock === 0 ? 'Hết hàng' : `${product.stock} sản phẩm`}
-            </span>
+            <div className="flex items-center gap-1">
+              {/* Status indicator */}
+              <div className={`w-2 h-2 rounded-full ${
+                product.stock === 0 ? 'bg-red-500 animate-pulse' : 
+                product.stock < 10 ? 'bg-orange-500' : 
+                'bg-green-500'
+              }`}></div>
+              <span className={`font-semibold transition-colors duration-300 ${
+                product.stock === 0 ? 'text-red-500' : 
+                product.stock < 10 ? 'text-orange-500' : 
+                'text-green-600'
+              }`}>
+                {product.stock === 0 ? 'Hết hàng' : `${product.stock} sản phẩm`}
+              </span>
+            </div>
           </div>
           <div className="flex items-center justify-between">
             <span>Khối lượng:</span>
             <span className="font-semibold text-gray-700">{product.weight} gram</span>
           </div>
+          {/* Stock status message */}
+          {product.stock > 0 && product.stock < 10 && (
+            <div className="mt-1 text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+              ⚡ Sắp hết hàng!
+            </div>
+          )}
+          {product.stock === 0 && (
+            <div className="mt-1 text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+              ❌ Tạm hết hàng
+            </div>
+          )}
         </div>
         
         {/* Color Options */}

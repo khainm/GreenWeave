@@ -613,14 +613,14 @@ namespace backend.Services
             {
                 _logger.LogInformation("Processing ViettelPost webhook data: {WebhookData}", webhookData);
                 
-                var webhookPayload = JsonSerializer.Deserialize<ViettelPostWebhookData>(webhookData, new JsonSerializerOptions
+                var webhookPayload = JsonSerializer.Deserialize<DTOs.ViettelPostWebhookData>(webhookData, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
 
-                if (webhookPayload == null)
+                if (webhookPayload?.DATA == null)
                 {
-                    _logger.LogWarning("Failed to deserialize webhook data");
+                    _logger.LogWarning("Webhook payload or DATA is null");
                     return Task.FromResult<ShippingWebhookDto?>(null);
                 }
 
@@ -653,18 +653,18 @@ namespace backend.Services
                     Status = webhookPayload.DATA.ORDER_STATUS.ToString(),
                     Timestamp = statusDate,
                     Description = statusDescription,
-                    Location = webhookPayload.DATA.NOTE,
+                    Location = webhookPayload.DATA.NOTE ?? "Unknown",
                     RawData = new Dictionary<string, object>
                     {
-                        ["ORDER_REFERENCE"] = webhookPayload.DATA.ORDER_REFERENCE,
-                        ["ORDER_STATUSDATE"] = webhookPayload.DATA.ORDER_STATUSDATE,
+                        ["ORDER_REFERENCE"] = webhookPayload.DATA.ORDER_REFERENCE ?? "",
+                        ["ORDER_STATUSDATE"] = webhookPayload.DATA.ORDER_STATUSDATE ?? "",
                         ["ORDER_STATUS"] = webhookPayload.DATA.ORDER_STATUS,
-                        ["NOTE"] = webhookPayload.DATA.NOTE,
+                        ["NOTE"] = webhookPayload.DATA.NOTE ?? "",
                         ["MONEY_COLLECTION"] = webhookPayload.DATA.MONEY_COLLECTION,
                         ["MONEY_TOTAL"] = webhookPayload.DATA.MONEY_TOTAL,
-                        ["EXPECTED_DELIVERY"] = webhookPayload.DATA.EXPECTED_DELIVERY,
+                        ["EXPECTED_DELIVERY"] = webhookPayload.DATA.EXPECTED_DELIVERY ?? "",
                         ["PRODUCT_WEIGHT"] = webhookPayload.DATA.PRODUCT_WEIGHT,
-                        ["ORDER_SERVICE"] = webhookPayload.DATA.ORDER_SERVICE
+                        ["ORDER_SERVICE"] = webhookPayload.DATA.ORDER_SERVICE ?? ""
                     }
                 });
             }
@@ -857,7 +857,17 @@ namespace backend.Services
                             
                             foreach (var service in priceAllResponse)
                             {
-                                var deliveryDays = ParseDeliveryTime(service.THOI_GIAN);
+                                var deliveryDays = ParseDeliveryTime(service.THOI_GIAN ?? "3 ngày");
+                                
+                                // Ensure minimum delivery time is 1 day
+                                if (deliveryDays <= 0)
+                                {
+                                    deliveryDays = 3; // Default to 3 days
+                                    _logger.LogWarning("🚨 [GetShippingOptionsAsync] Invalid delivery days ({DeliveryDays}), defaulting to 3 days", deliveryDays);
+                                }
+                                
+                                _logger.LogInformation("🔍 [GetShippingOptionsAsync] Service data: MA_DV_CHINH={ServiceCode}, TEN_DICHVU={ServiceName}, GIA_CUOC={Fee}, THOI_GIAN='{TimeString}' → {DeliveryDays} days", 
+                                    service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC, service.THOI_GIAN ?? "NULL", deliveryDays);
                                 
                                 var option = new ShippingOptionDto
                                 {
@@ -1139,21 +1149,22 @@ namespace backend.Services
             return serviceCode;
         }
 
-        private static int ParseDeliveryTime(string timeString)
+        private int ParseDeliveryTime(string timeString)
         {
             if (string.IsNullOrEmpty(timeString))
+            {
+                _logger.LogWarning("[ParseDeliveryTime] Empty or null time string provided. Defaulting to 3 days.");
                 return 3; // Default to 3 days
+            }
 
-            // Log the raw time string for debugging
-            Console.WriteLine($"[DEBUG] Parsing delivery time: '{timeString}'");
+            _logger.LogInformation("[ParseDeliveryTime] Parsing delivery time: '{TimeString}'", timeString);
 
             // Parse strings like "24 giờ", "12 giờ", "36 giờ"
             var match = System.Text.RegularExpressions.Regex.Match(timeString, @"(\d+)\s*giờ");
             if (match.Success && int.TryParse(match.Groups[1].Value, out var hours))
             {
-                // Convert hours to days (round up)
                 var days = (int)Math.Ceiling(hours / 24.0);
-                Console.WriteLine($"[DEBUG] Converted {hours} hours to {days} days");
+                _logger.LogInformation("[ParseDeliveryTime] Converted {Hours} hours to {Days} days", hours, days);
                 return days;
             }
 
@@ -1161,7 +1172,7 @@ namespace backend.Services
             var dayMatch = System.Text.RegularExpressions.Regex.Match(timeString, @"(\d+)\s*ngày");
             if (dayMatch.Success && int.TryParse(dayMatch.Groups[1].Value, out var dayCount))
             {
-                Console.WriteLine($"[DEBUG] Found {dayCount} days directly");
+                _logger.LogInformation("[ParseDeliveryTime] Found {DayCount} days directly", dayCount);
                 return dayCount;
             }
 
@@ -1170,7 +1181,7 @@ namespace backend.Services
             if (decimalDayMatch.Success && double.TryParse(decimalDayMatch.Groups[1].Value, out var decimalDays))
             {
                 var roundedDays = (int)Math.Ceiling(decimalDays);
-                Console.WriteLine($"[DEBUG] Found {decimalDays} decimal days, rounded to {roundedDays}");
+                _logger.LogInformation("[ParseDeliveryTime] Found {DecimalDays} decimal days, rounded to {RoundedDays}", decimalDays, roundedDays);
                 return roundedDays;
             }
 
@@ -1178,13 +1189,12 @@ namespace backend.Services
             var rangeMatch = System.Text.RegularExpressions.Regex.Match(timeString, @"(\d+)-(\d+)\s*ngày");
             if (rangeMatch.Success && int.TryParse(rangeMatch.Groups[1].Value, out var minDays) && int.TryParse(rangeMatch.Groups[2].Value, out var maxDays))
             {
-                // Take the average and round up
                 var avgDays = (int)Math.Ceiling((minDays + maxDays) / 2.0);
-                Console.WriteLine($"[DEBUG] Found range {minDays}-{maxDays} days, using average {avgDays}");
+                _logger.LogInformation("[ParseDeliveryTime] Found range {MinDays}-{MaxDays} days, using average {AvgDays}", minDays, maxDays, avgDays);
                 return avgDays;
             }
 
-            Console.WriteLine($"[DEBUG] Could not parse time string: '{timeString}', using default 3 days");
+            _logger.LogWarning("[ParseDeliveryTime] Could not parse time string: '{TimeString}'. Defaulting to 3 days.", timeString);
             return 3; // Default fallback
         }
 

@@ -187,10 +187,12 @@ export class OrderService {
   }
 
   /**
-   * Thanh toán đơn hàng
+   * Thanh toán đơn hàng - hỗ trợ cả PayOS và các phương thức khác
+   * Với PayOS: trả về { success: true, paymentUrl: "..." }
+   * Với COD/Bank: trả về { success: true, data: order, message: "..." }
    */
-  static async payOrder(orderId: number): Promise<Order> {
-    return await apiClient.post<Order>(`${this.BASE_PATH}/${orderId}/payment`)
+  static async payOrder(orderId: number): Promise<Order | { paymentUrl: string }> {
+    return await apiClient.post<Order | { paymentUrl: string }>(`${this.BASE_PATH}/${orderId}/payment`)
   }
 
   /**

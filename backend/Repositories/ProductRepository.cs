@@ -21,15 +21,44 @@ namespace backend.Repositories
             try
             {
                 return await _context.Products
-                    .Include(p => p.Images.OrderBy(i => i.SortOrder))
-                    .Include(p => p.Colors.OrderBy(c => c.SortOrder))
-                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    .Include(p => p.Images.Where(i => i.IsPrimary).OrderBy(i => i.SortOrder).Take(1)) // Only load primary image
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting all products");
+                throw;
+            }
+        }
+
+        public async Task<IEnumerable<Product>> GetAllAsync(int page, int pageSize)
+        {
+            try
+            {
+                return await _context.Products
+                    .Include(p => p.Images.Where(i => i.IsPrimary).OrderBy(i => i.SortOrder).Take(1)) // Only load primary image
+                    .OrderByDescending(p => p.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting paginated products");
+                throw;
+            }
+        }
+
+        public async Task<int> GetTotalCountAsync()
+        {
+            try
+            {
+                return await _context.Products.CountAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting product count");
                 throw;
             }
         }
