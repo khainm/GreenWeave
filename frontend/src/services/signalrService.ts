@@ -18,9 +18,11 @@ class SignalRService {
   }
 
   private setupConnection(): void {
-    // Use production URL or local development URL
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://api.greenweave.vn';
-    const hubUrl = `${baseUrl}/stockHub`;
+    // Use environment variable or fallback to local development URL
+    const hubUrl = import.meta.env.VITE_SIGNALR_HUB_URL || 
+                   `${import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'}/hubs/stock`;
+
+    console.log('🔧 [SignalR] Connecting to:', hubUrl);
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {

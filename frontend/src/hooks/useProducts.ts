@@ -29,10 +29,16 @@ export const useProducts = (refreshFlag?: boolean): UseProductsReturn => {
       setError(null);
       if (isRefetch) setRefetching(true); else setIsLoading(true);
       
+      console.log('🚀 [useProducts] Starting data fetch...');
+      const startTime = performance.now();
+      
       const [prods, cats] = await Promise.all([
         ProductService.getAllProducts(true), // Enable caching
-        CategoryService.list().catch(() => [])
+        CategoryService.list(true).catch(() => []) // Enable caching
       ]);
+      
+      const endTime = performance.now();
+      console.log(`⚡ [useProducts] Data fetched in ${(endTime - startTime).toFixed(2)}ms`);
       
       // Filter categories: active AND not custom (isCustomizable = false)
       // Custom categories are for CustomProductDesigner only, not ProductsPage

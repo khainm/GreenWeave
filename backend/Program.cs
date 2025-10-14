@@ -382,11 +382,30 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins",
-        builder =>
+        policyBuilder =>
         {
-            builder.WithOrigins("https://greenweave.vn")
-                   .AllowAnyHeader()
-                   .AllowAnyMethod();
+            if (builder.Environment.IsDevelopment())
+            {
+                // Development: Allow localhost origins
+                policyBuilder.WithOrigins(
+                    "http://localhost:5173",  // Vite dev server
+                    "http://localhost:3000",  // Alternative React port
+                    "https://localhost:5173",
+                     "https://localhost:5174",// HTTPS variant
+                    "https://localhost:3000"  // HTTPS variant
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
+            }
+            else
+            {
+                // Production: Only allow production domain
+                policyBuilder.WithOrigins("https://greenweave.vn")
+                       .AllowAnyHeader()
+                       .AllowAnyMethod()
+                       .AllowCredentials();
+            }
         });
 });
 

@@ -19,7 +19,19 @@ const ProductsPage: React.FC = () => {
 
   return (
     <>
-      {(isLoading || refetching) && <div className="fixed inset-0 bg-white bg-opacity-60 z-50 flex items-center justify-center"><div className="text-lg font-semibold text-green-700 animate-pulse">Đang cập nhật sản phẩm...</div></div>}
+      {(isLoading || refetching) && (
+        <div className="fixed inset-0 bg-white bg-opacity-80 z-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
+            <div className="text-lg font-semibold text-green-700">
+              {isLoading ? 'Đang tải sản phẩm...' : 'Đang cập nhật sản phẩm...'}
+            </div>
+            <div className="text-sm text-gray-500 mt-2">
+              Vui lòng đợi trong giây lát
+            </div>
+          </div>
+        </div>
+      )}
       <ProductsPageLayout
         products={products}
         categories={categories}
