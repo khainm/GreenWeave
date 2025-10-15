@@ -1,6 +1,8 @@
 using backend.Interfaces.Services;
 using backend.Models;
 using System.Text;
+using DinkToPdf;
+using DinkToPdf.Contracts;
 
 namespace backend.Services
 {
@@ -8,11 +10,13 @@ namespace backend.Services
     {
         private readonly ILogger<PdfService> _logger;
         private readonly IWebHostEnvironment _environment;
+        private readonly IConverter _converter;
 
-        public PdfService(ILogger<PdfService> logger, IWebHostEnvironment environment)
+        public PdfService(ILogger<PdfService> logger, IWebHostEnvironment environment, IConverter converter)
         {
             _logger = logger;
             _environment = environment;
+            _converter = converter;
         }
 
         public async Task<byte[]> GenerateInvoicePdfAsync(Order order, Invoice invoice)
@@ -171,10 +175,37 @@ namespace backend.Services
 
         private async Task<byte[]> ConvertHtmlToPdfAsync(string htmlContent)
         {
-            // Tạm thời return empty bytes, sẽ implement sau khi cài DinkToPdf
-            // Hoặc sử dụng thư viện khác như PuppeteerSharp
-            await Task.CompletedTask;
-            return Encoding.UTF8.GetBytes(htmlContent); // Tạm thời trả về HTML bytes
+            try
+            {
+                var doc = new HtmlToPdfDocument()
+                {
+                    GlobalSettings = {
+                        ColorMode = ColorMode.Color,
+                        Orientation = Orientation.Portrait,
+                        PaperSize = PaperKind.A4,
+                        Margins = new MarginSettings { Top = 10, Bottom = 10, Left = 10, Right = 10 },
+                        DocumentTitle = "Hóa đơn GreenWeave",
+                        DPI = 300
+                    },
+                    Objects = {
+                        new ObjectSettings() {
+                            PagesCount = true,
+                            HtmlContent = htmlContent,
+                            WebSettings = { DefaultEncoding = "utf-8" },
+                            HeaderSettings = { FontName = "Arial", FontSize = 9, Right = "Trang [page] / [toPage]", Line = true },
+                            FooterSettings = { FontName = "Arial", FontSize = 9, Line = true, Center = "GreenWeave - Thời trang bền vững" }
+                        }
+                    }
+                };
+
+                var pdfBytes = _converter.Convert(doc);
+                return await Task.FromResult(pdfBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error converting HTML to PDF");
+                throw new InvalidOperationException("Không thể tạo file PDF. Vui lòng thử lại sau.", ex);
+            }
         }
 
         private string GetInvoiceStylesheet()

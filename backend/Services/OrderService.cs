@@ -89,6 +89,22 @@ namespace backend.Services
                     throw new ArgumentException("Địa chỉ giao hàng không hợp lệ");
                 }
 
+                // Validate address format and completeness
+                var addressValidation = backend.Utilities.AddressValidator.ValidateForShipping(shippingAddress);
+                if (!addressValidation.IsValid)
+                {
+                    var errorMessage = "Địa chỉ giao hàng không hợp lệ: " + string.Join(", ", addressValidation.Errors);
+                    _logger.LogWarning("Address validation failed for order creation: {Errors}", errorMessage);
+                    throw new ArgumentException(errorMessage);
+                }
+
+                // Log warnings if any
+                if (addressValidation.Warnings.Any())
+                {
+                    _logger.LogWarning("Address validation warnings for order: {Warnings}", 
+                        string.Join(", ", addressValidation.Warnings));
+                }
+
                 // Calculate totals
                 var subtotal = await CalculateSubtotalAsync(createOrderDto.Items);
                 var total = subtotal + createOrderDto.ShippingFee - createOrderDto.Discount;
@@ -163,6 +179,35 @@ namespace backend.Services
                 
                 // Reserve stock for the order
                 await ReserveStockForOrderAsync(createdOrder.Id, createOrderDto.Items, selectedWarehouse.WarehouseId);
+
+                // 🔥 Send immediate order creation confirmation email
+                try
+                {
+                    // Load customer info with the order
+                    var orderWithCustomer = await _orderRepository.GetByIdAsync(createdOrder.Id);
+                    if (orderWithCustomer?.Customer != null && 
+                        !string.IsNullOrEmpty(orderWithCustomer.Customer.Email) &&
+                        !string.IsNullOrEmpty(orderWithCustomer.Customer.FullName))
+                    {
+                        await _emailService.SendOrderCreatedEmailAsync(
+                            orderWithCustomer.Customer.Email,
+                            orderWithCustomer.Customer.FullName,
+                            createdOrder.OrderNumber,
+                            createdOrder.Total,
+                            createOrderDto.PaymentMethod.ToString()
+                        );
+                        _logger.LogInformation("✅ Order creation confirmation email sent for order: {OrderNumber}", createdOrder.OrderNumber);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("⚠️ Could not load customer info or missing email/name for order: {OrderNumber}", createdOrder.OrderNumber);
+                    }
+                }
+                catch (Exception emailEx)
+                {
+                    _logger.LogError(emailEx, "⚠️ Failed to send order creation confirmation email for order: {OrderNumber}", createdOrder.OrderNumber);
+                    // Don't throw - email failure shouldn't affect order creation
+                }
                 
                 return MapToResponseDto(createdOrder);
             }

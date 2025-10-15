@@ -12,6 +12,7 @@
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'http' " />
   <ItemGroup>
     <PackageReference Include="CloudinaryDotNet" Version="1.27.7" />
+    <PackageReference Include="DinkToPdf" Version="1.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
@@ -23,5 +24,61 @@
     <PackageReference Include="SendGrid" Version="9.29.3" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="publish\Microsoft.Win32.SystemEvents.dll" />
+    <None Remove="publish\Microsoft.IdentityModel.Logging.dll" />
+    <None Remove="publish\libmscordbi.so" />
+    <None Remove="publish\backend.dll" />
+    <None Remove="publish\System.Security.Permissions.dll" />
+    <None Remove="publish\Microsoft.EntityFrameworkCore.dll" />
+    <None Remove="publish\libmscordaccore.so" />
+    <None Remove="publish\Microsoft.EntityFrameworkCore.Abstractions.dll" />
+    <None Remove="publish\Azure.Core.dll" />
+    <None Remove="publish\Microsoft.IdentityModel.Protocols.OpenIdConnect.dll" />
+    <None Remove="publish\CloudinaryDotNet.dll" />
+    <None Remove="publish\libclrjit.so" />
+    <None Remove="publish\Azure.Identity.dll" />
+    <None Remove="publish\backend.pdb" />
+    <None Remove="publish\payos-lib-backend-dotnet.dll" />
+    <None Remove="publish\libcoreclrtraceptprovider.so" />
+    <None Remove="publish\Microsoft.IdentityModel.Protocols.dll" />
+    <None Remove="publish\System.Windows.Extensions.dll" />
+    <None Remove="publish\StarkbankEcdsa.dll" />
+    <None Remove="publish\Microsoft.OpenApi.dll" />
+    <None Remove="publish\SendGrid.dll" />
+    <None Remove="publish\Microsoft.EntityFrameworkCore.Relational.dll" />
+    <None Remove="publish\backend" />
+    <None Remove="publish\Microsoft.SqlServer.Server.dll" />
+    <None Remove="publish\Swashbuckle.AspNetCore.SwaggerUI.dll" />
+    <None Remove="publish\Microsoft.AspNetCore.Authentication.JwtBearer.dll" />
+    <None Remove="publish\Swashbuckle.AspNetCore.SwaggerGen.dll" />
+    <None Remove="publish\Microsoft.IdentityModel.JsonWebTokens.dll" />
+    <None Remove="publish\Microsoft.IdentityModel.Abstractions.dll" />
+    <None Remove="publish\Microsoft.Identity.Client.dll" />
+    <None Remove="publish\System.Memory.Data.dll" />
+    <None Remove="publish\Newtonsoft.Json.dll" />
+    <None Remove="publish\libSystem.Security.Cryptography.Native.OpenSsl.so" />
+    <None Remove="publish\System.Security.Cryptography.ProtectedData.dll" />
+    <None Remove="publish\System.IdentityModel.Tokens.Jwt.dll" />
+    <None Remove="publish\System.Runtime.Caching.dll" />
+    <None Remove="publish\Microsoft.AspNetCore.Identity.EntityFrameworkCore.dll" />
+    <None Remove="publish\Microsoft.IdentityModel.Tokens.dll" />
+    <None Remove="publish\backend.xml" />
+    <None Remove="publish\System.Configuration.ConfigurationManager.dll" />
+    <None Remove="publish\Microsoft.Identity.Client.Extensions.Msal.dll" />
+    <None Remove="publish\Microsoft.Data.SqlClient.dll" />
+    <None Remove="publish\libhostpolicy.so" />
+    <None Remove="publish\Microsoft.EntityFrameworkCore.SqlServer.dll" />
+    <None Remove="publish\Swashbuckle.AspNetCore.Swagger.dll" />
+    <None Remove="publish\System.Drawing.Common.dll" />
+    <None Remove="publish\Microsoft.Bcl.AsyncInterfaces.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Remove="publish\backend.runtimeconfig.json" />
+    <Content Remove="publish\appsettings.json" />
+    <Content Remove="publish\global.json" />
+    <Content Remove="publish\appsettings.Development.json" />
+    <Content Remove="publish\backend.deps.json" />
   </ItemGroup>
 </Project>

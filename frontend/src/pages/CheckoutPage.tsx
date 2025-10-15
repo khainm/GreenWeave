@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/layout/Header';
 import ShippingProviderSelector from '../components/shipping/ShippingProviderSelector';
+import SenderLocationSelector from '../components/checkout/SenderLocationSelector';
+import { AddressValidator } from '../utils/addressValidator';
 import type { 
   ShippingOption, 
   UserAddress,
   CartItem,
-  PaymentMethod
+  PaymentMethod,
+  InventoryData
 } from '../types';
 import OrderService from '../services/orderService';
 import { userAddressService } from '../services/userAddressService';
@@ -22,9 +25,17 @@ const CheckoutPage: React.FC = () => {
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingOption | null>(null);
+  const [selectedSenderLocation, setSelectedSenderLocation] = useState<InventoryData | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [orderNotes, setOrderNotes] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CashOnDelivery');
+  
+  // Address validation state
+  const [addressValidation, setAddressValidation] = useState<{
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+  }>({ isValid: true, errors: [], warnings: [] });
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -128,30 +139,95 @@ const CheckoutPage: React.FC = () => {
 
   const handleAddressChange = (addressId: string) => {
     setSelectedAddressId(addressId);
+    
+    // Validate selected address
+    const address = addresses.find(addr => addr.id === addressId);
+    if (address) {
+      const validation = AddressValidator.validateForCheckout({
+        fullName: address.fullName,
+        phoneNumber: address.phoneNumber,
+        addressLine: address.addressLine,
+        ward: address.ward,
+        district: address.district,
+        province: address.province
+      });
+      
+      setAddressValidation(validation);
+      
+      // Show validation messages immediately
+      if (!validation.isValid) {
+        setError(`Địa chỉ giao hàng không hợp lệ: ${validation.errors.join(', ')}`);
+      } else if (validation.warnings.length > 0) {
+        // Clear errors but could show warnings in UI
+        setError(null);
+      } else {
+        setError(null);
+      }
+    } else {
+      setAddressValidation({ isValid: true, errors: [], warnings: [] });
+    }
+    
     // Reset shipping selection when address changes
     setSelectedShippingOption(null);
     setShippingFee(0);
   };
 
-  const handleSubmitOrder = async () => {
+  const validateCheckoutData = (): string | null => {
+    // Basic validation
     if (!selectedAddress || !selectedShippingOption || !user) {
-      setError('Vui lòng chọn địa chỉ giao hàng và phương thức vận chuyển');
-      return;
+      return 'Vui lòng chọn địa chỉ giao hàng và phương thức vận chuyển';
     }
 
     if (cartItems.length === 0) {
-      setError('Giỏ hàng trống');
+      return 'Giỏ hàng trống';
+    }
+
+    // Address validation
+    const validation = AddressValidator.validateForCheckout({
+      fullName: selectedAddress.fullName,
+      phoneNumber: selectedAddress.phoneNumber,
+      addressLine: selectedAddress.addressLine,
+      ward: selectedAddress.ward,
+      district: selectedAddress.district,
+      province: selectedAddress.province
+    });
+
+    if (!validation.isValid) {
+      return `Địa chỉ giao hàng không hợp lệ:\n${validation.errors.join('\n')}`;
+    }
+
+    // Stock validation
+    for (const item of cartItems) {
+      if (item.quantity <= 0) {
+        return `Số lượng sản phẩm #${item.productId} không hợp lệ`;
+      }
+    }
+
+    return null;
+  };
+
+  const handleSubmitOrder = async () => {
+    setSubmitting(true);
+    setError(null);
+
+    // Comprehensive validation
+    const validationError = validateCheckoutData();
+    if (validationError) {
+      setError(validationError);
+      setSubmitting(false);
       return;
     }
 
-    setSubmitting(true);
-    setError(null);
+    // Safe access with non-null assertion after validation
+    const validUser = user!;
+    const validAddress = selectedAddress!;
+    const validShipping = selectedShippingOption!;
 
     try {
       // Create order
       const orderData = {
-        customerId: user.id,
-        shippingAddressId: selectedAddress.id,
+        customerId: validUser.id,
+        shippingAddressId: validAddress.id,
         items: cartItems.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -161,8 +237,8 @@ const CheckoutPage: React.FC = () => {
         shippingFee: shippingFee,
         discount: 0,
         notes: orderNotes,
-        shippingProvider: selectedShippingOption.provider,
-        shippingServiceId: selectedShippingOption.serviceId,
+        shippingProvider: validShipping.provider,
+        shippingServiceId: validShipping.serviceId,
         paymentMethod: paymentMethod
       };
 
@@ -295,56 +371,117 @@ const CheckoutPage: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {addresses.map((address) => (
-                    <label
-                      key={address.id}
-                      className={`
-                        relative flex items-start p-4 border rounded-lg cursor-pointer transition-all
-                        ${selectedAddressId === address.id
-                          ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
-                          : 'border-gray-200 hover:border-gray-300'
-                        }
-                      `}
-                    >
-                      <input
-                        type="radio"
-                        name="shipping-address"
-                        value={address.id}
-                        checked={selectedAddressId === address.id}
-                        onChange={() => handleAddressChange(address.id)}
-                        className="sr-only"
-                      />
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium text-gray-900">{address.fullName}</h3>
-                          {address.isDefault && (
-                            <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                              Mặc định
-                            </span>
+                  {addresses.map((address) => {
+                    // Check validation for this address
+                    const addressValidation = AddressValidator.validateForCheckout({
+                      fullName: address.fullName,
+                      phoneNumber: address.phoneNumber,
+                      addressLine: address.addressLine,
+                      ward: address.ward,
+                      district: address.district,
+                      province: address.province
+                    });
+                    
+                    const isSelected = selectedAddressId === address.id;
+                    const hasErrors = !addressValidation.isValid;
+                    const hasWarnings = addressValidation.warnings.length > 0;
+                    
+                    return (
+                      <label
+                        key={address.id}
+                        className={`
+                          relative flex items-start p-4 border rounded-lg cursor-pointer transition-all
+                          ${isSelected && !hasErrors
+                            ? 'border-green-500 bg-green-50 ring-2 ring-green-200'
+                            : isSelected && hasErrors
+                            ? 'border-red-500 bg-red-50 ring-2 ring-red-200'
+                            : hasErrors
+                            ? 'border-red-300 bg-red-25'
+                            : hasWarnings
+                            ? 'border-yellow-300 bg-yellow-25'
+                            : 'border-gray-200 hover:border-gray-300'
+                          }
+                        `}
+                      >
+                        <input
+                          type="radio"
+                          name="shipping-address"
+                          value={address.id}
+                          checked={isSelected}
+                          onChange={() => handleAddressChange(address.id)}
+                          className="sr-only"
+                        />
+                        
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-gray-900">{address.fullName}</h3>
+                            {address.isDefault && (
+                              <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                                Mặc định
+                              </span>
+                            )}
+                            {hasErrors && (
+                              <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">
+                                Lỗi
+                              </span>
+                            )}
+                            {!hasErrors && hasWarnings && (
+                              <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded">
+                                Cảnh báo
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{address.phoneNumber}</p>
+                          <p className="text-sm text-gray-600">
+                            {address.addressLine}, {address.ward && `${address.ward}, `}
+                            {address.district}, {address.province}
+                          </p>
+                          
+                          {/* Validation Messages */}
+                          {isSelected && hasErrors && (
+                            <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm">
+                              <p className="text-red-800 font-medium">Địa chỉ không hợp lệ:</p>
+                              <ul className="text-red-700 list-disc list-inside">
+                                {addressValidation.errors.map((error, idx) => (
+                                  <li key={idx}>{error}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {isSelected && !hasErrors && hasWarnings && (
+                            <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                              <p className="text-yellow-800 font-medium">Lưu ý:</p>
+                              <ul className="text-yellow-700 list-disc list-inside">
+                                {addressValidation.warnings.map((warning, idx) => (
+                                  <li key={idx}>{warning}</li>
+                                ))}
+                              </ul>
+                            </div>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600">{address.phoneNumber}</p>
-                        <p className="text-sm text-gray-600">
-                          {address.addressLine}, {address.ward && `${address.ward}, `}
-                          {address.district}, {address.province}
-                        </p>
-                      </div>
-                      
-                      {/* Custom radio indicator */}
-                      <div className={`
-                        w-4 h-4 rounded-full border-2 transition-all
-                        ${selectedAddressId === address.id
-                          ? 'border-green-500 bg-green-500'
-                          : 'border-gray-300'
-                        }
-                      `}>
-                        {selectedAddressId === address.id && (
-                          <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-                        )}
-                      </div>
-                    </label>
-                  ))}
+                        
+                        {/* Custom radio indicator */}
+                        <div className={`
+                          w-4 h-4 rounded-full border-2 transition-all flex-shrink-0
+                          ${isSelected && !hasErrors
+                            ? 'border-green-500 bg-green-500'
+                            : isSelected && hasErrors
+                            ? 'border-red-500 bg-red-500'
+                            : hasErrors
+                            ? 'border-red-400'
+                            : hasWarnings
+                            ? 'border-yellow-400'
+                            : 'border-gray-300'
+                          }
+                        `}>
+                          {isSelected && (
+                            <div className="w-2 h-2 bg-white rounded-full absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
                   
                   <button
                     onClick={() => navigate('/addresses')}
@@ -354,6 +491,18 @@ const CheckoutPage: React.FC = () => {
                   </button>
                 </div>
               )}
+            </div>
+
+            {/* Sender Location Selection */}
+            <div className="bg-white p-6 rounded-lg shadow">
+              <SenderLocationSelector
+                selectedLocation={selectedSenderLocation}
+                onLocationSelect={setSelectedSenderLocation}
+                className="w-full"
+              />
+              <div className="mt-3 text-sm text-gray-500">
+                💡 <strong>Tip:</strong> Chọn địa điểm gửi hàng phù hợp để có mức phí vận chuyển tối ưu
+              </div>
             </div>
 
         {/* Shipping Provider */}
@@ -550,13 +699,72 @@ const CheckoutPage: React.FC = () => {
               )}
             </div>
 
+            {/* Address Validation Summary */}
+            {selectedAddress && (
+              (() => {
+                const validation = AddressValidator.validateForCheckout({
+                  fullName: selectedAddress.fullName,
+                  phoneNumber: selectedAddress.phoneNumber,
+                  addressLine: selectedAddress.addressLine,
+                  ward: selectedAddress.ward,
+                  district: selectedAddress.district,
+                  province: selectedAddress.province
+                });
+                
+                if (!validation.isValid) {
+                  return (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-red-800">Địa chỉ giao hàng có vấn đề</span>
+                      </div>
+                      <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+                        {validation.errors.map((error, idx) => (
+                          <li key={idx}>{error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                } else if (validation.warnings.length > 0) {
+                  return (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <svg className="w-4 h-4 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-yellow-800">Lưu ý về địa chỉ giao hàng</span>
+                      </div>
+                      <ul className="text-sm text-yellow-700 list-disc list-inside space-y-1">
+                        {validation.warnings.map((warning, idx) => (
+                          <li key={idx}>{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                } else {
+                  return (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-sm font-medium text-green-800">Địa chỉ giao hàng hợp lệ</span>
+                      </div>
+                    </div>
+                  );
+                }
+              })()
+            )}
+
             {/* Submit Button */}
             <button
               onClick={handleSubmitOrder}
-              disabled={!selectedAddress || !selectedShippingOption || submitting}
+              disabled={!selectedAddress || !selectedShippingOption || submitting || !addressValidation.isValid}
               className={`
                 w-full mt-6 py-3 px-4 rounded-lg font-medium transition-colors
-                ${selectedAddress && selectedShippingOption && !submitting
+                ${selectedAddress && selectedShippingOption && !submitting && addressValidation.isValid
                   ? 'bg-green-600 text-white hover:bg-green-700'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                 }

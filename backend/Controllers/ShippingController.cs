@@ -4,6 +4,7 @@ using backend.Interfaces.Services;
 using backend.DTOs;
 using backend.Models;
 using backend.Extensions;
+using backend.Services;
 using System.ComponentModel.DataAnnotations;
 
 namespace backend.Controllers
@@ -309,6 +310,78 @@ namespace backend.Controllers
             {
                 _logger.LogError(ex, "Error getting inventory list");
                 return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy danh sách kho hàng" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách kho hàng ViettelPost từ owner token (alternative endpoint)
+        /// </summary>
+        /// <response code="200">Lấy danh sách kho hàng owner thành công</response>
+        /// <response code="500">Lỗi hệ thống</response>
+        [HttpGet("inventory/owner")]
+        [Authorize(Roles = "Admin,Staff")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ListInventoryResult>> GetOwnerInventory([FromServices] IViettelPostOwnerService ownerService)
+        {
+            try
+            {
+                var result = await ownerService.GetCurrentUserInventoryAsync();
+                return Ok(new { 
+                    success = result.IsSuccess, 
+                    data = result.Inventories,
+                    message = result.Message,
+                    error = result.ErrorMessage
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting owner inventory list");
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy danh sách kho hàng owner" });
+            }
+        }
+
+        /// <summary>
+        /// Đăng ký kho hàng/điểm lấy hàng mới với ViettelPost
+        /// </summary>
+        /// <param name="request">Thông tin đăng ký kho hàng</param>
+        /// <response code="200">Đăng ký kho hàng thành công</response>
+        /// <response code="400">Dữ liệu đầu vào không hợp lệ</response>
+        /// <response code="500">Lỗi hệ thống</response>
+        [HttpPost("inventory/register")]
+        [Authorize(Roles = "Admin,Staff")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<RegisterInventoryResult>> RegisterInventory([FromBody] RegisterInventoryRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Dữ liệu đầu vào không hợp lệ",
+                        errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)
+                    });
+                }
+
+                var result = await _shippingService.RegisterInventoryAsync(request);
+                
+                return Ok(new { 
+                    success = result.IsSuccess, 
+                    data = result.IsSuccess ? new { 
+                        groupAddressId = result.GroupAddressId,
+                        message = result.Message 
+                    } : null,
+                    error = result.ErrorMessage,
+                    errorCode = result.ErrorCode
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering inventory with request: {@Request}", request);
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi đăng ký kho hàng" });
             }
         }
     }

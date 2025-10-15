@@ -15,6 +15,18 @@ namespace backend.Interfaces.Services
         );
         
         /// <summary>
+        /// 🚀 Gửi email với PDF attachment từ memory (không lưu file trên server)
+        /// </summary>
+        Task<bool> SendEmailWithMemoryAttachmentAsync(
+            string toEmail, 
+            string toName, 
+            string subject, 
+            string htmlBody, 
+            byte[] attachmentBytes, 
+            string attachmentName
+        );
+        
+        /// <summary>
         /// Gửi email thông báo xác nhận đơn hàng
         /// </summary>
         Task<bool> SendOrderConfirmationEmailAsync(
@@ -22,6 +34,16 @@ namespace backend.Interfaces.Services
             string customerName,
             string orderNumber,
             string invoicePath
+        );
+        
+        /// <summary>
+        /// 🚀 Gửi email thông báo xác nhận đơn hàng với PDF từ memory
+        /// </summary>
+        Task<bool> SendOrderConfirmationEmailWithMemoryPdfAsync(
+            string customerEmail,
+            string customerName,
+            string orderNumber,
+            byte[] pdfBytes
         );
         
         /// <summary>
@@ -45,6 +67,17 @@ namespace backend.Interfaces.Services
             string invoicePath,
             string printLink,
             DateTimeOffset expiryTime
+        );
+        
+        /// <summary>
+        /// 🔥 Gửi email xác nhận đơn hàng ngay khi tạo (immediate confirmation)
+        /// </summary>
+        Task<bool> SendOrderCreatedEmailAsync(
+            string customerEmail,
+            string customerName,
+            string orderNumber,
+            decimal totalAmount,
+            string paymentMethod
         );
         
         /// <summary>

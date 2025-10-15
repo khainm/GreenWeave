@@ -79,5 +79,12 @@ namespace backend.Interfaces.Services
         /// </summary>
         /// <returns>Inventory list result</returns>
         Task<ListInventoryResult> ListInventoryAsync();
+
+        /// <summary>
+        /// Register inventory/warehouse with shipping provider
+        /// </summary>
+        /// <param name="request">Inventory registration request</param>
+        /// <returns>Registration result</returns>
+        Task<RegisterInventoryResult> RegisterInventoryAsync(RegisterInventoryRequest request);
     }
 }

@@ -217,6 +217,7 @@ namespace backend.Services
                 -108 => "Đơn hàng đã gửi tại bưu cục",
                 -109 => "Đơn hàng đã gửi tại điểm tập kết",
                 -110 => "Đơn hàng được bàn giao bởi bưu cục",
+                -15 => "Hủy đơn hàng - Trạng thái kết thúc",
                 100 => "Nhận đơn hàng của khách hàng - ViettelPost đang xử lý đơn hàng",
                 101 => "ViettelPost yêu cầu khách hàng hủy đơn hàng",
                 102 => "Đơn hàng đang được xử lý",

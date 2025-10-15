@@ -158,6 +158,56 @@ export class ShippingService {
       throw new Error('Không thể lấy danh sách kho hàng');
     }
   }
+
+  /**
+   * Register new inventory/warehouse with ViettelPost
+   */
+  static async registerInventory(request: {
+    phone: string;
+    name: string;
+    address: string;
+    wardsId: number;
+  }): Promise<{ success: boolean; groupAddressId?: number; message?: string; error?: string; errorCode?: number }> {
+    try {
+      console.log('🔍 [ShippingService] Calling registerInventory with:', request);
+      const response = await apiClient.post<{
+        success: boolean;
+        data?: { groupAddressId: number; message: string };
+        error?: string;
+        errorCode?: number;
+      }>('/api/shipping/inventory/register', {
+        phone: request.phone,
+        name: request.name,
+        address: request.address,
+        wardsId: request.wardsId
+      });
+      
+      console.log('🔍 [ShippingService] Register response:', response);
+      
+      if (response?.success && response?.data) {
+        console.log('✅ [ShippingService] Registration successful!', response.data);
+        return {
+          success: true,
+          groupAddressId: response.data.groupAddressId,
+          message: response.data.message
+        };
+      } else {
+        console.error('❌ [ShippingService] Registration failed:', response);
+        return {
+          success: false,
+          error: response?.error || 'Đăng ký kho hàng thất bại',
+          errorCode: response?.errorCode
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ [ShippingService] Error registering inventory:', error);
+      return {
+        success: false,
+        error: error?.response?.data?.message || error?.message || 'Không thể đăng ký kho hàng',
+        errorCode: error?.response?.data?.errorCode || 500
+      };
+    }
+  }
 }
 
 export default ShippingService;

@@ -18,19 +18,22 @@ namespace backend.Services
         private readonly IViettelPostAddressService _addressService;
         private string? _accessToken;
         private DateTime _tokenExpiry = DateTime.MinValue;
+        private readonly IViettelPostAuthService? _authService;
         public ShippingProvider Provider => ShippingProvider.ViettelPost;
 
         public ViettelPostShippingProvider(
             IOptions<ShippingConfiguration> shippingConfig,
             HttpClient httpClient,
             ILogger<ViettelPostShippingProvider> logger,
-            IViettelPostAddressService addressService)
+            IViettelPostAddressService addressService,
+            IViettelPostAuthService? authService = null)
         {
             var config = shippingConfig.Value;
             _config = config.ViettelPost;
             _httpClient = httpClient;
             _logger = logger;
             _addressService = addressService;
+            _authService = authService;
 
             _httpClient.BaseAddress = new Uri(_config.BaseUrl);
             _httpClient.Timeout = TimeSpan.FromSeconds(_config.TimeoutSeconds);
@@ -61,12 +64,48 @@ namespace backend.Services
                 _logger.LogInformation("  📍 To: {ToProvince}, {ToDistrict}", 
                     request.ToAddress.Province, request.ToAddress.District);
 
+                // 🔥 COMPREHENSIVE PRE-VALIDATION 
+                var validationResult = await ValidateShippingRequestAsync(request);
+                if (!validationResult.IsValid)
+                {
+                    _logger.LogError("❌ Shipping request validation failed: {Errors}", 
+                        string.Join("; ", validationResult.Errors));
+                    return new FeeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = $"Yêu cầu tính phí không hợp lệ: {string.Join(", ", validationResult.Errors)}"
+                    };
+                }
+
+                // Log warnings if any
+                if (validationResult.Warnings.Any())
+                {
+                    _logger.LogWarning("⚠️ Shipping request warnings: {Warnings}", 
+                        string.Join(", ", validationResult.Warnings));
+                }
+
                 await EnsureAuthenticatedAsync();
 
-                var senderProvinceId = request.FromAddress.ProvinceId ?? await GetProvinceIdAsync(request.FromAddress.Province);
-                var senderDistrictId = request.FromAddress.DistrictId ?? await GetDistrictIdAsync(request.FromAddress.District, senderProvinceId);
-                var receiverProvinceId = request.ToAddress.ProvinceId ?? await GetProvinceIdAsync(request.ToAddress.Province);
-                var receiverDistrictId = request.ToAddress.DistrictId ?? await GetDistrictIdAsync(request.ToAddress.District, receiverProvinceId);
+                // 🔥 ENHANCED ADDRESS MAPPING WITH STRICT ERROR HANDLING
+                var addressMappingResult = await MapAddressesWithValidationAsync(request);
+                if (!addressMappingResult.IsValid)
+                {
+                    _logger.LogError("❌ Address mapping failed: {Error}", addressMappingResult.ErrorMessage);
+                    return new FeeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = addressMappingResult.ErrorMessage
+                    };
+                }
+
+                var (senderProvinceId, senderDistrictId, receiverProvinceId, receiverDistrictId) = addressMappingResult;
+
+                // Log successful mapping
+                _logger.LogInformation("📋 Address mapping successful:");
+                _logger.LogInformation("  📤 Sender: {FromProvince} -> Province ID {SenderProvinceId}, {FromDistrict} -> District ID {SenderDistrictId}",
+                    request.FromAddress.Province, senderProvinceId, request.FromAddress.District, senderDistrictId);
+                _logger.LogInformation("  📥 Receiver: {ToProvince} -> Province ID {ReceiverProvinceId}, {ToDistrict} -> District ID {ReceiverDistrictId}",
+                    request.ToAddress.Province, receiverProvinceId, request.ToAddress.District, receiverDistrictId);
 
                 var payload = new
                 {
@@ -81,6 +120,9 @@ namespace backend.Services
                     TYPE = 1
                 };
 
+                _logger.LogInformation("🚀 Sending ViettelPost fee calculation request: {Payload}", 
+                    JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
+
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
 
@@ -88,7 +130,7 @@ namespace backend.Services
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Viettel Post fee calculation response: {Response}", responseContent);
+                _logger.LogInformation("📨 Viettel Post fee calculation response: {Response}", responseContent);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -116,8 +158,8 @@ namespace backend.Services
                                 IsSuccess = true,
                                 Fee = priceData.MONEY_TOTAL,
                                 ServiceId = request.ServiceId ?? _config.DefaultServiceId,
-                                ServiceName = "Viettel Post Standard", // Default service name for getPrice
-                                EstimatedDeliveryDays = 3, // Default delivery time since getPrice doesn't return this
+                                ServiceName = GetServiceDisplayName(request.ServiceId ?? _config.DefaultServiceId),
+                                EstimatedDeliveryDays = GetEstimatedDeliveryDays(request.ServiceId ?? _config.DefaultServiceId),
                                 AdditionalData = new Dictionary<string, object>
                                 {
                                     ["viettelpost_response"] = priceResponse,
@@ -253,9 +295,11 @@ namespace backend.Services
                     PRODUCT_LENGTH = 0,
                     PRODUCT_WIDTH = 0,
                     PRODUCT_HEIGHT = 0,
-                    PRODUCT_TYPE = "HH", // Hàng hóa/Goods - có thể mở rộng để hỗ trợ "TH" (Thư/Envelope)
-                    ORDER_PAYMENT = order.PaymentMethod == PaymentMethod.CashOnDelivery ? 3 : 1, // 3 = COD, 1 = Người gửi thanh toán
-                    ORDER_SERVICE = "VCN", // Dịch vụ chuyển phát nhanh
+                    PRODUCT_TYPE = _config.BusinessRules.ProductTypes.Default, // Configurable: HH (Hàng hóa) hoặc TH (Thư)
+                    ORDER_PAYMENT = order.PaymentMethod == PaymentMethod.CashOnDelivery ? 
+                        _config.BusinessRules.PaymentMethods.CashOnDelivery : 
+                        _config.BusinessRules.PaymentMethods.SenderPay, // Configurable payment methods
+                    ORDER_SERVICE = _config.BusinessRules.ServiceTypes.Default, // Configurable: VCN, VHT, etc.
                     ORDER_SERVICE_ADD = "",
                     ORDER_VOUCHER = "",
                     ORDER_NOTE = shippingRequest.Note ?? "",
@@ -771,8 +815,8 @@ namespace backend.Services
 
         public async Task<List<ShippingOptionDto>> GetShippingOptionsAsync(CalculateShippingFeeRequest request)
         {
-            const int maxRetries = 3;
-            const int retryDelayMs = 1000;
+            var maxRetries = _config.BusinessRules.MaxRetryAttempts;
+            var retryDelayMs = _config.BusinessRules.RetryDelayMs;
 
             for (int attempt = 1; attempt <= maxRetries; attempt++)
             {
@@ -1004,14 +1048,14 @@ namespace backend.Services
                         // Xử lý các error status theo API documentation
                         string errorMessage = result?.Status switch
                         {
-                            201 => "Cancel key in delivery note!",
-                            202 => "Correct delivery note",
-                            205 => "System error",
+                            201 => "Account have logged in on another machine! - Tài khoản đã đăng nhập trên thiết bị khác",
+                            202 => "Correct delivery note - Phiếu giao hàng chính xác", 
+                            205 => "System error - Lỗi hệ thống ViettelPost",
                             _ => result?.Message ?? "Không thể lấy danh sách kho hàng"
                         };
                         
-                        _logger.LogWarning("Failed to parse listInventory: Status={Status}, Error={Error}, Data={Data}", 
-                            result?.Status, result?.Error, result?.Data);
+                        _logger.LogWarning("ViettelPost listInventory API error: Status={Status}, Error={Error}, Message={Message}", 
+                            result?.Status, result?.Error, result?.Message);
                         
                         return new ListInventoryResult
                         {
@@ -1042,6 +1086,22 @@ namespace backend.Services
 
         private async Task EnsureAuthenticatedAsync()
         {
+            // Try using AuthService first if available
+            if (_authService != null)
+            {
+                try
+                {
+                    _accessToken = await _authService.GetValidTokenAsync();
+                    _tokenExpiry = DateTime.UtcNow.AddHours(23); // Conservative expiry
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "AuthService failed, falling back to static token");
+                }
+            }
+
+            // Fallback to original logic
             if (string.IsNullOrEmpty(_accessToken) || DateTime.UtcNow >= _tokenExpiry)
             {
                 await AuthenticateAsync();
@@ -1076,30 +1136,88 @@ namespace backend.Services
                     _logger.LogInformation("Searching for province: '{ProvinceName}' in {Count} provinces", 
                         provinceName, provincesResponse.Data.Count);
                     
-                    var province = provincesResponse.Data?.FirstOrDefault(p => 
+                    // Prioritize exact match first
+                    var exactMatch = provincesResponse.Data?.FirstOrDefault(p => 
+                        string.Equals(p.Name, provinceName, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (exactMatch != null)
+                    {
+                        _logger.LogInformation("✅ Exact match found: '{ProvinceName}' -> '{ViettelName}' (ID: {ProvinceId})", 
+                            provinceName, exactMatch.Name, exactMatch.Id);
+                        return exactMatch.Id;
+                    }
+                    
+                    // Try common mappings for major cities
+                    var normalizedName = provinceName.ToLower().Trim();
+                    switch (normalizedName)
+                    {
+                        case "hồ chí minh":
+                        case "tp hồ chí minh":
+                        case "tp.hồ chí minh":
+                        case "thành phố hồ chí minh":
+                            var hcm = provincesResponse.Data?.FirstOrDefault(p => 
+                                p.Name?.ToLower().Contains("hồ chí minh") == true);
+                            if (hcm != null) return hcm.Id;
+                            break;
+                            
+                        case "hà nội":
+                        case "tp hà nội":
+                        case "thành phố hà nội":
+                            var hanoi = provincesResponse.Data?.FirstOrDefault(p => 
+                                p.Name?.ToLower().Contains("hà nội") == true);
+                            if (hanoi != null) return hanoi.Id;
+                            break;
+                            
+                        case "đà nẵng":
+                        case "tp đà nẵng":
+                        case "thành phố đà nẵng":
+                            var danang = provincesResponse.Data?.FirstOrDefault(p => 
+                                p.Name?.ToLower().Contains("đà nẵng") == true);
+                            if (danang != null) return danang.Id;
+                            break;
+                            
+                        case "cần thơ":
+                        case "tp cần thơ":
+                        case "thành phố cần thơ":
+                            var cantho = provincesResponse.Data?.FirstOrDefault(p => 
+                                p.Name?.ToLower().Contains("cần thơ") == true);
+                            if (cantho != null) return cantho.Id;
+                            break;
+                            
+                        case "hải phòng":
+                        case "tp hải phòng":
+                        case "thành phố hải phòng":
+                            var haiphong = provincesResponse.Data?.FirstOrDefault(p => 
+                                p.Name?.ToLower().Contains("hải phòng") == true);
+                            if (haiphong != null) return haiphong.Id;
+                            break;
+                    }
+                    
+                    // Fallback to contains matching (less accurate)
+                    var containsMatch = provincesResponse.Data?.FirstOrDefault(p => 
                         p.Name?.ToLower().Contains(provinceName.ToLower()) == true ||
                         provinceName.ToLower().Contains(p.Name?.ToLower() ?? ""));
                     
-                    if (province != null)
+                    if (containsMatch != null)
                     {
-                        _logger.LogInformation("✅ Found province: '{ProvinceName}' -> ID: {ProvinceId}", 
-                            province.Name, province.Id);
-                        return province.Id;
+                        _logger.LogWarning("⚠️ Using fuzzy match: '{ProvinceName}' -> '{ViettelName}' (ID: {ProvinceId})", 
+                            provinceName, containsMatch.Name, containsMatch.Id);
+                        return containsMatch.Id;
                     }
                     else
                     {
-                        _logger.LogWarning("❌ Province not found: '{ProvinceName}'. Available provinces: {AvailableProvinces}", 
+                        _logger.LogError("❌ Province not found: '{ProvinceName}'. Available provinces: {AvailableProvinces}", 
                             provinceName, string.Join(", ", provincesResponse.Data?.Select(p => p.Name) ?? new string[0]));
                     }
                 }
                 
-                _logger.LogWarning("Province not found: {ProvinceName}, using default (Binh Dinh)", provinceName);
-                return 40; // Default to Binh Dinh (shop location)
+                _logger.LogWarning("Province not found: {ProvinceName}, this will cause shipping calculation to fail", provinceName);
+                return -1; // Return invalid ID to indicate error
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting province ID for: {ProvinceName}", provinceName);
-                return 40; // Default to Binh Dinh (shop location)
+                return -1; // Return invalid ID to indicate error
             }
         }
 
@@ -1113,40 +1231,103 @@ namespace backend.Services
                     _logger.LogInformation("Searching for district: '{DistrictName}' in province {ProvinceId} among {Count} districts", 
                         districtName, provinceId, districtsResponse.Data.Count);
                     
-                    var district = districtsResponse.Data?.FirstOrDefault(d => 
+                    // Prioritize exact match first
+                    var exactMatch = districtsResponse.Data?.FirstOrDefault(d => 
+                        string.Equals(d.Name, districtName, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (exactMatch != null)
+                    {
+                        _logger.LogInformation("✅ Exact district match: '{DistrictName}' -> '{ViettelName}' (ID: {DistrictId})", 
+                            districtName, exactMatch.Name, exactMatch.Id);
+                        return exactMatch.Id;
+                    }
+                    
+                    // Try normalized district names
+                    var normalizedName = districtName.ToLower().Trim()
+                        .Replace("quận ", "")
+                        .Replace("huyện ", "")
+                        .Replace("thành phố ", "")
+                        .Replace("thị xã ", "")
+                        .Replace("tp ", "")
+                        .Replace("q.", "")
+                        .Replace("h.", "");
+                    
+                    var normalizedMatch = districtsResponse.Data?.FirstOrDefault(d => {
+                        var viettelNormalized = d.Name?.ToLower()
+                            .Replace("quận ", "")
+                            .Replace("huyện ", "")
+                            .Replace("thành phố ", "")
+                            .Replace("thị xã ", "")
+                            .Replace("tp ", "")
+                            .Replace("q.", "")
+                            .Replace("h.", "");
+                        return string.Equals(viettelNormalized, normalizedName, StringComparison.OrdinalIgnoreCase);
+                    });
+                    
+                    if (normalizedMatch != null)
+                    {
+                        _logger.LogInformation("✅ Normalized district match: '{DistrictName}' -> '{ViettelName}' (ID: {DistrictId})", 
+                            districtName, normalizedMatch.Name, normalizedMatch.Id);
+                        return normalizedMatch.Id;
+                    }
+                    
+                    // Fallback to contains matching
+                    var containsMatch = districtsResponse.Data?.FirstOrDefault(d => 
                         d.Name?.ToLower().Contains(districtName.ToLower()) == true ||
                         districtName.ToLower().Contains(d.Name?.ToLower() ?? ""));
                     
-                    if (district != null)
+                    if (containsMatch != null)
                     {
-                        _logger.LogInformation("✅ Found district: '{DistrictName}' -> ID: {DistrictId}", 
-                            district.Name, district.Id);
-                        return district.Id;
+                        _logger.LogWarning("⚠️ Using fuzzy district match: '{DistrictName}' -> '{ViettelName}' (ID: {DistrictId})", 
+                            districtName, containsMatch.Name, containsMatch.Id);
+                        return containsMatch.Id;
                     }
                     else
                     {
-                        _logger.LogWarning("❌ District not found: '{DistrictName}' in province {ProvinceId}. Available districts: {AvailableDistricts}", 
+                        _logger.LogError("❌ District not found: '{DistrictName}' in province {ProvinceId}. Available districts: {AvailableDistricts}", 
                             districtName, provinceId, string.Join(", ", districtsResponse.Data?.Select(d => d.Name) ?? new string[0]));
                     }
                 }
                 
-                _logger.LogWarning("District not found: {DistrictName} in province {ProvinceId}, using default (1)", 
+                _logger.LogWarning("District not found: {DistrictName} in province {ProvinceId}, this will cause shipping calculation to fail", 
                     districtName, provinceId);
-                return 1; // Default district
+                return -1; // Return invalid ID to indicate error
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting district ID for: {DistrictName} in province {ProvinceId}", 
                     districtName, provinceId);
-                return 1; // Default district
+                return -1; // Return invalid ID to indicate error
             }
         }
 
 
-        private static string GetServiceDisplayName(string serviceCode)
+        /// <summary>
+        /// 🔥 Get service display name from configuration to avoid hard-coding
+        /// </summary>
+        private string GetServiceDisplayName(string serviceCode)
         {
-            // Return the service code as display name since we're using API names directly
-            return serviceCode;
+            if (_config.BusinessRules.ServiceTypes.DisplayNames.TryGetValue(serviceCode, out var displayName))
+            {
+                return displayName;
+            }
+            
+            // Fallback for unknown service types
+            return $"Viettel Post {serviceCode}";
+        }
+
+        /// <summary>
+        /// 🔥 Get estimated delivery days from configuration to avoid hard-coding
+        /// </summary>
+        private int GetEstimatedDeliveryDays(string serviceId)
+        {
+            if (_config.BusinessRules.ServiceTypes.EstimatedDeliveryDays.TryGetValue(serviceId, out var days))
+            {
+                return days;
+            }
+            
+            // Fallback for unknown service types (default to standard delivery)
+            return 3;
         }
 
         private int ParseDeliveryTime(string timeString)
@@ -1243,6 +1424,7 @@ namespace backend.Services
                 -108 => "Đơn hàng đã gửi tại bưu cục",
                 -109 => "Đơn hàng đã gửi tại điểm tập kết",
                 -110 => "Đơn hàng được bàn giao bởi bưu cục",
+                -15 => "Hủy đơn hàng - Trạng thái kết thúc",
                 100 => "Nhận đơn hàng của khách hàng - ViettelPost đang xử lý đơn hàng",
                 101 => "ViettelPost yêu cầu khách hàng hủy đơn hàng",
                 102 => "Đơn hàng đang được xử lý",
@@ -1344,7 +1526,19 @@ namespace backend.Services
                         return new RegisterInventoryResult
                         {
                             IsSuccess = false,
-                            ErrorMessage = "Field error may not be blank (phone)"
+                            ErrorMessage = "Field error may not be blank (phone) - Số điện thoại không được để trống",
+                            ErrorCode = 203
+                        };
+                    }
+
+                    // Validate phone number format (Vietnamese phone number)
+                    if (!IsValidVietnamesePhoneNumber(request.Phone))
+                    {
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = "Invalid phone number format - Định dạng số điện thoại không hợp lệ (VD: 0901234567)",
+                            ErrorCode = 203
                         };
                     }
                     
@@ -1353,7 +1547,8 @@ namespace backend.Services
                         return new RegisterInventoryResult
                         {
                             IsSuccess = false,
-                            ErrorMessage = "Field error may not be blank (name)"
+                            ErrorMessage = "Field error may not be blank (name) - Tên không được để trống",
+                            ErrorCode = 203
                         };
                     }
                     
@@ -1362,7 +1557,8 @@ namespace backend.Services
                         return new RegisterInventoryResult
                         {
                             IsSuccess = false,
-                            ErrorMessage = "Field error may not be blank (address)"
+                            ErrorMessage = "Field error may not be blank (address) - Địa chỉ không được để trống",
+                            ErrorCode = 203
                         };
                     }
                     
@@ -1371,7 +1567,8 @@ namespace backend.Services
                         return new RegisterInventoryResult
                         {
                             IsSuccess = false,
-                            ErrorMessage = "Invalid ward status"
+                            ErrorMessage = "Invalid ward status - Mã xã/phường không hợp lệ",
+                            ErrorCode = 204
                         };
                     }
 
@@ -1425,24 +1622,25 @@ namespace backend.Services
                         }
                         else
                         {
-                            // Xử lý các error status theo API documentation
+                            // Xử lý các error status theo API documentation (UPDATED)
                             string errorMessage = result?.Status switch
                             {
-                                201 => "Cancel key in delivery note!",
-                                202 => "Correct delivery note",
-                                203 => "Field error may not be blank (email, phone, address, name ....)",
-                                204 => "Invalid province, district, ward status!",
-                                205 => "System error",
+                                201 => "Account have logged in on another machine! - Tài khoản đã đăng nhập trên thiết bị khác",
+                                202 => "Correct delivery note - Phiếu giao hàng chính xác",
+                                203 => "Field error may not be blank (email, phone, address, name ...) - Lỗi trường bắt buộc để trống",
+                                204 => "Invalid province, district, ward status! - Mã tỉnh, huyện, xã không hợp lệ",
+                                205 => "System error - Lỗi hệ thống ViettelPost",
                                 _ => result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
                             };
                             
-                            _logger.LogWarning("🔍 [DEBUG] Failed conditions: Status={Status}, DataNull={DataNull}, DataCount={DataCount}", 
-                                result?.Status, result?.Data == null, result?.Data?.Count);
+                            _logger.LogWarning("ViettelPost registerInventory API error: Status={Status}, Error={Error}, Message={Message}, DataNull={DataNull}, DataCount={DataCount}", 
+                                result?.Status, result?.Error, result?.Message, result?.Data == null, result?.Data?.Count);
                             
                             return new RegisterInventoryResult
                             {
                                 IsSuccess = false,
-                                ErrorMessage = errorMessage
+                                ErrorMessage = errorMessage,
+                                ErrorCode = result?.Status ?? 0
                             };
                         }
                     }
@@ -1495,7 +1693,319 @@ namespace backend.Services
                 ErrorMessage = $"Đăng ký kho hàng thất bại sau {maxRetries} lần thử"
             };
         }
+
+        /// <summary>
+        /// Validate Vietnamese phone number format using centralized validator
+        /// </summary>
+        private static bool IsValidVietnamesePhoneNumber(string phoneNumber)
+        {
+            return backend.Utilities.AddressValidator.IsValidVietnamesePhoneNumber(phoneNumber);
+        }
+
+        /// <summary>
+        /// 🔥 COMPREHENSIVE SHIPPING REQUEST VALIDATION
+        /// </summary>
+        private async Task<ShippingValidationResult> ValidateShippingRequestAsync(CalculateShippingFeeRequest request)
+        {
+            var result = new ShippingValidationResult { IsValid = true };
+
+            // 1. Basic request validation
+            if (request == null)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Shipping request is null");
+                return result;
+            }
+
+            // 2. Weight validation
+            if (request.Weight <= 0)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Trọng lượng phải lớn hơn 0 gram");
+            }
+            else if (request.Weight < _config.BusinessRules.MinWeightGrams)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"Trọng lượng phải từ {_config.BusinessRules.MinWeightGrams}g trở lên");
+            }
+            else if (request.Weight > _config.BusinessRules.MaxWeightGrams)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"Trọng lượng vượt quá giới hạn {_config.BusinessRules.MaxWeightGrams / 1000}kg của ViettelPost");
+            }
+
+            // 3. Insurance value validation
+            if (request.InsuranceValue < 0)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Giá trị bảo hiểm không được âm");
+            }
+            else if (request.InsuranceValue > _config.BusinessRules.MaxInsuranceValue)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"Giá trị bảo hiểm vượt quá giới hạn {_config.BusinessRules.MaxInsuranceValue:N0} VND");
+            }
+
+            // 4. COD amount validation
+            if (request.CodAmount < 0)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Số tiền thu hộ không được âm");
+            }
+            else if (request.CodAmount > _config.BusinessRules.MaxCodAmount)
+            {
+                result.IsValid = false;
+                result.Errors.Add($"Số tiền thu hộ vượt quá giới hạn {_config.BusinessRules.MaxCodAmount:N0} VND");
+            }
+
+            // 5. FROM Address validation
+            if (request.FromAddress == null)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Địa chỉ gửi hàng không được để trống");
+            }
+            else
+            {
+                var fromValidation = ValidateShippingAddress(request.FromAddress, "gửi hàng");
+                if (!fromValidation.IsValid)
+                {
+                    result.IsValid = false;
+                    result.Errors.AddRange(fromValidation.Errors);
+                }
+                result.Warnings.AddRange(fromValidation.Warnings);
+            }
+
+            // 6. TO Address validation
+            if (request.ToAddress == null)
+            {
+                result.IsValid = false;
+                result.Errors.Add("Địa chỉ nhận hàng không được để trống");
+            }
+            else
+            {
+                var toValidation = ValidateShippingAddress(request.ToAddress, "nhận hàng");
+                if (!toValidation.IsValid)
+                {
+                    result.IsValid = false;
+                    result.Errors.AddRange(toValidation.Errors);
+                }
+                result.Warnings.AddRange(toValidation.Warnings);
+            }
+
+            // 7. Cross-validation
+            if (request.FromAddress != null && request.ToAddress != null)
+            {
+                if (request.FromAddress.Province?.Equals(request.ToAddress.Province, StringComparison.OrdinalIgnoreCase) == true &&
+                    request.FromAddress.District?.Equals(request.ToAddress.District, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    result.Warnings.Add("Gửi và nhận trong cùng quận/huyện - có thể có phí vận chuyển đặc biệt");
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Validate individual shipping address
+        /// </summary>
+        private backend.Utilities.AddressValidator.AddressValidationResult ValidateShippingAddress(ShippingAddressDto address, string addressType)
+        {
+            var userAddress = new Models.UserAddress
+            {
+                FullName = address.Name ?? "",
+                PhoneNumber = address.Phone ?? "",
+                AddressLine = address.AddressDetail ?? "",
+                Ward = address.Ward ?? "",
+                District = address.District ?? "",
+                Province = address.Province ?? ""
+            };
+
+            var validation = backend.Utilities.AddressValidator.ValidateForShipping(userAddress);
+            
+            // Add context to errors
+            for (int i = 0; i < validation.Errors.Count; i++)
+            {
+                validation.Errors[i] = $"Địa chỉ {addressType}: {validation.Errors[i]}";
+            }
+            
+            for (int i = 0; i < validation.Warnings.Count; i++)
+            {
+                validation.Warnings[i] = $"Địa chỉ {addressType}: {validation.Warnings[i]}";
+            }
+
+            return validation;
+        }
+
+        /// <summary>
+        /// 🔥 ENHANCED ADDRESS MAPPING WITH COMPREHENSIVE ERROR HANDLING
+        /// </summary>
+        private async Task<AddressMappingResult> MapAddressesWithValidationAsync(CalculateShippingFeeRequest request)
+        {
+            try
+            {
+                // Map sender address
+                var senderProvinceId = request.FromAddress.ProvinceId ?? await GetProvinceIdWithErrorAsync(request.FromAddress.Province, "sender");
+                var senderDistrictId = request.FromAddress.DistrictId ?? await GetDistrictIdWithErrorAsync(request.FromAddress.District, senderProvinceId, "sender");
+
+                // Map receiver address
+                var receiverProvinceId = request.ToAddress.ProvinceId ?? await GetProvinceIdWithErrorAsync(request.ToAddress.Province, "receiver");
+                var receiverDistrictId = request.ToAddress.DistrictId ?? await GetDistrictIdWithErrorAsync(request.ToAddress.District, receiverProvinceId, "receiver");
+
+                // Validate all IDs were resolved successfully
+                if (senderProvinceId <= 0)
+                {
+                    return new AddressMappingResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = $"Không thể xác định ID tỉnh gửi hàng: '{request.FromAddress.Province}'. Vui lòng kiểm tra tên tỉnh/thành phố."
+                    };
+                }
+
+                if (senderDistrictId <= 0)
+                {
+                    return new AddressMappingResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = $"Không thể xác định ID quận/huyện gửi hàng: '{request.FromAddress.District}' trong tỉnh '{request.FromAddress.Province}'. Vui lòng kiểm tra tên quận/huyện."
+                    };
+                }
+
+                if (receiverProvinceId <= 0)
+                {
+                    return new AddressMappingResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = $"Không thể xác định ID tỉnh nhận hàng: '{request.ToAddress.Province}'. Vui lòng kiểm tra tên tỉnh/thành phố."
+                    };
+                }
+
+                if (receiverDistrictId <= 0)
+                {
+                    return new AddressMappingResult
+                    {
+                        IsValid = false,
+                        ErrorMessage = $"Không thể xác định ID quận/huyện nhận hàng: '{request.ToAddress.District}' trong tỉnh '{request.ToAddress.Province}'. Vui lòng kiểm tra tên quận/huyện."
+                    };
+                }
+
+                return new AddressMappingResult
+                {
+                    IsValid = true,
+                    SenderProvinceId = senderProvinceId,
+                    SenderDistrictId = senderDistrictId,
+                    ReceiverProvinceId = receiverProvinceId,
+                    ReceiverDistrictId = receiverDistrictId
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during address mapping");
+                return new AddressMappingResult
+                {
+                    IsValid = false,
+                    ErrorMessage = $"Lỗi hệ thống khi xác định địa chỉ: {ex.Message}"
+                };
+            }
+        }
+
+        /// <summary>
+        /// Get province ID with enhanced error handling
+        /// </summary>
+        private async Task<int> GetProvinceIdWithErrorAsync(string provinceName, string addressType)
+        {
+            if (string.IsNullOrWhiteSpace(provinceName))
+            {
+                _logger.LogError("❌ Empty province name for {AddressType}", addressType);
+                return -1;
+            }
+
+            try
+            {
+                var provinceId = await GetProvinceIdAsync(provinceName);
+                if (provinceId <= 0)
+                {
+                    _logger.LogError("❌ Failed to map province '{ProvinceName}' for {AddressType}", provinceName, addressType);
+                }
+                return provinceId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Exception mapping province '{ProvinceName}' for {AddressType}", provinceName, addressType);
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// Get district ID with enhanced error handling
+        /// </summary>
+        private async Task<int> GetDistrictIdWithErrorAsync(string districtName, int provinceId, string addressType)
+        {
+            if (string.IsNullOrWhiteSpace(districtName))
+            {
+                _logger.LogError("❌ Empty district name for {AddressType}", addressType);
+                return -1;
+            }
+
+            if (provinceId <= 0)
+            {
+                _logger.LogError("❌ Invalid province ID {ProvinceId} for district '{DistrictName}' ({AddressType})", provinceId, districtName, addressType);
+                return -1;
+            }
+
+            try
+            {
+                var districtId = await GetDistrictIdAsync(districtName, provinceId);
+                if (districtId <= 0)
+                {
+                    _logger.LogError("❌ Failed to map district '{DistrictName}' in province {ProvinceId} for {AddressType}", districtName, provinceId, addressType);
+                }
+                return districtId;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Exception mapping district '{DistrictName}' in province {ProvinceId} for {AddressType}", districtName, provinceId, addressType);
+                return -1;
+            }
+        }
     }
+
+    #region Helper Classes for Enhanced Validation
+
+    /// <summary>
+    /// Result of shipping request validation
+    /// </summary>
+    public class ShippingValidationResult
+    {
+        public bool IsValid { get; set; }
+        public List<string> Errors { get; set; } = new List<string>();
+        public List<string> Warnings { get; set; } = new List<string>();
+    }
+
+    /// <summary>
+    /// Result of address mapping with ViettelPost IDs
+    /// </summary>
+    public class AddressMappingResult
+    {
+        public bool IsValid { get; set; }
+        public string ErrorMessage { get; set; } = string.Empty;
+        public int SenderProvinceId { get; set; }
+        public int SenderDistrictId { get; set; }
+        public int ReceiverProvinceId { get; set; }
+        public int ReceiverDistrictId { get; set; }
+
+        /// <summary>
+        /// Deconstruct for easy unpacking: var (senderProvId, senderDistId, receiverProvId, receiverDistId) = result;
+        /// </summary>
+        public void Deconstruct(out int senderProvinceId, out int senderDistrictId, out int receiverProvinceId, out int receiverDistrictId)
+        {
+            senderProvinceId = SenderProvinceId;
+            senderDistrictId = SenderDistrictId;
+            receiverProvinceId = ReceiverProvinceId;
+            receiverDistrictId = ReceiverDistrictId;
+        }
+    }
+
+    #endregion
 
     #region Response Models for Viettel Post API
     public class ViettelPostAuthResponse

@@ -11,9 +11,14 @@ namespace backend.Interfaces.Services
         Task<InvoiceDto> CreateInvoiceAsync(CreateInvoiceDto createInvoiceDto);
         
         /// <summary>
-        /// Tạo file PDF biên lai
+        /// Tạo file PDF và trả về đường dẫn
         /// </summary>
         Task<string> GenerateInvoicePdfAsync(int orderId);
+        
+        /// <summary>
+        /// 🚀 OPTIMIZED: Tạo PDF bytes từ memory (không lưu file)
+        /// </summary>
+        Task<byte[]> GenerateInvoicePdfBytesAsync(int orderId);
         
         /// <summary>
         /// Gửi biên lai qua email

@@ -494,6 +494,24 @@ namespace backend.Services
                     PropertyNameCaseInsensitive = true
                 });
 
+                // ✅ NEW: Check for duplicate webhooks using ViettelPost specification
+                if (webhookPayload?.DATA != null)
+                {
+                    var isDuplicate = await CheckDuplicateWebhookAsync(
+                        webhookPayload.DATA.ORDER_STATUS,
+                        webhookPayload.DATA.ORDER_STATUSDATE,
+                        webhookPayload.DATA.ORDER_NUMBER,
+                        webhookPayload.DATA.ORDER_REFERENCE
+                    );
+
+                    if (isDuplicate)
+                    {
+                        _logger.LogInformation("🔄 [DUPLICATE-WEBHOOK] Skipping duplicate webhook for order {OrderNumber}, status {Status}, date {StatusDate}",
+                            webhookPayload.DATA.ORDER_NUMBER, webhookPayload.DATA.ORDER_STATUS, webhookPayload.DATA.ORDER_STATUSDATE);
+                        return true; // Return success but don't process
+                    }
+                }
+
                 // Find order by tracking code
                 var shippingRequest = await _shippingRequestRepository.GetByTrackingCodeAsync(webhookInfo.TrackingCode);
                 var order = shippingRequest?.Order;
@@ -510,15 +528,33 @@ namespace backend.Services
                     }
                     else
                     {
-                        // Update shipping status
-                        var newStatus = MapStringToShippingStatus(webhookInfo.Status);
-                        if (order.ShippingStatus != newStatus)
+                        // ✅ NEW: Check if order is in end state (shouldn't be updated anymore)
+                        if (IsEndState(order.ShippingStatus))
                         {
-                            order.ShippingStatus = newStatus;
-                            order.UpdatedAt = DateTime.UtcNow;
+                            _logger.LogInformation("🔒 [END-STATE] Skipping update for order {TrackingCode} - already in end state {CurrentStatus}",
+                                webhookInfo.TrackingCode, order.ShippingStatus);
+                            isSuccess = true; // Don't treat as error, just skip update
+                        }
+                        else
+                        {
+                            // Update shipping status
+                            var newStatus = MapStringToShippingStatus(webhookInfo.Status);
+                            
+                            // ✅ NEW: Check if incoming status is also an end state
+                            var incomingStatusCode = int.Parse(webhookInfo.Status);
+                            if (IsViettelPostEndState(incomingStatusCode))
+                            {
+                                _logger.LogInformation("📍 [END-STATE] Updating to final status {Status} for order {TrackingCode}",
+                                    incomingStatusCode, webhookInfo.TrackingCode);
+                            }
+                            
+                            if (order.ShippingStatus != newStatus)
+                            {
+                                order.ShippingStatus = newStatus;
+                                order.UpdatedAt = DateTime.UtcNow;
 
-                            // Update shipping history
-                            var history = GetShippingHistory(order.ShippingHistory);
+                                // Update shipping history
+                                var history = GetShippingHistory(order.ShippingHistory);
                             history.Add(new TrackingEvent
                             {
                                 Timestamp = webhookInfo.Timestamp,
@@ -534,6 +570,7 @@ namespace backend.Services
                         isSuccess = true;
                         _logger.LogInformation("Successfully processed webhook for tracking code {TrackingCode}", 
                             webhookInfo.TrackingCode);
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -784,6 +821,111 @@ namespace backend.Services
                     ErrorMessage = ex.Message
                 };
             }
+        }
+
+        public async Task<RegisterInventoryResult> RegisterInventoryAsync(RegisterInventoryRequest request)
+        {
+            try
+            {
+                var viettelPostProvider = _shippingProviders.FirstOrDefault(p => p.Provider == ShippingProvider.ViettelPost);
+                if (viettelPostProvider == null)
+                {
+                    return new RegisterInventoryResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "ViettelPost provider không khả dụng",
+                        ErrorCode = 500
+                    };
+                }
+
+                return await viettelPostProvider.RegisterInventoryAsync(request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error registering inventory");
+                return new RegisterInventoryResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message,
+                    ErrorCode = 500
+                };
+            }
+        }
+
+        /// <summary>
+        /// Check if webhook is duplicate using ViettelPost specification key sets
+        /// </summary>
+        private async Task<bool> CheckDuplicateWebhookAsync(int orderStatus, string? orderStatusDate, string? orderNumber, string? orderReference)
+        {
+            try
+            {
+                // Check for duplicate using primary key set: (ORDER_STATUS, ORDER_STATUSDATE, ORDER_NUMBER)
+                if (!string.IsNullOrEmpty(orderNumber) && !string.IsNullOrEmpty(orderStatusDate))
+                {
+                    var existsByOrderNumber = await _dbContext.WebhookLogs
+                        .AnyAsync(w => w.OrderStatus == orderStatus 
+                                    && w.OrderStatusDate == orderStatusDate 
+                                    && w.OrderNumber == orderNumber);
+                    
+                    if (existsByOrderNumber)
+                    {
+                        return true;
+                    }
+                }
+
+                // Check for duplicate using secondary key set: (ORDER_STATUS, ORDER_STATUSDATE, ORDER_REFERENCE)
+                if (!string.IsNullOrEmpty(orderReference) && !string.IsNullOrEmpty(orderStatusDate))
+                {
+                    var existsByOrderReference = await _dbContext.WebhookLogs
+                        .AnyAsync(w => w.OrderStatus == orderStatus 
+                                    && w.OrderStatusDate == orderStatusDate 
+                                    && w.OrderReference == orderReference);
+                    
+                    if (existsByOrderReference)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking duplicate webhook");
+                return false; // If check fails, proceed with processing to be safe
+            }
+        }
+
+        /// <summary>
+        /// Check if current shipping status is an end state
+        /// </summary>
+        private static bool IsEndState(ShippingStatus status)
+        {
+            return status switch
+            {
+                ShippingStatus.Delivered => true,
+                ShippingStatus.Cancelled => true,
+                ShippingStatus.Returned => true,
+                _ => false
+            };
+        }
+
+        /// <summary>
+        /// Check if ViettelPost status code is an end state according to specification
+        /// End states: 501 (delivered), 503 (cancelled), 504 (returned), 201 (cancel note), 107 (partner cancel), -15 (system cancel)
+        /// </summary>
+        private static bool IsViettelPostEndState(int statusCode)
+        {
+            return statusCode switch
+            {
+                501 => true,  // Successful delivery
+                503 => true,  // Cancel - Customer requirement
+                504 => true,  // Successful return to customer
+                201 => true,  // Cancel delivery note
+                107 => true,  // Partner cancel order via API
+                -15 => true,  // System cancel order
+                _ => false
+            };
         }
     }
 }

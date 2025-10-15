@@ -15,6 +15,8 @@ using backend.Swagger;
 using backend.Extensions;
 using backend.DTOs;
 using Net.payOS;
+using DinkToPdf;
+using DinkToPdf.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -318,8 +320,17 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IInvoiceRepository, InvoiceRepository>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<IPdfService, PdfService>();
+
+// Add DinkToPdf
+var context = new backend.CustomAssemblyLoadContext();
+context.LoadUnmanagedLibrary(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/lib", "libwkhtmltox.dylib"));
+builder.Services.AddSingleton(typeof(IConverter), new SynchronizedConverter(new PdfTools()));
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<IViettelPostPrintService, ViettelPostPrintService>();
+builder.Services.AddScoped<IViettelPostAuthService, ViettelPostAuthService>();
+
+// Add ViettelPost background token refresh service
+builder.Services.AddHostedService<ViettelPostTokenRefreshService>();
 
 // Add Shipping configuration
 builder.Services.Configure<ShippingConfiguration>(

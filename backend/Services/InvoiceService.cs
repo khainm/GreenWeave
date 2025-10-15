@@ -114,6 +114,40 @@ namespace backend.Services
             }
         }
 
+        /// <summary>
+        /// 🚀 OPTIMIZED: Tạo PDF bytes từ memory (không lưu file)
+        /// </summary>
+        public async Task<byte[]> GenerateInvoicePdfBytesAsync(int orderId)
+        {
+            try
+            {
+                // Lấy thông tin đơn hàng và invoice
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null)
+                {
+                    throw new ArgumentException("Không tìm thấy đơn hàng");
+                }
+
+                var invoice = await _invoiceRepository.GetByOrderIdAsync(orderId);
+                if (invoice == null)
+                {
+                    throw new ArgumentException("Không tìm thấy biên lai cho đơn hàng này");
+                }
+
+                // Tạo PDF bytes trực tiếp (không lưu file)
+                var pdfBytes = await _pdfService.GenerateInvoicePdfAsync(order, invoice);
+                
+                _logger.LogInformation("Generated PDF in memory for order: {OrderId}, Size: {Size} bytes", orderId, pdfBytes.Length);
+                
+                return pdfBytes;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating PDF bytes for order: {OrderId}", orderId);
+                throw;
+            }
+        }
+
         public async Task<bool> SendInvoiceEmailAsync(int invoiceId)
         {
             try
@@ -124,17 +158,22 @@ namespace backend.Services
                     throw new ArgumentException("Không tìm thấy biên lai");
                 }
 
-                if (string.IsNullOrEmpty(invoice.FilePath) || !File.Exists(invoice.FilePath))
+                // 🚀 OPTIMIZED: Tạo PDF từ memory, không lưu file
+                var order = await _orderRepository.GetByIdAsync(invoice.OrderId);
+                if (order == null)
                 {
-                    throw new ArgumentException("File PDF biên lai không tồn tại");
+                    throw new ArgumentException("Không tìm thấy đơn hàng");
                 }
 
-                // Gửi email
-                var emailSent = await _emailService.SendOrderConfirmationEmailAsync(
+                // Tạo PDF bytes trực tiếp
+                var pdfBytes = await _pdfService.GenerateInvoicePdfAsync(order, invoice);
+                
+                // Gửi email với PDF từ memory (không save file)
+                var emailSent = await _emailService.SendOrderConfirmationEmailWithMemoryPdfAsync(
                     invoice.CustomerEmail,
                     invoice.CustomerName,
-                    invoice.Order.OrderNumber,
-                    invoice.FilePath
+                    order.OrderNumber,
+                    pdfBytes
                 );
 
                 // Cập nhật trạng thái
@@ -143,11 +182,13 @@ namespace backend.Services
                     invoice.Status = InvoiceStatus.Sent;
                     invoice.SentAt = DateTime.UtcNow;
                     invoice.ErrorMessage = null;
+                    _logger.LogInformation("Invoice email sent successfully (memory-only) for invoice: {InvoiceId}", invoiceId);
                 }
                 else
                 {
                     invoice.Status = InvoiceStatus.Failed;
                     invoice.ErrorMessage = "Gửi email thất bại";
+                    _logger.LogError("Failed to send invoice email (memory-only) for invoice: {InvoiceId}", invoiceId);
                 }
 
                 await _invoiceRepository.UpdateAsync(invoice);
@@ -170,7 +211,7 @@ namespace backend.Services
                 }
                 catch
                 {
-                    // Ignore error when updating status
+                    // Ignore error during error handling
                 }
 
                 return false;
@@ -206,8 +247,8 @@ namespace backend.Services
 
                 var invoice = await CreateInvoiceAsync(createInvoiceDto);
 
-                // Tạo PDF hóa đơn custom
-                await GenerateInvoicePdfAsync(orderId);
+                // 🚀 OPTIMIZED: Không cần tạo file PDF trên disk nữa
+                // await GenerateInvoicePdfAsync(orderId); // OLD WAY
 
                 // Tạo ViettelPost print link
                 var printLinkResult = await _viettelPostPrintService.GeneratePrintLinkAsync(
@@ -223,7 +264,7 @@ namespace backend.Services
                     _logger.LogWarning("Failed to generate ViettelPost print link for order {OrderId}: {Error}", 
                         orderId, printLinkResult.ErrorMessage);
                     
-                    // Fallback: Chỉ gửi PDF custom
+                    // Fallback: Chỉ gửi PDF custom (memory-only)
                     await SendInvoiceEmailAsync(invoice.Id);
                 }
 
