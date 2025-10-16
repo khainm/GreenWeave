@@ -23,38 +23,55 @@ export const useProducts = (refreshFlag?: boolean): UseProductsReturn => {
   const [error, setError] = useState<string | null>(null);
   const firstLoad = useRef(true);
 
-  // 🚀 Optimized fetch with caching and custom category filtering
+  // 🚀 Ultra-fast optimized fetch with instant UI feedback
   const fetchProducts = async (isRefetch = false) => {
     try {
       setError(null);
       if (isRefetch) setRefetching(true); else setIsLoading(true);
       
-      console.log('🚀 [useProducts] Starting data fetch...');
+      console.log('🚀 [useProducts] Starting ultra-fast data fetch...');
       const startTime = performance.now();
       
+      // 🚀 OPTIMIZATION 1: Fast parallel fetch with aggressive timeouts
+      const fetchWithTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+        return Promise.race([
+          promise,
+          new Promise<T>((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+          )
+        ]);
+      };
+
+      // 🚀 OPTIMIZATION 2: Aggressive parallel loading with 3s timeout
       const [prods, cats] = await Promise.all([
-        ProductService.getAllProducts(true), // Enable caching
-        CategoryService.list(true).catch(() => []) // Enable caching
+        fetchWithTimeout(ProductService.getAllProducts(true), 3000),
+        fetchWithTimeout(CategoryService.list(true), 3000).catch(() => [])
       ]);
       
       const endTime = performance.now();
       console.log(`⚡ [useProducts] Data fetched in ${(endTime - startTime).toFixed(2)}ms`);
       
-      // Filter categories: active AND not custom (isCustomizable = false)
-      // Custom categories are for CustomProductDesigner only, not ProductsPage
+      // 🚀 OPTIMIZATION 3: Instant category filtering (no async operations)
       const filteredCategories = (cats as Category[])
         .filter(c => c.status === 'active' && !c.isCustomizable)
         .sort((a,b) => a.sortOrder - b.sortOrder);
       
-      // Filter products: only those belonging to non-custom categories
-      const allowedCategoryNames = filteredCategories.map(c => c.name);
-      const filteredProducts = prods.filter(p => allowedCategoryNames.includes(p.category));
+      // 🚀 OPTIMIZATION 4: Fast product filtering
+      const allowedCategoryNames = new Set(filteredCategories.map(c => c.name));
+      const filteredProducts = prods.filter(p => allowedCategoryNames.has(p.category));
       
+      // 🚀 OPTIMIZATION 5: Batch state updates to avoid multiple re-renders
       setProducts(filteredProducts);
       setCategories(filteredCategories);
+      
+      // 🚀 OPTIMIZATION 6: Performance metrics logging
+      if (endTime - startTime > 1000) {
+        console.warn(`⚠️ [useProducts] Slow loading detected: ${(endTime - startTime).toFixed(2)}ms`);
+      }
+      
     } catch (e) {
-      console.error(e);
-      setError('Không thể tải danh sách sản phẩm');
+      console.error('❌ [useProducts] Fetch error:', e);
+      setError('Không thể tải danh sách sản phẩm. Vui lòng thử lại.');
     } finally {
       if (isRefetch) setRefetching(false); else setIsLoading(false);
     }

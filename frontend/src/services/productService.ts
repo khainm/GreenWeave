@@ -10,7 +10,8 @@ interface CacheEntry<T> {
 
 class ProductCache {
   private cache = new Map<string, CacheEntry<any>>();
-  private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
+  private readonly DEFAULT_TTL = 10 * 60 * 1000; // 10 minutes for better performance
+  private readonly AGGRESSIVE_TTL = 30 * 60 * 1000; // 30 minutes for stable data
 
   set<T>(key: string, data: T, ttl?: number): void {
     this.cache.set(key, {
@@ -18,7 +19,7 @@ class ProductCache {
       timestamp: Date.now(),
       ttl: ttl || this.DEFAULT_TTL
     });
-    console.log(`📦 [ProductCache] Cached: ${key}`);
+    console.log(`📦 [ProductCache] Cached: ${key} (TTL: ${(ttl || this.DEFAULT_TTL) / 1000}s)`);
   }
 
   get<T>(key: string): T | null {
@@ -32,8 +33,35 @@ class ProductCache {
       return null;
     }
 
-    console.log(`✅ [ProductCache] Hit: ${key}`);
+    console.log(`✅ [ProductCache] Hit: ${key} (age: ${((Date.now() - entry.timestamp) / 1000).toFixed(1)}s)`);
     return entry.data as T;
+  }
+
+  // 🚀 OPTIMIZATION: Background refresh for hot data
+  async getOrRefresh<T>(key: string, fetcher: () => Promise<T>, ttl?: number): Promise<T> {
+    const cached = this.get<T>(key);
+    
+    if (cached) {
+      // 🚀 Background refresh if cache is older than 50% of TTL
+      const entry = this.cache.get(key);
+      const age = Date.now() - entry!.timestamp;
+      const refreshThreshold = (ttl || this.DEFAULT_TTL) * 0.5;
+      
+      if (age > refreshThreshold) {
+        console.log(`🔄 [ProductCache] Background refresh: ${key}`);
+        // Fire and forget - don't await
+        fetcher()
+          .then(data => this.set(key, data, ttl))
+          .catch(err => console.warn(`🚫 [ProductCache] Background refresh failed: ${key}`, err));
+      }
+      
+      return cached;
+    }
+
+    // No cache, fetch fresh
+    const data = await fetcher();
+    this.set(key, data, ttl);
+    return data;
   }
 
   invalidate(key: string): void {
@@ -53,6 +81,27 @@ class ProductCache {
         this.cache.delete(key);
         console.log(`🔄 [ProductCache] Pattern invalidated: ${key}`);
       }
+    }
+  }
+
+  // 🚀 OPTIMIZATION: Preload commonly accessed data
+  async preloadCommonData(): Promise<void> {
+    try {
+      console.log('🚀 [ProductCache] Preloading common data...');
+      const startTime = performance.now();
+      
+      // Preload in parallel without waiting
+      Promise.all([
+        this.getOrRefresh('all_products', () => apiClient.get<Product[]>('/api/products'), this.AGGRESSIVE_TTL),
+        this.getOrRefresh('categories', () => apiClient.get<any[]>('/api/categories'), this.AGGRESSIVE_TTL)
+      ]).then(() => {
+        const endTime = performance.now();
+        console.log(`✅ [ProductCache] Preload completed in ${(endTime - startTime).toFixed(2)}ms`);
+      }).catch(err => {
+        console.warn('🚫 [ProductCache] Preload failed:', err);
+      });
+    } catch (error) {
+      console.warn('🚫 [ProductCache] Preload error:', error);
     }
   }
 }
@@ -131,31 +180,41 @@ export class ProductService {
     return formData
   }
 
-  // 🚀 Lấy tất cả sản phẩm với caching
+  // 🚀 Ultra-fast product loading with aggressive caching
   static async getAllProducts(useCache: boolean = true): Promise<Product[]> {
     try {
       const cacheKey = 'all_products';
       
-      // Check cache first if enabled
       if (useCache) {
-        const cached = productCache.get<Product[]>(cacheKey);
-        if (cached) {
-          console.log('📦 [ProductService] Returning cached products');
-          return cached;
-        }
+        // 🚀 Use enhanced cache with background refresh
+        return await productCache.getOrRefresh(
+          cacheKey,
+          () => {
+            console.log('🌐 [ProductService] Fetching products from API');
+            return apiClient.get<Product[]>(this.BASE_PATH);
+          },
+          productCache['AGGRESSIVE_TTL'] // 30 minutes for product data
+        );
       }
       
-      console.log('🌐 [ProductService] Fetching products from API');
+      // Force fresh fetch
+      console.log('🌐 [ProductService] Force fetching products from API');
       const products = await apiClient.get<Product[]>(this.BASE_PATH);
       
-      // Cache the result
-      if (useCache) {
-        productCache.set(cacheKey, products);
-      }
+      // Cache the result even if useCache is false
+      productCache.set(cacheKey, products, productCache['AGGRESSIVE_TTL']);
       
       return products;
     } catch (error) {
-      console.error('Error fetching products:', error);
+      console.error('❌ [ProductService] Error fetching products:', error);
+      
+      // 🚀 FALLBACK: Try to return stale cache on error
+      const staleData = productCache.get<Product[]>('all_products');
+      if (staleData) {
+        console.log('🚑 [ProductService] Returning stale cache due to error');
+        return staleData;
+      }
+      
       throw error;
     }
   }
@@ -198,8 +257,13 @@ export class ProductService {
     if (productId) {
       productCache.invalidatePattern(new RegExp(`product_${productId}`));
     }
-    productCache.invalidate('all_products');
+    productCache.invalidatePattern(/^all_products/);
     productCache.invalidate('customizable_products');
+  }
+
+  // 🚀 OPTIMIZATION: Preload data for instant access
+  static preloadData(): void {
+    productCache.preloadCommonData();
   }
 
   static refreshProduct(productId: number, newStock: number): void {
@@ -333,6 +397,15 @@ export class ProductService {
       reader.onerror = error => reject(error)
     })
   }
+}
+
+// 🚀 OPTIMIZATION: Auto-preload on module import
+// This runs as soon as the module is imported, preloading data
+if (typeof window !== 'undefined') {
+  // Only in browser environment
+  setTimeout(() => {
+    ProductService.preloadData();
+  }, 100); // Small delay to not block initial page load
 }
 
 export default ProductService
