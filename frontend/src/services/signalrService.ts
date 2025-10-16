@@ -61,6 +61,8 @@ class SignalRService {
         }
       }));
       
+      console.log('📤 [SignalR] Dispatched stock:changed event for product', data.productId);
+      
       // Show notification to user
       this.showStockNotification(data);
     });

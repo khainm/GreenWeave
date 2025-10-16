@@ -93,24 +93,38 @@ export const useProducts = (refreshFlag?: boolean): UseProductsReturn => {
 
   // 🚀 Handle realtime stock updates
   useEffect(() => {
+    console.log('👂 [useProducts] Setting up stock:changed event listener');
+    
     const handleStockChange = (event: any) => {
+      console.log('📦 [useProducts] Received stock:changed event:', event.detail);
+      
       const { productId, availableStock } = event.detail;
       
-      setProducts(prevProducts => 
-        prevProducts.map(product => 
+      if (!productId || availableStock === undefined) {
+        console.warn('⚠️ [useProducts] Invalid stock change event data:', event.detail);
+        return;
+      }
+      
+      setProducts(prevProducts => {
+        const updatedProducts = prevProducts.map(product => 
           product.id === productId 
             ? { ...product, stock: availableStock }
             : product
-        )
-      );
-      
-      console.log(`🔄 [useProducts] Updated product ${productId} stock to ${availableStock}`);
+        );
+        
+        console.log(`🔄 [useProducts] Updated product ${productId} stock from ${
+          prevProducts.find(p => p.id === productId)?.stock
+        } to ${availableStock}`);
+        
+        return updatedProducts;
+      });
     };
 
     // Listen for realtime stock changes
     window.addEventListener('stock:changed', handleStockChange);
     
     return () => {
+      console.log('🧹 [useProducts] Cleaning up stock:changed event listener');
       window.removeEventListener('stock:changed', handleStockChange);
     };
   }, []);
