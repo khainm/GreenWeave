@@ -3,6 +3,13 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import signalRService from './services/signalrService'
+import { prefetchResources, markPerformance } from './utils/performance'
+
+// 🚀 Performance: Mark app start
+markPerformance('app-start');
+
+// 🚀 Start performance optimizations
+prefetchResources();
 
 // 🚀 Start SignalR connection for realtime stock updates
 signalRService.start().then(() => {
@@ -24,6 +31,9 @@ document.addEventListener('visibilitychange', () => {
     // Resume if needed
   }
 });
+
+// 🚀 Performance: Mark before React render
+markPerformance('react-render-start');
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

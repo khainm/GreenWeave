@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { ProductService } from '../services/productService';
 import CategoryService from '../services/categoryService';
+import RoutePreloader from '../utils/RoutePreloader';
 import type { Product } from '../types/product';
 import type { Category } from '../types/category';
 
@@ -32,39 +33,52 @@ export const useProducts = (refreshFlag?: boolean): UseProductsReturn => {
       console.log('🚀 [useProducts] Starting ultra-fast data fetch...');
       const startTime = performance.now();
       
-      // 🚀 OPTIMIZATION 1: Fast parallel fetch with aggressive timeouts
-      const fetchWithTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-        return Promise.race([
-          promise,
-          new Promise<T>((_, reject) => 
-            setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
-          )
-        ]);
-      };
+      // 🚀 OPTIMIZATION 1: Try to use preloaded data first
+      let prods: Product[];
+      let cats: Category[];
+      
+      try {
+        // Check if data was already preloaded
+        const preloaded = await RoutePreloader.preloadProductsPage();
+        [prods, cats] = preloaded;
+        console.log('⚡ [useProducts] Using preloaded data!');
+      } catch (preloadError) {
+        console.log('📡 [useProducts] Preload failed, fetching fresh...');
+        
+        // 🚀 OPTIMIZATION 2: Fast parallel fetch with aggressive timeouts
+        const fetchWithTimeout = <T>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+          return Promise.race([
+            promise,
+            new Promise<T>((_, reject) => 
+              setTimeout(() => reject(new Error('Request timeout')), timeoutMs)
+            )
+          ]);
+        };
 
-      // 🚀 OPTIMIZATION 2: Aggressive parallel loading with 3s timeout
-      const [prods, cats] = await Promise.all([
-        fetchWithTimeout(ProductService.getAllProducts(true), 3000),
-        fetchWithTimeout(CategoryService.list(true), 3000).catch(() => [])
-      ]);
+        // 🚀 OPTIMIZATION 3: Aggressive parallel loading with 3s timeout
+        [prods, cats] = await Promise.all([
+          fetchWithTimeout(ProductService.getAllProducts(true), 3000),
+          fetchWithTimeout(CategoryService.list(true), 3000).catch(() => [])
+        ]);
+      }
       
       const endTime = performance.now();
       console.log(`⚡ [useProducts] Data fetched in ${(endTime - startTime).toFixed(2)}ms`);
       
-      // 🚀 OPTIMIZATION 3: Instant category filtering (no async operations)
+      // 🚀 OPTIMIZATION 4: Instant category filtering (no async operations)
       const filteredCategories = (cats as Category[])
         .filter(c => c.status === 'active' && !c.isCustomizable)
         .sort((a,b) => a.sortOrder - b.sortOrder);
       
-      // 🚀 OPTIMIZATION 4: Fast product filtering
+      // 🚀 OPTIMIZATION 5: Fast product filtering
       const allowedCategoryNames = new Set(filteredCategories.map(c => c.name));
       const filteredProducts = prods.filter(p => allowedCategoryNames.has(p.category));
       
-      // 🚀 OPTIMIZATION 5: Batch state updates to avoid multiple re-renders
+      // 🚀 OPTIMIZATION 6: Batch state updates to avoid multiple re-renders
       setProducts(filteredProducts);
       setCategories(filteredCategories);
       
-      // 🚀 OPTIMIZATION 6: Performance metrics logging
+      // 🚀 OPTIMIZATION 7: Performance metrics logging
       if (endTime - startTime > 1000) {
         console.warn(`⚠️ [useProducts] Slow loading detected: ${(endTime - startTime).toFixed(2)}ms`);
       }
