@@ -29,30 +29,31 @@ namespace backend.Services
             _logger = logger;
 
             var shippingConfig = _configuration.GetSection("Shipping:ViettelPost");
-            _baseUrl = shippingConfig["BaseUrl"] ?? "https://partner.viettelpost.vn/v2";
+            _baseUrl = shippingConfig["BaseUrl"] ?? "https://partner.viettelpost.vn";
             
-            // Partner credentials for auto-refresh
+            // Set base URL for HttpClient
+            _httpClient.BaseAddress = new Uri(_baseUrl);
+            
+            // Always setup partner credentials for auto-refresh capability
             _partnerUsername = Environment.GetEnvironmentVariable("VIETTELPOST_PARTNER_USERNAME") ?? "";
             _partnerPassword = Environment.GetEnvironmentVariable("VIETTELPOST_PARTNER_PASSWORD") ?? "";
             
+            // Optional: Use static token as initial token (for faster startup)
+            var staticToken = Environment.GetEnvironmentVariable("VIETTELPOST_TOKEN") ?? "";
+            if (!string.IsNullOrEmpty(staticToken))
+            {
+                _accessToken = staticToken;
+                _tokenExpiry = DateTime.UtcNow.AddMinutes(30); // Short expiry to force refresh soon
+                _logger.LogInformation("🔑 Using initial static token, will auto-refresh when needed");
+            }
+
             if (!string.IsNullOrEmpty(_partnerUsername) && !string.IsNullOrEmpty(_partnerPassword))
             {
-                _logger.LogInformation("ViettelPost auto-refresh enabled with partner credentials");
+                _logger.LogInformation("✅ ViettelPost auto-refresh enabled - system will handle token expiry automatically");
             }
             else
             {
-                // Only use static token as last resort
-                var staticToken = Environment.GetEnvironmentVariable("VIETTELPOST_TOKEN") ?? "";
-                if (!string.IsNullOrEmpty(staticToken))
-                {
-                    _accessToken = staticToken;
-                    _tokenExpiry = DateTime.UtcNow.AddHours(24); // Conservative expiry
-                    _logger.LogWarning("Using static ViettelPost token - auto-refresh preferred");
-                }
-                else
-                {
-                    _logger.LogError("No ViettelPost authentication method configured");
-                }
+                _logger.LogError("❌ No partner credentials configured - manual token management required");
             }
 
             _httpClient.BaseAddress = new Uri(_baseUrl);
@@ -68,7 +69,7 @@ namespace backend.Services
 
         public async Task<string> GetValidTokenAsync()
         {
-            // Check if current token is still valid
+            // Check if current token is still valid (with buffer time)
             if (IsTokenValid())
             {
                 lock (_lockObject)
@@ -77,12 +78,18 @@ namespace backend.Services
                 }
             }
 
+            _logger.LogInformation("🔄 Current token expired or missing, refreshing...");
+            
             // Token expired or missing, refresh it
             await RefreshTokenAsync();
             
             lock (_lockObject)
             {
-                return _accessToken ?? throw new InvalidOperationException("Failed to obtain valid ViettelPost token");
+                if (string.IsNullOrEmpty(_accessToken))
+                {
+                    throw new InvalidOperationException("Failed to obtain valid ViettelPost token after refresh");
+                }
+                return _accessToken;
             }
         }
 
@@ -90,38 +97,36 @@ namespace backend.Services
         {
             try
             {
-                _logger.LogInformation("Refreshing ViettelPost token...");
+                _logger.LogInformation("🔄 Refreshing ViettelPost token...");
 
-                // Prioritize partner login if credentials available
+                // Always try to get fresh token via partner login
                 if (!string.IsNullOrEmpty(_partnerUsername) && !string.IsNullOrEmpty(_partnerPassword))
                 {
-                    _logger.LogInformation("Using partner credentials for auto token refresh");
+                    _logger.LogInformation("🔑 Getting fresh token via partner login...");
                     await LoginPartnerAsync();
-                    _logger.LogInformation("ViettelPost token refreshed successfully via partner login. Expires at: {Expiry}", _tokenExpiry);
+                    _logger.LogInformation("✅ ViettelPost token refreshed successfully via partner login. Expires at: {Expiry}", _tokenExpiry);
+                    return;
                 }
-                else
+
+                // Fallback to static token if partner login fails
+                var staticToken = Environment.GetEnvironmentVariable("VIETTELPOST_TOKEN");
+                if (!string.IsNullOrEmpty(staticToken))
                 {
-                    // Only use static token if partner credentials not available
-                    var staticToken = Environment.GetEnvironmentVariable("VIETTELPOST_TOKEN");
-                    if (!string.IsNullOrEmpty(staticToken))
+                    lock (_lockObject)
                     {
-                        lock (_lockObject)
-                        {
-                            _accessToken = staticToken;
-                            _tokenExpiry = DateTime.UtcNow.AddHours(24);
-                        }
-                        
-                        _logger.LogWarning("Using static ViettelPost token - partner credentials recommended for auto-refresh");
+                        _accessToken = staticToken;
+                        _tokenExpiry = DateTime.UtcNow.AddHours(24);
                     }
-                    else
-                    {
-                        throw new InvalidOperationException("No ViettelPost authentication method available - please configure partner credentials");
-                    }
+                    
+                    _logger.LogWarning("⚠️ Using static ViettelPost token as fallback");
+                    return;
                 }
+
+                throw new InvalidOperationException("No ViettelPost authentication method available - please configure partner credentials or static token");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to refresh ViettelPost token");
+                _logger.LogError(ex, "❌ Failed to refresh ViettelPost token");
                 throw;
             }
         }
@@ -130,6 +135,10 @@ namespace backend.Services
         {
             try
             {
+                _logger.LogInformation("🔄 Starting ViettelPost partner login...");
+                _logger.LogInformation("🔍 Base URL: {BaseUrl}", _httpClient.BaseAddress);
+                _logger.LogInformation("🔍 Username: {Username}", _partnerUsername);
+                
                 var loginRequest = new
                 {
                     USERNAME = _partnerUsername,
@@ -139,10 +148,14 @@ namespace backend.Services
                 var jsonContent = JsonSerializer.Serialize(loginRequest);
                 var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("/user/Login", content);
+                _logger.LogInformation("🔍 Full URL will be: {FullUrl}", $"{_httpClient.BaseAddress}v2/user/Login");
+                _logger.LogInformation("🔍 Request payload: {Payload}", jsonContent);
+
+                var response = await _httpClient.PostAsync("/v2/user/Login", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                _logger.LogInformation("ViettelPost partner login attempt - Status: {Status}", response.StatusCode);
+                _logger.LogInformation("📦 ViettelPost partner login response - Status: {Status}, Content: {Content}", 
+                    response.StatusCode, responseContent);
 
                 if (response.IsSuccessStatusCode)
                 {

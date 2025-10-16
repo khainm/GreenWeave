@@ -32,8 +32,12 @@ namespace backend.Models
         public string DefaultServiceId { get; set; } = "VCN";
         
         /// <summary>
-        /// Default pickup address
+        /// Default pickup address 
+        /// ⚠️ DEPRECATED: This will be replaced by warehouse management system.
+        /// Use IWarehouseService.GetDefaultPickupAddressAsync() instead.
+        /// Kept only as emergency fallback during transition period.
         /// </summary>
+        [Obsolete("Use IWarehouseService.GetDefaultPickupAddressAsync() instead. This property will be removed in future version.")]
         public ViettelPostAddress DefaultPickupAddress { get; set; } = new();
 
         /// <summary>

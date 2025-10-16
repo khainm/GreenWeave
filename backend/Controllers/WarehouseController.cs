@@ -253,17 +253,28 @@ namespace backend.Controllers
                 
                 var result = await _warehouseService.RegisterWithViettelPostAsync(id);
                 
-                _logger.LogInformation("📦 [WAREHOUSE-CONTROLLER] Registration result for warehouse {Id}: {Result}", 
-                    id, System.Text.Json.JsonSerializer.Serialize(result));
+                _logger.LogInformation("📦 [WAREHOUSE-CONTROLLER] Registration result for warehouse {Id}: Success={Success}, GroupAddressId={GroupAddressId}, Error={Error}", 
+                    id, result.IsSuccess, result.GroupAddressId, result.ErrorMessage);
                 
                 if (!result.IsSuccess)
                 {
-                    _logger.LogWarning("⚠️ [WAREHOUSE-CONTROLLER] Registration failed for warehouse {Id}: {ErrorMessage}", 
-                        id, result.ErrorMessage);
-                    return BadRequest(result);
+                    _logger.LogWarning("⚠️ [WAREHOUSE-CONTROLLER] Registration failed for warehouse {Id}: {ErrorMessage} (ErrorCode: {ErrorCode})", 
+                        id, result.ErrorMessage, result.ErrorCode);
+                    
+                    // Return detailed error information for debugging
+                    return BadRequest(new
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = result.ErrorMessage,
+                        ErrorCode = result.ErrorCode,
+                        Timestamp = DateTime.UtcNow,
+                        WarehouseId = id,
+                        Details = "Kiểm tra log server để biết thêm chi tiết"
+                    });
                 }
 
-                _logger.LogInformation("✅ [WAREHOUSE-CONTROLLER] Registration successful for warehouse {Id}", id);
+                _logger.LogInformation("✅ [WAREHOUSE-CONTROLLER] Registration successful for warehouse {Id} with GroupAddressId: {GroupAddressId}", 
+                    id, result.GroupAddressId);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -272,7 +283,8 @@ namespace backend.Controllers
                 return StatusCode(500, new RegisterWarehouseResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Lỗi hệ thống: {ex.Message}"
+                    ErrorMessage = $"Lỗi hệ thống: {ex.Message}",
+                    ErrorCode = 500
                 });
             }
         }

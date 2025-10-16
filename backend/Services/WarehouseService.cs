@@ -434,6 +434,76 @@ namespace backend.Services
             }
         }
 
+        // ✅ NEW: Methods for shipping integration
+        public async Task<List<WarehouseDto>> GetActiveWarehousesAsync()
+        {
+            try
+            {
+                var warehouses = await _warehouseRepository.GetAllAsync();
+                return warehouses
+                    .Where(w => w.IsActive)
+                    .Select(MapToDto)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting active warehouses");
+                return new List<WarehouseDto>();
+            }
+        }
+
+        public async Task<WarehouseDto?> GetDefaultPickupWarehouseAsync()
+        {
+            try
+            {
+                var warehouses = await _warehouseRepository.GetAllAsync();
+                var defaultWarehouse = warehouses.FirstOrDefault(w => w.IsActive && w.IsDefault);
+                
+                if (defaultWarehouse == null)
+                {
+                    // If no default, get first active warehouse
+                    defaultWarehouse = warehouses.FirstOrDefault(w => w.IsActive);
+                }
+
+                return defaultWarehouse != null ? MapToDto(defaultWarehouse) : null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting default pickup warehouse");
+                return null;
+            }
+        }
+
+        public async Task<ShippingAddressDto?> GetDefaultPickupAddressAsync()
+        {
+            try
+            {
+                var warehouse = await GetDefaultPickupWarehouseAsync();
+                if (warehouse == null)
+                {
+                    return null;
+                }
+
+                return new ShippingAddressDto
+                {
+                    Name = warehouse.Name,
+                    Phone = warehouse.Phone,
+                    AddressDetail = warehouse.AddressDetail,
+                    Ward = warehouse.WardName,
+                    District = warehouse.DistrictName,
+                    Province = warehouse.ProvinceName,
+                    ProvinceId = warehouse.ProvinceId,
+                    DistrictId = warehouse.DistrictId,
+                    WardId = warehouse.WardId
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting default pickup address");
+                return null;
+            }
+        }
+
         private static WarehouseDto MapToDto(Warehouse warehouse)
         {
             return new WarehouseDto

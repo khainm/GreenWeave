@@ -12,5 +12,10 @@ namespace backend.Interfaces.Services
         Task<WarehouseResponseDto> DeleteWarehouseAsync(Guid id);
         Task<WarehouseResponseDto> SetAsDefaultAsync(Guid id);
         Task<RegisterWarehouseResult> RegisterWithViettelPostAsync(Guid warehouseId);
+        
+        // ✅ NEW: Methods for shipping integration
+        Task<List<WarehouseDto>> GetActiveWarehousesAsync();
+        Task<WarehouseDto?> GetDefaultPickupWarehouseAsync();
+        Task<ShippingAddressDto?> GetDefaultPickupAddressAsync();
     }
 }

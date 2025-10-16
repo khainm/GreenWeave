@@ -52,6 +52,44 @@ namespace backend.Services
                    !string.IsNullOrEmpty(_config.PartnerID));
         }
 
+        /// <summary>
+        /// Get a valid token, refreshing it if necessary
+        /// </summary>
+        private async Task<string?> GetValidTokenAsync()
+        {
+            try
+            {
+                // If we have auth service, use it to get fresh token
+                if (_authService != null)
+                {
+                    var freshToken = await _authService.GetValidTokenAsync();
+                    if (!string.IsNullOrEmpty(freshToken))
+                    {
+                        _accessToken = freshToken;
+                        _tokenExpiry = DateTime.UtcNow.AddHours(6); // Assume 6 hours validity
+                        _logger.LogInformation("🔄 Using fresh token from auth service");
+                        return _accessToken;
+                    }
+                }
+
+                // If auth service failed or not available, use config token
+                if (!string.IsNullOrEmpty(_config.Token))
+                {
+                    _accessToken = _config.Token;
+                    _logger.LogInformation("⚠️ Using static token from config");
+                    return _accessToken;
+                }
+
+                _logger.LogError("❌ No valid token available");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error getting valid token");
+                return null;
+            }
+        }
+
         public async Task<FeeResult> CalculateFeeAsync(CalculateShippingFeeRequest request)
         {
             try
@@ -83,8 +121,6 @@ namespace backend.Services
                     _logger.LogWarning("⚠️ Shipping request warnings: {Warnings}", 
                         string.Join(", ", validationResult.Warnings));
                 }
-
-                await EnsureAuthenticatedAsync();
 
                 // 🔥 ENHANCED ADDRESS MAPPING WITH STRICT ERROR HANDLING
                 var addressMappingResult = await MapAddressesWithValidationAsync(request);
@@ -123,8 +159,19 @@ namespace backend.Services
                 _logger.LogInformation("🚀 Sending ViettelPost fee calculation request: {Payload}", 
                     JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true }));
 
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new FeeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
+
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.PostAsync("/v2/order/getPrice",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
@@ -236,10 +283,7 @@ namespace backend.Services
         {
             try
             {
-                _logger.LogInformation("Creating shipment in Production mode for order {OrderNumber}", 
-                    order.OrderNumber);
-
-                await EnsureAuthenticatedAsync();
+                _logger.LogInformation("🚀 Creating ViettelPost shipment for order {OrderNumber}", order.OrderNumber);
 
                 var fromAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.FromAddress);
                 var toAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.ToAddress);
@@ -315,8 +359,19 @@ namespace backend.Services
                     LIST_ITEM = listItems
                 };
 
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new CreateShipmentResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
+
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.PostAsync("/v2/order/createOrder",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
@@ -414,8 +469,6 @@ namespace backend.Services
         {
             try
             {
-                await EnsureAuthenticatedAsync();
-
                 var payload = new
                 {
                     TYPE = 1, // Cancel type
@@ -423,8 +476,19 @@ namespace backend.Services
                     LIST_ORDER_NUMBER = new[] { trackingCode }
                 };
 
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new CancelShipmentResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
+
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.PostAsync("/v2/order/cancel",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
@@ -462,9 +526,6 @@ namespace backend.Services
             try
             {
                 _logger.LogInformation("Updating order in ViettelPost for order {OrderNumber}", order.OrderNumber);
-
-                await EnsureAuthenticatedAsync();
-
                 var fromAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.FromAddress);
                 var toAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.ToAddress);
                 
@@ -496,8 +557,19 @@ namespace backend.Services
                     DATE = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss") // ✅ VARCHAR2(250) - Date (optional, only for re-order)
                 };
 
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
+
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.PostAsync("/v2/order/UpdateOrder",
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
@@ -594,10 +666,19 @@ namespace backend.Services
         {
             try
             {
-                await EnsureAuthenticatedAsync();
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new TrackingResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
 
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.GetAsync($"/v2/order/getOrder?ORDER_NUMBER={trackingCode}");
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -723,10 +804,16 @@ namespace backend.Services
         {
             try
             {
-                await EnsureAuthenticatedAsync();
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    _logger.LogError("❌ Cannot get valid token for ViettelPost API");
+                    return new List<ShippingServiceDto>();
+                }
 
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 // Gọi API listService với TYPE = 2
                 var requestBody = new { TYPE = 2 };
@@ -769,10 +856,20 @@ namespace backend.Services
         {
             try
             {
-                await EnsureAuthenticatedAsync();
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new AddressWarningResult
+                    {
+                        HasWarning = true,
+                        WarningMessage = "Không thể lấy token hợp lệ cho ViettelPost API",
+                        IsValid = false
+                    };
+                }
 
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.GetAsync($"/v2/categories/checkAddressWarning?wardId={wardId}");
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -871,8 +968,15 @@ namespace backend.Services
                 _logger.LogInformation("🚚 Delivery type: {DeliveryType} (Same province: {IsIntraProvince})", 
                     isIntraProvince ? "Nội tỉnh" : "Liên tỉnh", isIntraProvince);
 
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new List<ShippingOptionDto>();
+                }
+
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 // ✅ NEW: Use getPriceAll API instead of getPrice
                 var response = await _httpClient.PostAsync("/v2/order/getPriceAll",
@@ -1004,10 +1108,19 @@ namespace backend.Services
         {
             try
             {
-                await EnsureAuthenticatedAsync();
+                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new ListInventoryResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
 
                 _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                 var response = await _httpClient.GetAsync("/v2/user/listInventory");
                 var responseContent = await response.Content.ReadAsStringAsync();
@@ -1515,10 +1628,28 @@ namespace backend.Services
             {
                 try
                 {
-                    await EnsureAuthenticatedAsync();
+                    // Get valid token before making API call
+                    var token = await GetValidTokenAsync();
+                    if (string.IsNullOrEmpty(token))
+                    {
+                        if (attempt < maxRetries)
+                        {
+                            _logger.LogWarning("⚠️ [RETRY {Attempt}/{MaxRetries}] Failed to get valid token, retrying in {Delay}ms...", 
+                                attempt, maxRetries, delayMs);
+                            await Task.Delay(delayMs);
+                            continue;
+                        }
+                        
+                        return new RegisterInventoryResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API sau nhiều lần thử",
+                            ErrorCode = 401
+                        };
+                    }
 
                     _httpClient.DefaultRequestHeaders.Clear();
-                    _httpClient.DefaultRequestHeaders.Add("Token", _accessToken);
+                    _httpClient.DefaultRequestHeaders.Add("Token", token);
 
                     // Validate required fields theo API documentation
                     if (string.IsNullOrWhiteSpace(request.Phone))
@@ -1589,8 +1720,22 @@ namespace backend.Services
                     var response = await _httpClient.PostAsync("/v2/user/registerInventory", content);
                     var responseContent = await response.Content.ReadAsStringAsync();
 
-                    _logger.LogInformation("ViettelPost registerInventory response (attempt {Attempt}): {Response}", 
-                        attempt, responseContent);
+                    _logger.LogInformation("🔄 ViettelPost registerInventory response (attempt {Attempt}): Status={Status}, Content={Response}", 
+                        attempt, response.StatusCode, responseContent);
+
+                    // Kiểm tra nếu là lỗi 401 (Unauthorized) - token hết hạn
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        _logger.LogWarning("⚠️ Token expired (401), forcing refresh and retry...");
+                        _accessToken = null; // Force token refresh
+                        _tokenExpiry = DateTime.MinValue;
+                        
+                        if (attempt < maxRetries)
+                        {
+                            await Task.Delay(delayMs);
+                            continue; // Retry with new token
+                        }
+                    }
 
                     if (response.IsSuccessStatusCode)
                     {
@@ -1610,7 +1755,7 @@ namespace backend.Services
                             // Lấy kho mới nhất (đầu tiên trong danh sách)
                             var latestWarehouse = result.Data.First();
                             
-                            _logger.LogInformation("🔍 [DEBUG] Latest warehouse: GroupAddressId={GroupAddressId}, Name={Name}", 
+                            _logger.LogInformation("✅ [SUCCESS] Warehouse registered successfully: GroupAddressId={GroupAddressId}, Name={Name}", 
                                 latestWarehouse.groupaddressId, latestWarehouse.name);
                             
                             return new RegisterInventoryResult
@@ -1619,6 +1764,19 @@ namespace backend.Services
                                 GroupAddressId = latestWarehouse.groupaddressId,
                                 Message = "Đăng ký kho hàng thành công"
                             };
+                        }
+                        else if (result?.Status == 201)
+                        {
+                            // Account logged in on another machine - force refresh token
+                            _logger.LogWarning("⚠️ Account logged in elsewhere (201), forcing token refresh...");
+                            _accessToken = null;
+                            _tokenExpiry = DateTime.MinValue;
+                            
+                            if (attempt < maxRetries)
+                            {
+                                await Task.Delay(delayMs);
+                                continue; // Retry with new token
+                            }
                         }
                         else
                         {
@@ -1633,7 +1791,7 @@ namespace backend.Services
                                 _ => result?.Message ?? "Đăng ký kho hàng thất bại - không có dữ liệu trả về"
                             };
                             
-                            _logger.LogWarning("ViettelPost registerInventory API error: Status={Status}, Error={Error}, Message={Message}, DataNull={DataNull}, DataCount={DataCount}", 
+                            _logger.LogError("❌ ViettelPost registerInventory API error: Status={Status}, Error={Error}, Message={Message}, DataNull={DataNull}, DataCount={DataCount}", 
                                 result?.Status, result?.Error, result?.Message, result?.Data == null, result?.Data?.Count);
                             
                             return new RegisterInventoryResult
@@ -1646,10 +1804,13 @@ namespace backend.Services
                     }
                     else
                     {
+                        _logger.LogError("❌ HTTP Error {StatusCode}: {ResponseContent}", response.StatusCode, responseContent);
+                        
                         return new RegisterInventoryResult
                         {
                             IsSuccess = false,
-                            ErrorMessage = $"Lỗi API: {response.StatusCode} - {responseContent}"
+                            ErrorMessage = $"HTTP Error {response.StatusCode}: {responseContent}",
+                            ErrorCode = (int)response.StatusCode
                         };
                     }
                 }

@@ -122,5 +122,6 @@ namespace backend.DTOs
         public int? GroupAddressId { get; set; }
         public string Message { get; set; } = string.Empty;
         public string? ErrorMessage { get; set; }
+        public int? ErrorCode { get; set; }
     }
 }

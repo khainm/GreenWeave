@@ -23,6 +23,7 @@ namespace backend.Services
         private readonly ShippingConfiguration _config;
         private readonly ILogger<ShippingService> _logger;
         private readonly ApplicationDbContext _dbContext;
+        private readonly IWarehouseService _warehouseService;
 
         public ShippingService(
             IOrderRepository orderRepository,
@@ -32,7 +33,8 @@ namespace backend.Services
             IEnumerable<IShippingProvider> shippingProviders,
             IOptions<ShippingConfiguration> shippingConfig,
             ILogger<ShippingService> logger,
-            ApplicationDbContext dbContext)
+            ApplicationDbContext dbContext,
+            IWarehouseService warehouseService)
         {
             _orderRepository = orderRepository;
             _shippingRequestRepository = shippingRequestRepository;
@@ -42,6 +44,7 @@ namespace backend.Services
             _config = shippingConfig.Value;
             _logger = logger;
             _dbContext = dbContext;
+            _warehouseService = warehouseService;
         }
         
 
@@ -637,7 +640,7 @@ namespace backend.Services
             var feeRequest = new CalculateShippingFeeRequest
             {
                 Provider = request.Provider,
-                FromAddress = GetDefaultFromAddress(),
+                FromAddress = await GetDefaultFromAddressAsync(),
                 ToAddress = MapOrderAddressToShippingAddress(order.ShippingAddress),
                 Weight = 500, // Default weight
                 InsuranceValue = order.Total,
@@ -702,8 +705,18 @@ namespace backend.Services
             };
         }
 
-        private ShippingAddressDto GetDefaultFromAddress()
+        private async Task<ShippingAddressDto> GetDefaultFromAddressAsync()
         {
+            // ✅ NEW: Use warehouse service instead of hard-coded config
+            var warehouseAddress = await _warehouseService.GetDefaultPickupAddressAsync();
+            
+            if (warehouseAddress != null)
+            {
+                return warehouseAddress;
+            }
+
+            // ⚠️ FALLBACK: If no warehouse found, use config as emergency fallback
+            _logger.LogWarning("No default warehouse found, using config fallback");
             return new ShippingAddressDto
             {
                 Name = _config.ViettelPost.DefaultPickupAddress.Name,
@@ -721,11 +734,10 @@ namespace backend.Services
         /// <summary>
         /// ✅ NEW: Get default warehouse address for e-commerce shipping
         /// </summary>
-        private Task<ShippingAddressDto> GetDefaultWarehouseAddressAsync()
+        private async Task<ShippingAddressDto> GetDefaultWarehouseAddressAsync()
         {
-            // For now, use the default pickup address from config
-            // In the future, this could be enhanced to select the best warehouse based on location
-            return Task.FromResult(GetDefaultFromAddress());
+            // Use the new warehouse service method
+            return await GetDefaultFromAddressAsync();
         }
 
         private static ShippingAddressDto MapOrderAddressToShippingAddress(UserAddress address)
