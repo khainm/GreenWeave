@@ -114,6 +114,10 @@ const AdminAddProduct: React.FC = () => {
       const createdProduct = await ProductService.createProduct(productData)
       console.log('Product created successfully:', createdProduct)
       
+      // 🚀 CRITICAL FIX: Invalidate cache để danh sách sản phẩm cập nhật ngay
+      ProductService.invalidateCache()
+      console.log('✅ Cache invalidated after product creation')
+      
       // Chuyển hướng về danh sách sản phẩm
       navigate('/admin/products')
     } catch (err) {

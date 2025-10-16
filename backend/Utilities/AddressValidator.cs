@@ -92,10 +92,14 @@ namespace backend.Utilities
                 result.Errors.Add("Tỉnh/Thành phố không được để trống");
                 result.IsValid = false;
             }
-            else if (!ValidProvinces.Contains(address.Province.Trim()))
+            else 
             {
-                result.Errors.Add("Tỉnh/Thành phố không hợp lệ");
-                result.IsValid = false;
+                var normalizedProvince = NormalizeProvinceName(address.Province);
+                if (!ValidProvinces.Contains(normalizedProvince))
+                {
+                    result.Errors.Add($"Tỉnh/Thành phố không hợp lệ: '{address.Province}' (normalized: '{normalizedProvince}')");
+                    result.IsValid = false;
+                }
             }
 
             // Validate district
@@ -138,7 +142,34 @@ namespace backend.Utilities
             if (string.IsNullOrWhiteSpace(province))
                 return false;
 
-            return ValidProvinces.Contains(province.Trim());
+            return ValidProvinces.Contains(NormalizeProvinceName(province));
+        }
+
+        /// <summary>
+        /// Normalize province name for consistent comparison
+        /// </summary>
+        private static string NormalizeProvinceName(string province)
+        {
+            if (string.IsNullOrWhiteSpace(province))
+                return string.Empty;
+
+            // Remove extra whitespaces, normalize to single spaces
+            var normalized = System.Text.RegularExpressions.Regex.Replace(province.Trim(), @"\s+", " ");
+            
+            // Handle common variations
+            normalized = normalized
+                .Replace("TP.", "")
+                .Replace("tp.", "")
+                .Replace("Tp.", "")
+                .Replace("T.P.", "")
+                .Replace("t.p.", "")
+                .Replace("Thành phố", "")
+                .Replace("thành phố", "")
+                .Replace("Tỉnh", "")
+                .Replace("tỉnh", "")
+                .Trim();
+
+            return normalized;
         }
     }
 }

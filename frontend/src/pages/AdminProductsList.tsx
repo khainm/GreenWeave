@@ -39,12 +39,14 @@ const AdminProductsList: React.FC = () => {
   // SKU auto-generate moved inside modal. Keep no-op effect to avoid refactoring other logic.
 
   // Fetch products from API
-  const fetchData = async () => {
+  const fetchData = async (forceRefresh: boolean = false) => {
     try {
       setIsLoading(true)
       setError(null)
+      
+      // 🚀 Force refresh sẽ bypass cache để lấy data mới nhất
       const [prods, cats] = await Promise.all([
-        ProductService.getAllProducts(),
+        ProductService.getAllProducts(!forceRefresh), // useCache = !forceRefresh
         CategoryService.list().catch(() => [])
       ])
       setProducts(prods)
@@ -60,14 +62,15 @@ const AdminProductsList: React.FC = () => {
   }
 
   useEffect(() => {
-    fetchData()
+    // 🚀 FORCE REFRESH khi component mount để đảm bảo data fresh
+    fetchData(true)
   }, [])
 
   // Refresh data when component becomes visible (e.g., when navigating back from add/edit)
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        fetchData()
+        fetchData(true) // Force refresh khi tab becomes visible
       }
     }
 
@@ -159,7 +162,7 @@ const AdminProductsList: React.FC = () => {
             </div>
             <div className="flex items-center space-x-3">
               <button
-                onClick={fetchData}
+                onClick={() => fetchData(true)} // Force refresh
                 disabled={isLoading}
                 className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
               >

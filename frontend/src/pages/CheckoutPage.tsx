@@ -3,14 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/layout/Header';
 import ShippingProviderSelector from '../components/shipping/ShippingProviderSelector';
-import SenderLocationSelector from '../components/checkout/SenderLocationSelector';
 import { AddressValidator } from '../utils/addressValidator';
 import type { 
   ShippingOption, 
   UserAddress,
   CartItem,
-  PaymentMethod,
-  InventoryData
+  PaymentMethod
 } from '../types';
 import OrderService from '../services/orderService';
 import { userAddressService } from '../services/userAddressService';
@@ -25,7 +23,6 @@ const CheckoutPage: React.FC = () => {
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingOption | null>(null);
-  const [selectedSenderLocation, setSelectedSenderLocation] = useState<InventoryData | null>(null);
   const [shippingFee, setShippingFee] = useState<number>(0);
   const [orderNotes, setOrderNotes] = useState<string>('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CashOnDelivery');
@@ -493,15 +490,29 @@ const CheckoutPage: React.FC = () => {
               )}
             </div>
 
-            {/* Sender Location Selection */}
+            {/* Auto-selected Warehouse Display (Information Only) */}
             <div className="bg-white p-6 rounded-lg shadow">
-              <SenderLocationSelector
-                selectedLocation={selectedSenderLocation}
-                onLocationSelect={setSelectedSenderLocation}
-                className="w-full"
-              />
-              <div className="mt-3 text-sm text-gray-500">
-                💡 <strong>Tip:</strong> Chọn địa điểm gửi hàng phù hợp để có mức phí vận chuyển tối ưu
+              <h3 className="text-lg font-semibold mb-4">📦 Điểm gửi hàng</h3>
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 6 10-10" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-green-900">🤖 Được chọn tự động</h4>
+                    <p className="text-sm text-green-700 mt-1">
+                      Hệ thống đã tự động chọn kho hàng tối ưu nhất dựa trên:
+                    </p>
+                    <ul className="text-sm text-green-700 mt-2 list-disc list-inside space-y-1">
+                      <li>Khoảng cách đến địa chỉ của bạn</li>
+                      <li>Tình trạng tồn kho sản phẩm</li>
+                      <li>Thời gian giao hàng nhanh nhất</li>
+                      <li>Chi phí vận chuyển tối ưu</li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
 

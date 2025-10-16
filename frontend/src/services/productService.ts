@@ -256,7 +256,13 @@ export class ProductService {
   static async createProduct(productData: CreateProductRequest): Promise<Product> {
     try {
       const formData = this.buildFormData(productData)
-      return await apiClient.postForm<Product>(this.BASE_PATH, formData)
+      const newProduct = await apiClient.postForm<Product>(this.BASE_PATH, formData)
+      
+      // 🚀 AUTO-INVALIDATE: Clear cache sau khi tạo sản phẩm thành công
+      this.invalidateCache()
+      console.log('✅ [ProductService] Cache auto-invalidated after product creation')
+      
+      return newProduct
     } catch (error) {
       console.error('Error creating product:', error)
       throw error
@@ -278,7 +284,13 @@ export class ProductService {
         }
       }
       
-      return await apiClient.putForm<Product>(`${this.BASE_PATH}/${id}`, formData)
+      const updatedProduct = await apiClient.putForm<Product>(`${this.BASE_PATH}/${id}`, formData)
+      
+      // 🚀 AUTO-INVALIDATE: Clear cache sau khi update sản phẩm thành công
+      this.invalidateProductCache(id)
+      console.log('✅ [ProductService] Cache auto-invalidated after product update')
+      
+      return updatedProduct
     } catch (error) {
       console.error('Error updating product:', error)
       throw error
@@ -289,6 +301,10 @@ export class ProductService {
   static async deleteProduct(id: number): Promise<void> {
     try {
       await apiClient.delete(`${this.BASE_PATH}/${id}`)
+      
+      // 🚀 AUTO-INVALIDATE: Clear cache sau khi xóa sản phẩm thành công
+      this.invalidateProductCache(id)
+      console.log('✅ [ProductService] Cache auto-invalidated after product deletion')
     } catch (error) {
       console.error('Error deleting product:', error)
       throw error
