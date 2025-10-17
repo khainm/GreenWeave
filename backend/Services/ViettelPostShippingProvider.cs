@@ -1969,7 +1969,7 @@ namespace backend.Services
         /// <summary>
         /// Validate individual shipping address
         /// </summary>
-        private backend.Utilities.AddressValidator.AddressValidationResult ValidateShippingAddress(ShippingAddressDto address, string addressType)
+        private backend.Utilities.ShippingAddressValidationResult ValidateShippingAddress(ShippingAddressDto address, string addressType)
         {
             var userAddress = new Models.UserAddress
             {

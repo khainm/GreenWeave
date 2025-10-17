@@ -50,8 +50,15 @@ namespace backend.Controllers
                 {
                     try
                     {
-                        // PayOS orderCode is numeric; our order numbers are strings. Convert to string as used earlier when generating order numbers.
-                        var orderNumber = orderCodeStr;
+                        // PayOS orderCode is numeric (extracted from original OrderNumber like "GW20251016004" → "20251016004")
+                        // We need to find the original order by matching the numeric part
+                        var orderNumber = await FindOrderNumberByPayOSCodeAsync(orderCodeStr);
+                        if (string.IsNullOrEmpty(orderNumber))
+                        {
+                            _logger.LogWarning("⚠️ Could not find order with PayOS code {OrderCode}", orderCodeStr);
+                            return Ok(new { message = "PayOS code processed but order not found", orderCode = verifiedData.orderCode });
+                        }
+
                         updatedOrder = await _orderService.UpdatePaymentStatusFromWebhookAsync(orderNumber, verifiedData.amount, DateTime.UtcNow);
                         
                         if (updatedOrder != null)
@@ -102,6 +109,52 @@ namespace backend.Controllers
 
             var result = await _payosService.ConfirmWebhookAsync(url);
             return Ok(new { message = "Webhook confirmed successfully", result });
+        }
+
+        /// <summary>
+        /// Find the original OrderNumber by PayOS numeric code.
+        /// PayOS receives numeric codes (e.g., "20251016004") extracted from our alphanumeric order numbers (e.g., "GW20251016004").
+        /// This method reverses the mapping to find the original order.
+        /// </summary>
+        /// <param name="payosCode">Numeric PayOS code (e.g., "20251016004")</param>
+        /// <returns>Full OrderNumber (e.g., "GW20251016004") or null if not found</returns>
+        private async Task<string?> FindOrderNumberByPayOSCodeAsync(string payosCode)
+        {
+            try
+            {
+                // Strategy 1: Try to reconstruct the order number by adding "GW" prefix
+                // Most common case: "20251016004" → "GW20251016004" 
+                var reconstructedOrderNumber = $"GW{payosCode}";
+                var order = await _orderService.GetOrderByNumberAsync(reconstructedOrderNumber);
+                if (order != null)
+                {
+                    _logger.LogInformation("✅ Found order by reconstruction: {PayOSCode} → {OrderNumber}", 
+                        payosCode, reconstructedOrderNumber);
+                    return reconstructedOrderNumber;
+                }
+
+                // Strategy 2: Search all orders and find one where the numeric part matches
+                // This is a fallback for edge cases or different order number formats
+                var allOrders = await _orderService.GetAllOrdersAsync();
+                foreach (var existingOrder in allOrders)
+                {
+                    var numericPart = System.Text.RegularExpressions.Regex.Replace(existingOrder.OrderNumber, @"[^\d]", "");
+                    if (numericPart == payosCode)
+                    {
+                        _logger.LogInformation("✅ Found order by numeric matching: {PayOSCode} → {OrderNumber}", 
+                            payosCode, existingOrder.OrderNumber);
+                        return existingOrder.OrderNumber;
+                    }
+                }
+
+                _logger.LogWarning("⚠️ No order found for PayOS code: {PayOSCode}", payosCode);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error finding order for PayOS code: {PayOSCode}", payosCode);
+                return null;
+            }
         }
     }
 }

@@ -2,12 +2,14 @@ import React from 'react';
 import Header from '../components/layout/Header';
 import HeroSection from '../components/HeroSection';
 import SustainabilityIntro from '../components/SustainabilityIntro';
-import ScrollToTopButton from '../components/ui/ScrollToTopButton';
+// import ScrollToTopButton from '../components/ui/ScrollToTopButton';
 import GreenChoiceSection from '../components/GreenChoiceSection';
 import FeaturedProducts from '../components/products/FeaturedProducts';
 import AboutStorySection from '../components/AboutStorySection';
 import CallToActionSection from '../components/CallToActionSection';
 import Footer from '../components/Footer';
+import FloatingContactButtons from '../components/chat/FloatingContactButtons';
+
 
 const HomePage: React.FC = () => {
 
@@ -17,12 +19,14 @@ const HomePage: React.FC = () => {
       <Header />
       <HeroSection />
       <SustainabilityIntro />
-      <ScrollToTopButton />
+      {/* <ScrollToTopButton /> */}
       <GreenChoiceSection />
       <FeaturedProducts />
       <AboutStorySection />
       <CallToActionSection />
       <Footer />
+       {/* 💬 Messenger + 📞 Gọi điện */}
+      <FloatingContactButtons />
     </div>
   );
 };

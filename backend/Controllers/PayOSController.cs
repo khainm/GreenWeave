@@ -40,7 +40,13 @@ namespace backend.Controllers
     public class CreatePaymentRequest
     {
         public decimal Amount { get; set; }
+        
+        /// <summary>
+        /// Order code - can be alphanumeric (e.g., "GW20251016005"). 
+        /// Will be automatically converted to numeric format for PayOS compatibility.
+        /// </summary>
         public string? OrderCode { get; set; }
+        
         public string? Description { get; set; }
         public string? ReturnUrl { get; set; }
         public string? CancelUrl { get; set; }
