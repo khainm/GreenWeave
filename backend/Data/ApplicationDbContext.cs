@@ -160,18 +160,9 @@ namespace backend.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
             
-            // Configure ProductSticker
-            modelBuilder.Entity<ProductSticker>(entity =>
-            {
-                entity.HasKey(ps => ps.Id);
-                entity.Property(ps => ps.ImageUrl).IsRequired().HasMaxLength(500);
-                entity.Property(ps => ps.CloudinaryPublicId).HasMaxLength(200);
-                entity.Property(ps => ps.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
-                entity.HasOne(ps => ps.Product)
-                    .WithMany(p => p.Stickers)
-                    .HasForeignKey(ps => ps.ProductId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
+            // Removed: ProductSticker configuration - use Sticker Library instead
+            // ProductStickers are now managed separately, not attached to products
+            // modelBuilder.Entity<ProductSticker>(entity => { ... });
             
             // Configure ProductColor
             modelBuilder.Entity<ProductColor>(entity =>

@@ -11,11 +11,13 @@ namespace backend.Controllers
     public class ProductsController : ControllerBase
     {
         private readonly IProductService _productService;
+        private readonly ICategoryService _categoryService;
         private readonly ILogger<ProductsController> _logger;
         
-        public ProductsController(IProductService productService, ILogger<ProductsController> logger)
+        public ProductsController(IProductService productService, ICategoryService categoryService, ILogger<ProductsController> logger)
         {
             _productService = productService;
+            _categoryService = categoryService;
             _logger = logger;
         }
         
@@ -52,17 +54,6 @@ namespace backend.Controllers
         }
 
         /// <summary>
-        /// Danh sách sản phẩm tùy chỉnh (thuộc danh mục isCustomizable)
-        /// </summary>
-        [HttpGet("customizable")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        public async Task<ActionResult<IEnumerable<ProductResponseDto>>> GetCustomizableProducts()
-        {
-            var products = await _productService.GetCustomizableProductsAsync();
-            return Ok(new { success = true, data = products });
-        }
-
-        /// <summary>
         /// Tìm kiếm và lọc sản phẩm
         /// </summary>
         /// <param name="request">Tham số tìm kiếm và lọc</param>
@@ -90,19 +81,6 @@ namespace backend.Controllers
             }
         }
 
-        /// <summary>
-        /// Chi tiết sản phẩm tùy chỉnh theo id
-        /// </summary>
-        [HttpGet("customizable/{id}")]
-        [ProducesResponseType(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<ActionResult<ProductResponseDto>> GetCustomizableProductById([Required] int id)
-        {
-            var product = await _productService.GetCustomizableProductByIdAsync(id);
-            if (product == null) return NotFound(new { success = false, message = "Không tìm thấy" });
-            return Ok(new { success = true, data = product });
-        }
-        
         /// <summary>
         /// Lấy sản phẩm theo ID
         /// </summary>
@@ -198,30 +176,62 @@ namespace backend.Controllers
         {
             try
             {
-                _logger.LogInformation("CreateProduct request received: Name={Name}, Weight={Weight}", request.Name, request.Weight);
+                _logger.LogInformation("CreateProduct request received: Name={Name}, Category={Category}", request.Name, request.Category);
+                _logger.LogInformation("📥 Received {ImageCount} image files, {ColorCount} colors", 
+                    request.ImageFiles?.Count() ?? 0, 
+                    request.Colors?.Count() ?? 0);
                 
-                // Debug: Log all form values
-                if (Request.Form != null)
+                // Validate category and determine if it's customizable
+                var categories = await _categoryService.GetAllAsync();
+                var category = categories.FirstOrDefault(c => c.Name == request.Category);
+                
+                if (category == null)
                 {
-                    _logger.LogInformation("=== FORM DATA DEBUG ===");
-                    foreach (var key in Request.Form.Keys)
-                    {
-                        _logger.LogInformation("Form field: {Key} = {Value}", key, Request.Form[key]);
-                    }
-                    _logger.LogInformation("=== END FORM DATA ===");
+                    return BadRequest(new { success = false, message = $"Danh mục '{request.Category}' không tồn tại" });
                 }
                 
-                // Debug: Log the bound request object
-                _logger.LogInformation("=== BOUND REQUEST DEBUG ===");
-                _logger.LogInformation("Name: {Name}", request.Name);
-                _logger.LogInformation("Sku: {Sku}", request.Sku);
-                _logger.LogInformation("Category: {Category}", request.Category);
-                _logger.LogInformation("Price: {Price}", request.Price);
-                _logger.LogInformation("Stock: {Stock}", request.Stock);
-                _logger.LogInformation("Weight: {Weight}", request.Weight);
-                _logger.LogInformation("Status: {Status}", request.Status);
-                _logger.LogInformation("PrimaryWarehouseId: {PrimaryWarehouseId}", request.PrimaryWarehouseId);
-                _logger.LogInformation("=== END BOUND REQUEST ===");
+                bool isCustomProduct = category.IsCustomizable;
+                _logger.LogInformation("Category '{CategoryName}' IsCustomizable: {IsCustomizable}", category.Name, isCustomProduct);
+                
+                // Apply validation rules based on product type
+                if (isCustomProduct)
+                {
+                    // Custom products: Colors required (at least 1), Price/Stock/Weight must be null
+                    if (request.Colors == null || !request.Colors.Any())
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm custom phải có ít nhất 1 màu" });
+                    }
+                    
+                    // Clear regular product fields for custom products
+                    request.Price = null;
+                    request.OriginalPrice = null;
+                    request.Stock = null;
+                    request.Weight = null;
+                    request.PrimaryWarehouseId = null;
+                }
+                else
+                {
+                    // Regular products: Price/Stock/Weight required, Colors optional
+                    if (!request.Price.HasValue || request.Price.Value <= 0)
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm thông thường phải có giá bán" });
+                    }
+                    
+                    if (!request.Stock.HasValue)
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm thông thường phải có số lượng tồn kho" });
+                    }
+                    
+                    if (!request.Weight.HasValue || request.Weight.Value <= 0)
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm thông thường phải có khối lượng" });
+                    }
+                    
+                    // Clear custom product fields for regular products
+                    request.ConsultationNote = null;
+                    request.EstimatedPriceMin = null;
+                    request.EstimatedPriceMax = null;
+                }
                 
                 if (!ModelState.IsValid)
                 {
@@ -229,54 +239,22 @@ namespace backend.Controllers
                     return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
                 }
                 
-                // Manual binding for Weight if not bound correctly
-                var weight = request.Weight;
-                _logger.LogInformation("Initial request.Weight: {Weight}", weight);
-                
-                if (weight == 0 && Request.Form?.ContainsKey("Weight") == true)
-                {
-                    var weightFromFormObj = Request.Form["Weight"];
-                    var weightFromForm = !Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(weightFromFormObj) ? weightFromFormObj.ToString() : string.Empty;
-                    _logger.LogInformation("Found Weight in form: {WeightFromForm}", weightFromForm);
-
-                    if (decimal.TryParse(weightFromForm, out var parsedWeight))
-                    {
-                        weight = parsedWeight;
-                        _logger.LogInformation("Successfully parsed Weight from form: {Weight}", weight);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to parse Weight from form: {WeightFromForm}", weightFromForm);
-                    }
-                }
-                else if (weight == 0)
-                {
-                    _logger.LogWarning("Weight is 0 and not found in form data");
-                }
-                
-                _logger.LogInformation("Final weight value: {Weight}", weight);
-                
-                
-                var createProductDto = new CreateProductDto
-                {
-                    Name = request.Name,
-                    Sku = request.Sku,
-                    Category = request.Category,
-                    Description = request.Description,
-                    Price = request.Price,
-                    OriginalPrice = request.OriginalPrice,
-                    Stock = request.Stock,
-                    Weight = weight,
-                    Status = request.Status,
-                    PrimaryWarehouseId = request.PrimaryWarehouseId,
-                    Colors = request.Colors ?? new List<string>(),
-                    ImageUrls = request.ImageUrls,
-                    ColorImageMap = null, // mapping sẽ đi qua file upload theo chuẩn hiện tại
-                    StickerUrls = request.StickerUrls,
-                    Stickers = request.Stickers
-                };
-                
-// Bind ColorImages from form data manually
+            var createProductDto = new CreateProductDto
+            {
+                Name = request.Name,
+                Sku = request.Sku,
+                Category = request.Category,
+                Description = request.Description,
+                Price = request.Price ?? 0,
+                OriginalPrice = request.OriginalPrice ?? 0,
+                Stock = request.Stock ?? 0,
+                Weight = request.Weight ?? 0,
+                Status = request.Status,
+                PrimaryWarehouseId = request.PrimaryWarehouseId,
+                Colors = request.Colors ?? new List<string>(),
+                ImageUrls = request.ImageUrls,
+                ColorImageMap = null, // mapping sẽ đi qua file upload theo chuẩn hiện tại
+            };                // Bind ColorImages from form data manually
                 var colorImages = new Dictionary<string, IFormFile>();
                 if (Request.Form != null)
                 {
@@ -294,30 +272,8 @@ namespace backend.Controllers
                     }
                 }
 
-                // Bind StickerUrls from form data manually
-                var stickerUrls = new List<string>();
-                if (Request.Form != null)
-                {
-                    foreach (var key in Request.Form.Keys)
-                    {
-                        if (key.StartsWith("StickerUrls[") && key.EndsWith("]"))
-                        {
-                            var url = Request.Form[key].ToString();
-                            if (!string.IsNullOrWhiteSpace(url))
-                            {
-                                stickerUrls.Add(url);
-                            }
-                        }
-                    }
-                }
-                
-                // Override StickerUrls if manually bound from form data
-                if (stickerUrls.Any())
-                {
-                    createProductDto.StickerUrls = stickerUrls;
-                }
-                var stickerFiles = request.StickerFiles?.ToList();
-                var product = await _productService.CreateProductAsync(createProductDto, request.ImageFiles?.ToList(), colorImages, stickerFiles);
+                // Removed: Sticker file handling - use Sticker Library instead
+                var product = await _productService.CreateProductAsync(createProductDto, request.ImageFiles?.ToList(), colorImages, null);
                 
                 return CreatedAtAction(
                     nameof(GetProductById), 
@@ -356,30 +312,63 @@ namespace backend.Controllers
         {
             try
             {
-                _logger.LogInformation("UpdateProduct request received: ID={Id}, Name={Name}, Weight={Weight}", id, request.Name, request.Weight);
+                _logger.LogInformation("UpdateProduct request received: ID={Id}, Name={Name}, Category={Category}", id, request.Name, request.Category);
+                _logger.LogInformation("📥 UPDATE - Received {ImageCount} image files, {ImageUrlCount} image URLs, {ColorCount} colors", 
+                    request.ImageFiles?.Count() ?? 0,
+                    request.ImageUrls?.Count() ?? 0,
+                    request.Colors?.Count() ?? 0);
                 
-                // Debug: Log all form values
-                if (Request.Form != null)
+                // Validate category and determine if it's customizable
+                var categories = await _categoryService.GetAllAsync();
+                var category = categories.FirstOrDefault(c => c.Name == request.Category);
+                
+                if (category == null)
                 {
-                    _logger.LogInformation("=== FORM DATA DEBUG ===");
-                    foreach (var key in Request.Form.Keys)
-                    {
-                        _logger.LogInformation("Form field: {Key} = {Value}", key, Request.Form[key]);
-                    }
-                    _logger.LogInformation("=== END FORM DATA ===");
+                    return BadRequest(new { success = false, message = $"Danh mục '{request.Category}' không tồn tại" });
                 }
                 
-                // Debug: Log the bound request object
-                _logger.LogInformation("=== BOUND REQUEST DEBUG ===");
-                _logger.LogInformation("Name: {Name}", request.Name);
-                _logger.LogInformation("Sku: {Sku}", request.Sku);
-                _logger.LogInformation("Category: {Category}", request.Category);
-                _logger.LogInformation("Price: {Price}", request.Price);
-                _logger.LogInformation("Stock: {Stock}", request.Stock);
-                _logger.LogInformation("Weight: {Weight}", request.Weight);
-                _logger.LogInformation("Status: {Status}", request.Status);
-                _logger.LogInformation("PrimaryWarehouseId: {PrimaryWarehouseId}", request.PrimaryWarehouseId);
-                _logger.LogInformation("=== END BOUND REQUEST ===");
+                bool isCustomProduct = category.IsCustomizable;
+                _logger.LogInformation("Category '{CategoryName}' IsCustomizable: {IsCustomizable}", category.Name, isCustomProduct);
+                
+                // Apply validation rules based on product type
+                if (isCustomProduct)
+                {
+                    // Custom products: Colors required (at least 1), Price/Stock/Weight must be null
+                    if (request.Colors == null || !request.Colors.Any())
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm custom phải có ít nhất 1 màu" });
+                    }
+                    
+                    // Clear regular product fields for custom products
+                    request.Price = null;
+                    request.OriginalPrice = null;
+                    request.Stock = null;
+                    request.Weight = null;
+                    request.PrimaryWarehouseId = null;
+                }
+                else
+                {
+                    // Regular products: Price/Stock/Weight required, Colors optional
+                    if (!request.Price.HasValue || request.Price.Value <= 0)
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm thông thường phải có giá bán" });
+                    }
+                    
+                    if (!request.Stock.HasValue)
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm thông thường phải có số lượng tồn kho" });
+                    }
+                    
+                    if (!request.Weight.HasValue || request.Weight.Value <= 0)
+                    {
+                        return BadRequest(new { success = false, message = "Sản phẩm thông thường phải có khối lượng" });
+                    }
+                    
+                    // Clear custom product fields for regular products
+                    request.ConsultationNote = null;
+                    request.EstimatedPriceMin = null;
+                    request.EstimatedPriceMax = null;
+                }
                 
                 if (!ModelState.IsValid)
                 {
@@ -387,77 +376,22 @@ namespace backend.Controllers
                     return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
                 }
                 
-                // Manual binding for Weight if not bound correctly
-                var weight = request.Weight;
-                _logger.LogInformation("Initial request.Weight: {Weight}", weight);
-                
-                if (weight == 0 && Request.Form?.ContainsKey("Weight") == true)
-                {
-                    var weightFromFormObj = Request.Form["Weight"];
-                    var weightFromForm = !Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(weightFromFormObj) ? weightFromFormObj.ToString() : string.Empty;
-                    _logger.LogInformation("Found Weight in form: {WeightFromForm}", weightFromForm);
-
-                    if (decimal.TryParse(weightFromForm, out var parsedWeight))
-                    {
-                        weight = parsedWeight;
-                        _logger.LogInformation("Successfully parsed Weight from form: {Weight}", weight);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("Failed to parse Weight from form: {WeightFromForm}", weightFromForm);
-                    }
-                }
-                else if (weight == 0)
-                {
-                    _logger.LogWarning("Weight is 0 and not found in form data");
-                }
-                
-                _logger.LogInformation("Final weight value: {Weight}", weight);
-                
-                
                 var updateProductDto = new CreateProductDto
-                {
-                    Name = request.Name,
-                    Sku = request.Sku,
-                    Category = request.Category,
-                    Description = request.Description,
-                    Price = request.Price,
-                    OriginalPrice = request.OriginalPrice,
-                    Stock = request.Stock,
-                    Weight = weight, // Use the parsed weight value
-                    Status = request.Status,
-                    PrimaryWarehouseId = request.PrimaryWarehouseId,
-                    Colors = request.Colors ?? new List<string>(),
-                    ImageUrls = request.ImageUrls,
-                    StickerUrls = request.StickerUrls,
-                    Stickers = request.Stickers
-                };
-                
-                // Bind StickerUrls from form data manually (same as CreateProduct)
-                var stickerUrls = new List<string>();
-                if (Request.Form != null)
-                {
-                    foreach (var key in Request.Form.Keys)
-                    {
-                        if (key.StartsWith("StickerUrls[") && key.EndsWith("]"))
-                        {
-                            var url = Request.Form[key].ToString();
-                            if (!string.IsNullOrWhiteSpace(url))
-                            {
-                                stickerUrls.Add(url);
-                            }
-                        }
-                    }
-                }
-                
-                // Override StickerUrls if manually bound from form data
-                if (stickerUrls.Any())
-                {
-                    updateProductDto.StickerUrls = stickerUrls;
-                }
-                
-                var stickerFiles = request.StickerFiles?.ToList();
-                var product = await _productService.UpdateProductAsync(id, updateProductDto, request.ImageFiles?.ToList(), stickerFiles);
+            {
+                Name = request.Name,
+                Sku = request.Sku,
+                Category = request.Category,
+                Description = request.Description,
+                Price = request.Price ?? 0,
+                OriginalPrice = request.OriginalPrice ?? 0,
+                Stock = request.Stock ?? 0,
+                Weight = request.Weight ?? 0,
+                Status = request.Status,
+                PrimaryWarehouseId = request.PrimaryWarehouseId,
+                Colors = request.Colors ?? new List<string>(),
+                ImageUrls = request.ImageUrls,
+            };                // Removed: Sticker file handling - use Sticker Library instead
+                var product = await _productService.UpdateProductAsync(id, updateProductDto, request.ImageFiles?.ToList(), null);
                 
                 return Ok(new { success = true, message = "Cập nhật sản phẩm thành công", data = product });
             }
@@ -564,13 +498,14 @@ namespace backend.Controllers
         [StringLength(1000, ErrorMessage = "Mô tả không được quá 1000 ký tự")]
         public string? Description { get; set; }
         
+        // ===== Regular Product Fields (Required for non-customizable products) =====
+        
         /// <summary>
-        /// Giá bán sản phẩm (VND)
+        /// Giá bán sản phẩm (VND) - Chỉ dành cho sản phẩm thông thường
         /// </summary>
         /// <example>159000</example>
-        [Required(ErrorMessage = "Giá bán là bắt buộc")]
         [Range(0, double.MaxValue, ErrorMessage = "Giá bán phải lớn hơn hoặc bằng 0")]
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
         
         /// <summary>
         /// Giá gốc sản phẩm (VND) - Dùng để hiển thị giá sale
@@ -580,26 +515,47 @@ namespace backend.Controllers
         public decimal? OriginalPrice { get; set; }
         
         /// <summary>
-        /// Số lượng tồn kho
+        /// Số lượng tồn kho - Chỉ dành cho sản phẩm thông thường
         /// </summary>
         /// <example>120</example>
-        [Required(ErrorMessage = "Số lượng tồn kho là bắt buộc")]
         [Range(0, int.MaxValue, ErrorMessage = "Số lượng tồn kho phải lớn hơn hoặc bằng 0")]
-        public int Stock { get; set; }
+        public int? Stock { get; set; }
         
         /// <summary>
-        /// Khối lượng sản phẩm (gram)
+        /// Khối lượng sản phẩm (gram) - Chỉ dành cho sản phẩm thông thường
         /// </summary>
         /// <example>500</example>
-        [Required(ErrorMessage = "Khối lượng là bắt buộc")]
         [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
-        public decimal Weight { get; set; }
+        public decimal? Weight { get; set; }
         
         /// <summary>
-        /// ID kho hàng chính để lưu trữ sản phẩm
+        /// ID kho hàng chính để lưu trữ sản phẩm - Chỉ dành cho sản phẩm thông thường
         /// </summary>
         /// <example>123e4567-e89b-12d3-a456-426614174000</example>
         public Guid? PrimaryWarehouseId { get; set; }
+        
+        // ===== Custom Product Fields (Used for customizable products) =====
+        
+        /// <summary>
+        /// Ghi chú tư vấn cho sản phẩm custom - Hướng dẫn khách hàng về cách đặt hàng
+        /// </summary>
+        /// <example>Liên hệ qua Facebook/Zalo để được tư vấn chi tiết về thiết kế và báo giá</example>
+        [StringLength(500, ErrorMessage = "Ghi chú tư vấn không được quá 500 ký tự")]
+        public string? ConsultationNote { get; set; }
+        
+        /// <summary>
+        /// Giá ước tính tối thiểu cho sản phẩm custom (VND)
+        /// </summary>
+        /// <example>200000</example>
+        [Range(0, double.MaxValue, ErrorMessage = "Giá ước tính tối thiểu phải lớn hơn hoặc bằng 0")]
+        public decimal? EstimatedPriceMin { get; set; }
+        
+        /// <summary>
+        /// Giá ước tính tối đa cho sản phẩm custom (VND)
+        /// </summary>
+        /// <example>500000</example>
+        [Range(0, double.MaxValue, ErrorMessage = "Giá ước tính tối đa phải lớn hơn hoặc bằng 0")]
+        public decimal? EstimatedPriceMax { get; set; }
         
         /// <summary>
         /// Trạng thái sản phẩm
@@ -630,20 +586,7 @@ namespace backend.Controllers
         /// </summary>
         public Dictionary<string, IFormFile>? ColorImages { get; set; }
 
-        /// <summary>
-        /// Sticker của sản phẩm (PNG nền trong suốt), gửi nhiều file: StickerFiles
-        /// </summary>
-        public IFormFile[]? StickerFiles { get; set; }
-        
-        /// <summary>
-        /// Sticker URLs từ internet, gửi dạng array: StickerUrls[0], StickerUrls[1], ...
-        /// </summary>
-        public List<string>? StickerUrls { get; set; }
-        
-        /// <summary>
-        /// Stickers từ placedStickers (from frontend)
-        /// </summary>
-        public List<ProductStickerDto>? Stickers { get; set; }
+        // Removed: StickerFiles, StickerUrls, Stickers - use Sticker Library instead
     }
     
     /// <summary>

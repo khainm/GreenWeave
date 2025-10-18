@@ -197,12 +197,13 @@ builder.Services.AddSwaggerGen(c =>
     });
     
     // Enable XML comments for better Swagger documentation
-    var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
-    var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-    if (File.Exists(xmlPath))
-    {
-        c.IncludeXmlComments(xmlPath);
-    }
+    // Temporarily disabled to debug Swagger 500 error
+    // var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    // var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    // if (File.Exists(xmlPath))
+    // {
+    //     c.IncludeXmlComments(xmlPath);
+    // }
     
     // Configure file upload support
     c.MapType<IFormFile>(() => new Microsoft.OpenApi.Models.OpenApiSchema
@@ -291,11 +292,19 @@ builder.Services.AddAuthentication(options =>
 // Add Product services
 builder.Services.AddScoped<IProductRepository, ProductRepository>();
 builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICustomProductRepository, CustomProductRepository>();
+builder.Services.AddScoped<ICustomProductService, CustomProductService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
+builder.Services.AddScoped<IGeminiPreviewService, GeminiPreviewService>();
+builder.Services.AddHttpClient<GeminiPreviewService>(); // For HTTP calls to Gemini API
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();
 builder.Services.AddScoped<ICartService, CartService>();
+
+// Add Custom Design services
+builder.Services.AddScoped<ICustomDesignService, CustomDesignService>();
+builder.Services.AddScoped<IConsultationRequestService, ConsultationRequestService>();
 
 // Add Authentication services
 builder.Services.AddScoped<IUserRepository, UserRepository>();

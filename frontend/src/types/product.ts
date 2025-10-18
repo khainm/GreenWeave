@@ -25,13 +25,17 @@ export interface Product {
   sku: string
   category: string
   description?: string
-  price: number
+  // Regular product fields (nullable for custom products)
+  price?: number
   originalPrice?: number
-  stock: number
-  weight: number
-  status: 'active' | 'inactive'
+  stock?: number
+  weight?: number
   primaryWarehouseId?: string
   primaryWarehouseName?: string
+  // Custom product fields (nullable for regular products)
+  consultationNote?: string
+  // Common fields
+  status: 'active' | 'inactive'
   createdAt: string
   updatedAt: string
   images: ProductImage[]
@@ -44,23 +48,18 @@ export interface CreateProductRequest {
   sku: string
   category: string
   description?: string
-  price: number
+  // Regular product fields (optional for custom products)
+  price?: number
   originalPrice?: number
-  stock: number
-  weight: number
-  status: 'active' | 'inactive'
+  stock?: number
+  weight?: number
   primaryWarehouseId?: string
+  // Custom product fields (optional for regular products)
+  consultationNote?: string
+  // Common fields
+  status: 'active' | 'inactive'
   colors?: string[]
   imageUrls?: string[]
   imageFiles?: File[]
-  // Map color code → file for color-specific images
-  colorImageFiles?: Record<string, File>
-  // Sticker fields
-  stickerFiles?: File[] // Files sticker từ máy tính
-  stickerUrls?: string[] // URLs sticker từ internet
-  stickers?: Array<{ // Stickers đã đặt (chỉ gửi fields backend hỗ trợ)
-    id: number
-    imageUrl: string
-    sortOrder: number
-  }>
+  // Note: Backend tự động map ảnh với màu theo thứ tự upload
 }

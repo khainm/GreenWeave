@@ -1,18 +1,31 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import TopNav from '../components/admin/TopNav'
+import RegularProductForm from '../components/admin/RegularProductForm'
+import type { RegularProductFormValues } from '../components/admin/RegularProductForm'
 import ProductService from '../services/productService'
-import type { CreateProductRequest } from '../types/product'
-import ProductForm, { type ProductFormValues } from '../components/admin/ProductForm'
-import { formatVnd } from '../utils/format'
 import CategoryService from '../services/categoryService'
 import warehouseService from '../services/warehouseService'
+import { formatVnd } from '../utils/format'
 
-const AdminAddProduct: React.FC = () => {
+const placeholderImage = 'https://via.placeholder.com/300x300?text=No+Image'
+
+const generateSku = (categoryName: string): string => {
+  const prefix = categoryName.substring(0, 3).toUpperCase()
+  const timestamp = Date.now().toString().slice(-6)
+  const random = Math.floor(Math.random() * 100).toString().padStart(2, '0')
+  return `${prefix}-${timestamp}${random}`
+}
+
+const AdminAddRegularProduct: React.FC = () => {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState<ProductFormValues>({
+  const [error, setError] = useState('')
+
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable?: boolean }[]>([])
+  const [warehouseOptions, setWarehouseOptions] = useState<{ label: string; value: string }[]>([])
+
+  const [form, setForm] = useState<RegularProductFormValues>({
     name: '',
     sku: '',
     category: '',
@@ -20,41 +33,25 @@ const AdminAddProduct: React.FC = () => {
     price: 0,
     originalPrice: 0,
     stock: 0,
-    weight: 500,
+    weight: 0,
     colors: [],
     selectedColor: '',
     status: 'active',
-    images: [],
-    imageFiles: []
+    primaryWarehouseId: undefined,
+    images: [placeholderImage],
+    imageFiles: [],
+    hasChangedImages: false
   })
-  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string; isCustomizable: boolean }[]>([])
-  const [warehouseOptions, setWarehouseOptions] = useState<{ label: string; value: string }[]>([])
 
-  // SKU helpers
-  const generateSku = (category: string) => {
-    return ProductService.generateSku(category)
-  }
-
-  useEffect(() => {
-    setForm(prev => ({ ...prev, sku: prev.sku || generateSku(prev.category) }))
-  }, [])
-
-  // Regenerate SKU when category changes (for Add page behavior)
-  useEffect(() => {
-    if (form.category) {
-      setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.category])
-
+  // Load categories và warehouses
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Load categories
+        // Load categories - CHỈ DANH MỤC THƯỜNG (không customizable)
         const cats = await CategoryService.list()
         const categoryOpts = cats
           .filter(c => c.status === 'active' && !c.isCustomizable)
-          .sort((a,b) => a.sortOrder - b.sortOrder)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
           .map(c => ({ label: c.name, value: String(c.id), isCustomizable: c.isCustomizable }))
         setCategoryOptions(categoryOpts)
 
@@ -65,38 +62,30 @@ const AdminAddProduct: React.FC = () => {
           value: w.id 
         })) || []
         setWarehouseOptions(warehouseOpts)
-      } catch (e) {
-        console.error('Error loading data:', e)
+      } catch (err) {
+        console.error('Error loading data:', err)
       }
     }
     loadData()
   }, [])
 
+  // Auto generate SKU khi chọn category
+  useEffect(() => {
+    if (form.category && !form.sku) {
+      setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))
+    }
+  }, [form.category, form.sku])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
-    setError(null)
-
-    // Validation: Check if at least one color is selected
-    if (form.colors.length === 0) {
-      setError('Vui lòng chọn ít nhất một màu cho sản phẩm.')
-      setIsLoading(false)
-      return
-    }
+    setError('')
 
     try {
-      // Debug logging
-      console.log('🔍 AdminAddProduct - Form values:', {
-        name: form.name,
-        weight: form.weight,
-        weightType: typeof form.weight
-      })
-      
-      const productData: CreateProductRequest = {
+      const productData = {
         name: form.name,
         sku: form.sku,
-        category: form.category,
+        category: form.category, // Use 'category' not 'categoryName'
         description: form.description || undefined,
         price: form.price,
         originalPrice: form.originalPrice > 0 ? form.originalPrice : undefined,
@@ -105,24 +94,25 @@ const AdminAddProduct: React.FC = () => {
         status: form.status,
         primaryWarehouseId: form.primaryWarehouseId,
         colors: form.colors,
-        imageUrls: form.images.filter(img => img.startsWith('http')), // Chỉ lấy URL
+        imageUrls: form.images.filter(img => img.startsWith('http')),
         imageFiles: form.imageFiles
+        // Backend tự động map ảnh theo thứ tự: ảnh đầu = ảnh chính, các ảnh sau map với màu
       }
-      
-      console.log('🔍 AdminAddProduct - ProductData:', productData)
+
+      console.log('🔍 AdminAddRegularProduct - Creating product:', productData)
 
       const createdProduct = await ProductService.createProduct(productData)
-      console.log('Product created successfully:', createdProduct)
-      
-      // 🚀 CRITICAL FIX: Invalidate cache để danh sách sản phẩm cập nhật ngay
+      console.log('✅ Regular product created successfully:', createdProduct)
+
+      // Invalidate cache
       ProductService.invalidateCache()
       console.log('✅ Cache invalidated after product creation')
-      
-      // Chuyển hướng về danh sách sản phẩm
+
+      // Redirect to products list
       navigate('/admin/products')
     } catch (err) {
-      console.error('Error creating product:', err)
-      setError('Có lỗi xảy ra khi tạo sản phẩm. Vui lòng thử lại.')
+      console.error('❌ Error creating regular product:', err)
+      setError('Có lỗi xảy ra khi tạo sản phẩm thường. Vui lòng thử lại.')
     } finally {
       setIsLoading(false)
     }
@@ -142,16 +132,22 @@ const AdminAddProduct: React.FC = () => {
               <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
             </svg>
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900">Thêm hàng hóa mới</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Thêm sản phẩm thường</h1>
+            <p className="text-sm text-gray-500 mt-1">Sản phẩm không có tính năng tuỳ chỉnh</p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Form */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Thông tin sản phẩm</h2>
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">{error}</div>
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                {error}
+              </div>
             )}
-            <ProductForm
+            <RegularProductForm
               values={form}
               setValues={setForm}
               isSubmitting={isLoading}
@@ -159,12 +155,16 @@ const AdminAddProduct: React.FC = () => {
               enableSkuRegenerate
               onRegenerateSku={() => setForm(prev => ({ ...prev, sku: generateSku(prev.category) }))}
               categoryOptions={categoryOptions}
-              categoryIsCustomizable={categoryOptions.find(o => o.label === form.category)?.isCustomizable}
               warehouseOptions={warehouseOptions}
             />
             <div className="mt-4">
-              <Link to="/admin/products" className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors">Hủy</Link>
-              </div>
+              <Link 
+                to="/admin/products" 
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors inline-block"
+              >
+                Hủy
+              </Link>
+            </div>
           </div>
 
           {/* Preview */}
@@ -202,16 +202,20 @@ const AdminAddProduct: React.FC = () => {
 
                   {/* Price */}
                   <div className="mb-3">
-                    <span className="text-green-600 font-bold text-base">{form.price ? formatVnd(form.price) : '0'} đ</span>
+                    <span className="text-green-600 font-bold text-base">
+                      {form.price ? formatVnd(form.price) : '0'} đ
+                    </span>
                     {form.originalPrice > 0 && form.originalPrice > form.price && (
-                      <span className="text-gray-400 text-sm line-through ml-2">{formatVnd(form.originalPrice)} đ</span>
+                      <span className="text-gray-400 text-sm line-through ml-2">
+                        {formatVnd(form.originalPrice)} đ
+                      </span>
                     )}
                   </div>
 
                   {/* Colors */}
-                  <div className="flex space-x-2">
-                    {form.colors.length > 0 ? (
-                      form.colors.map((color, idx) => (
+                  {form.colors.length > 0 && (
+                    <div className="flex space-x-2 mb-3">
+                      {form.colors.map((color, idx) => (
                         <button
                           key={idx}
                           onClick={() => setForm(prev => ({ ...prev, selectedColor: color }))}
@@ -221,14 +225,9 @@ const AdminAddProduct: React.FC = () => {
                             borderColor: form.selectedColor === color ? '#10b981' : '#e5e7eb'
                           }}
                         />
-                      ))
-                    ) : (
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 rounded-full border-2 border-dashed border-gray-300"></div>
-                        <span className="text-xs text-gray-400">Chưa chọn màu</span>
-                      </div>
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Stock info */}
                   <div className="mt-3 text-xs text-gray-500">
@@ -249,4 +248,4 @@ const AdminAddProduct: React.FC = () => {
   )
 }
 
-export default AdminAddProduct
+export default AdminAddRegularProduct

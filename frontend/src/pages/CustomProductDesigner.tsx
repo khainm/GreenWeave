@@ -7,7 +7,8 @@ import ProductSelector from '../components/designer/ProductSelector';
 import CanvasArea from '../components/designer/CanvasArea';
 import ToolsPanel from '../components/designer/ToolsPanel';
 import ConsultationModal from '../components/designer/ConsultationModal';
-import { CustomProductService } from '../components/designer/customProductService';
+import GeminiPreviewModal from '../components/designer/GeminiPreviewModal';
+import { CustomProductService } from '../services/customProductService';
 
 // 🎨 Heroicons - Official Tailwind CSS Icon Library
 import {
@@ -47,6 +48,11 @@ const CustomProductDesigner: React.FC = () => {
   const [showConsultationModal, setShowConsultationModal] = useState(false);
   const [isSubmittingConsultation, setIsSubmittingConsultation] = useState(false);
 
+  // 🤖 Gemini AI Preview modal state
+  const [showGeminiModal, setShowGeminiModal] = useState(false);
+  const [canvasDataUrl, setCanvasDataUrl] = useState<string>('');
+  const [geminiHealthy, setGeminiHealthy] = useState<boolean>(true);
+
   // 💾 Enhanced auto-save functionality with better UX
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -62,22 +68,6 @@ const CustomProductDesigner: React.FC = () => {
     setShowSuccessMessage(message);
     setTimeout(() => setShowSuccessMessage(null), 3000);
   }, []);
-
-  // 🔧 Initialize global custom designer methods for external integration
-  useEffect(() => {
-    window.customDesigner = {
-      addImage: (imageUrl: string) => {
-        if (design) {
-          const newElement = createImageElement(imageUrl);
-          handleDesignChange({
-            ...design,
-            elements: [...design.elements, newElement]
-          });
-        }
-      },
-      exportImage: () => handleExportPNG()
-    };
-  }, [design]);
 
   // 🎯 Handle product selection with validation
   const handleProductSelect = useCallback((product: ProductResponseDto) => {
@@ -209,6 +199,72 @@ const CustomProductDesigner: React.FC = () => {
     } else {
       alert('Export functionality not available');
     }
+  }, []);
+
+  // 🤖 Generate Gemini AI Preview
+  const handleGenerateGeminiPreview = useCallback(async () => {
+    if (!design || design.elements.length === 0) {
+      alert('Please add some elements to your design first');
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+
+      // Get canvas as data URL
+      const stage = (window as any).Konva?.stages?.[0];
+      if (!stage) {
+        throw new Error('Canvas not found');
+      }
+
+      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+      setCanvasDataUrl(dataUrl);
+      
+      // Open Gemini modal
+      setShowGeminiModal(true);
+    } catch (error) {
+      console.error('Error preparing Gemini preview:', error);
+      alert('Failed to prepare design for AI preview');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [design]);
+
+  // Handle Gemini preview selection
+  const handleGeminiPreviewSelected = useCallback((selectedPreview: {
+    type: 'original' | 'cartoon' | 'cutout';
+    url: string;
+  }) => {
+    console.log('✨ Gemini preview selected:', selectedPreview.type);
+    showSuccessToast(`AI Preview Applied: ${selectedPreview.type}`);
+    
+    // Optionally update design with selected preview URL
+    if (design) {
+      const updatedDesign: CustomDesign = {
+        ...design,
+        metadata: {
+          version: design.metadata?.version || '1.0',
+          createdAt: design.metadata?.createdAt || new Date(),
+          updatedAt: new Date(),
+          totalElements: design.elements.length,
+          geminiPreviewType: selectedPreview.type,
+          geminiPreviewUrl: selectedPreview.url
+        } as any
+      };
+      setDesign(updatedDesign);
+    }
+  }, [design, showSuccessToast]);
+
+  // Check Gemini health on mount
+  useEffect(() => {
+    const checkHealth = async () => {
+      const healthy = await CustomProductService.checkGeminiHealth();
+      setGeminiHealthy(healthy);
+      if (!healthy) {
+        console.warn('⚠️ Gemini Preview Service is not available');
+      }
+    };
+    checkHealth();
   }, []);
 
   // 💾 Save design as JSON
@@ -433,6 +489,27 @@ const CustomProductDesigner: React.FC = () => {
     []
   );
 
+  // 🔧 Initialize global custom designer methods for external integration
+  useEffect(() => {
+    window.customDesigner = {
+      addImage: (imageUrl: string) => {
+        if (design) {
+          const newElement = createImageElement(imageUrl);
+          handleDesignChange({
+            ...design,
+            elements: [...design.elements, newElement]
+          });
+        }
+      },
+      exportImage: handleExportPNG
+    };
+
+    // Cleanup on unmount
+    return () => {
+      delete (window as any).customDesigner;
+    };
+  }, [design, handleDesignChange, handleExportPNG]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       {/* Fixed Header */}
@@ -645,6 +722,18 @@ const CustomProductDesigner: React.FC = () => {
                 
                 {/* Right Controls - Enhanced Action Buttons */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                  {/* Gemini AI Preview Button */}
+                  <button
+                    onClick={handleGenerateGeminiPreview}
+                    disabled={!design || design.elements.length === 0 || !geminiHealthy}
+                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-2 shadow-sm hover:shadow-md text-sm sm:text-base"
+                    title={geminiHealthy ? 'Generate AI preview with Gemini 2.0' : 'AI service unavailable'}
+                  >
+                    <SparklesIcon className="w-4 h-4" />
+                    <span className="hidden sm:inline">AI Preview</span>
+                    <span className="sm:hidden">AI</span>
+                  </button>
+
                   <button
                     onClick={handleSaveDesign}
                     disabled={!design || design.elements.length === 0}
@@ -720,6 +809,16 @@ const CustomProductDesigner: React.FC = () => {
           onSubmit={handleConsultationSubmit}
           isSubmitting={isSubmittingConsultation}
           productName={selectedProduct?.name || ''}
+        />
+      )}
+
+      {/* Gemini AI Preview Modal */}
+      {showGeminiModal && (
+        <GeminiPreviewModal
+          isOpen={showGeminiModal}
+          onClose={() => setShowGeminiModal(false)}
+          canvasDataUrl={canvasDataUrl}
+          onPreviewSelected={handleGeminiPreviewSelected}
         />
       )}
 

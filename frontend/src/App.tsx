@@ -10,8 +10,11 @@ import CustomProductDesigner from './pages/CustomProductDesigner.tsx'
 import ProductsPage from './pages/ProductsPage'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminProductsList from './pages/AdminProductsList'
-import AdminAddProduct from './pages/AdminAddProduct'
+import AdminAddRegularProduct from './pages/AdminAddRegularProduct'
+import AdminAddCustomProduct from './pages/AdminAddCustomProduct'
 import AdminEditProduct from './pages/AdminEditProduct.tsx'
+import AdminEditRegularProduct from './pages/AdminEditRegularProduct'
+import AdminEditCustomProduct from './pages/AdminEditCustomProduct'
 import AdminCategories from './pages/AdminCategories'
 import AdminOrdersList from './pages/AdminOrdersList'
 import AdminOrderDetail from './pages/AdminOrderDetail'
@@ -111,14 +114,37 @@ function App() {
                 <AdminProductsList />
               </ProtectedRoute>
             } />
+            {/* Redirect old route to new regular product page */}
             <Route path="/admin/products/add" element={
               <ProtectedRoute requireStaff={true}>
-                <AdminAddProduct />
+                <AdminAddRegularProduct />
               </ProtectedRoute>
             } />
+            <Route path="/admin/products/add-regular" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminAddRegularProduct />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/products/add-custom" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminAddCustomProduct />
+              </ProtectedRoute>
+            } />
+            {/* Old unified edit route - redirect based on product type */}
             <Route path="/admin/products/edit/:id" element={
               <ProtectedRoute requireStaff={true}>
                 <AdminEditProduct />
+              </ProtectedRoute>
+            } />
+            {/* New separate edit routes */}
+            <Route path="/admin/products/edit-regular/:id" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminEditRegularProduct />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/products/edit-custom/:id" element={
+              <ProtectedRoute requireStaff={true}>
+                <AdminEditCustomProduct />
               </ProtectedRoute>
             } />
             <Route path="/admin/categories" element={

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { CloudArrowUpIcon, PhotoIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
-import { CustomProductService } from './customProductService';
+import { PhotoIcon, CloudArrowUpIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { CustomProductService } from '../../services/customProductService';
 import type { UploadMode } from './types';
 
 interface UploadSectionProps {
@@ -37,14 +37,14 @@ const UploadSection: React.FC<UploadSectionProps> = ({
       setUploading(true);
       const result = await CustomProductService.uploadImage(file, uploadMode);
       
-      if (result.success && result.data?.url) {
+      if (result.success && result.url) {
         // Add to canvas via global method
         if (window.customDesigner?.addImage) {
-          window.customDesigner.addImage(result.data.url);
+          window.customDesigner.addImage(result.url);
         }
         onImageUpload(file);
       } else {
-        alert('Upload thất bại: ' + (result.message || 'Unknown error'));
+        alert('Upload thất bại');
       }
     } catch (error) {
       console.error('Upload error:', error);

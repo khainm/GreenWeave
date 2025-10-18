@@ -1,7 +1,7 @@
 // 🎨 Custom Product Designer Service
 // Senior Frontend Engineer - Production Ready API Service
 
-import { apiClient } from '../../services/apiClient';
+import { apiClient } from './apiClient';
 import type { 
   ProductResponseDto, 
   UploadResponse, 
@@ -9,7 +9,7 @@ import type {
   SaveDesignRequest,
   ConsultationRequest,
   ContactInfo
-} from './types';
+} from '../components/designer/types';
 
 export class CustomProductService {
   private static readonly BASE_PATH = '/api/custom-design';
@@ -19,12 +19,19 @@ export class CustomProductService {
   static async getCustomizableProducts(): Promise<ProductResponseDto[]> {
     try {
       console.log('🛍️ [CustomProductService] Fetching customizable products...');
-      const response = await apiClient.get<ProductResponseDto[]>('/api/products/customizable');
+      const response = await apiClient.get<ProductResponseDto[]>('/api/CustomProducts');
       
-      console.log('🛍️ [CustomProductService] Products received:', response?.length || 0);
+      console.log('🛍️ [CustomProductService] Response received:', response);
       
-      // Ensure response is always an array with fallback
-      const products = Array.isArray(response) ? response : [];
+      // Handle backend response format { success: true, data: [...] }
+      let products: ProductResponseDto[] = [];
+      if (response && typeof response === 'object' && 'data' in response) {
+        products = Array.isArray((response as any).data) ? (response as any).data : [];
+      } else if (Array.isArray(response)) {
+        products = response;
+      }
+      
+      console.log('🛍️ [CustomProductService] Products extracted:', products.length);
       
       // Validate each product has required fields
       const validProducts = products.filter(product => 
@@ -47,7 +54,7 @@ export class CustomProductService {
   static async getCustomizableProductById(id: number): Promise<ProductResponseDto | null> {
     try {
       console.log(`🛍️ [CustomProductService] Fetching product ${id}...`);
-      const response = await apiClient.get<ProductResponseDto>(`/api/products/customizable/${id}`);
+      const response = await apiClient.get<ProductResponseDto>(`/api/CustomProducts/${id}`);
       
       if (!response || !response.id) {
         throw new Error('Invalid product data received');
@@ -260,5 +267,56 @@ export class CustomProductService {
     if (elementCount <= 5 && canvasSize <= 500000) return 'low';
     if (elementCount <= 15 && canvasSize <= 1000000) return 'medium';
     return 'high';
+  }
+
+  // 🤖 Gemini AI Preview Generation
+  static async generateGeminiPreview(imageBlob: Blob): Promise<{
+    success: boolean;
+    data?: {
+      originalUrl: string;
+      cartoonUrl: string;
+      cutoutUrl: string;
+    };
+    message?: string;
+  }> {
+    try {
+      console.log('🤖 [CustomProductService] Generating Gemini AI preview...');
+      
+      const formData = new FormData();
+      formData.append('image', imageBlob, 'design.png');
+
+      const result = await apiClient.postForm<{
+        success: boolean;
+        data?: {
+          originalUrl: string;
+          cartoonUrl: string;
+          cutoutUrl: string;
+        };
+        message?: string;
+      }>('/api/geminipreview/generate', formData);
+      
+      console.log('🤖 [CustomProductService] Gemini preview generated:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ [CustomProductService] Gemini preview failed:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to generate AI preview'
+      };
+    }
+  }
+
+  // 🏥 Check Gemini Preview Service health
+  static async checkGeminiHealth(): Promise<boolean> {
+    try {
+      console.log('🏥 [CustomProductService] Checking Gemini health...');
+      const response = await apiClient.get<{ success: boolean; message?: string }>('/api/geminipreview/health');
+      console.log('🏥 [CustomProductService] Gemini health response:', response);
+      return response?.success === true;
+    } catch (error) {
+      console.warn('⚠️ [CustomProductService] Gemini service not available:', error);
+      // Return false instead of throwing - Gemini is optional feature
+      return false;
+    }
   }
 }

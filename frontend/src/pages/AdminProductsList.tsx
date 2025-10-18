@@ -3,7 +3,6 @@ import TopNav from '../components/admin/TopNav'
 import ProductService from '../services/productService'
 import CategoryService from '../services/categoryService'
 import type { Product } from '../types/product'
-import CustomProductModal from '../components/admin/CustomProductModal'
 import { 
   ProductFilters, 
   ProductActions, 
@@ -25,10 +24,6 @@ const AdminProductsList: React.FC = () => {
   const [categoryMeta, setCategoryMeta] = useState<Record<string, { isCustomizable: boolean }>>({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // Customizable modal state (moved into component)
-  const [showCustomModal, setShowCustomModal] = useState(false)
-  const [editingCustomProduct, setEditingCustomProduct] = useState<Product | null>(null)
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(query), 250)
@@ -78,10 +73,8 @@ const AdminProductsList: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [])
 
-  // Hàm xóa sản phẩm
+  // Hàm xóa sản phẩm (confirm đã được xử lý ở ProductTableRow)
   const handleDeleteProduct = async (id: number) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return
-    
     try {
       await ProductService.deleteProduct(id)
       setProducts(prev => prev.filter(p => p.id !== id))
@@ -122,24 +115,6 @@ const AdminProductsList: React.FC = () => {
     }
   }
 
-  // Handlers for Customizable modal
-  const openCustomModal = () => setShowCustomModal(true)
-  const closeCustomModal = () => {
-    setShowCustomModal(false)
-    setEditingCustomProduct(null)
-  }
-  
-  const openCustomEditModal = (product: Product) => {
-    setEditingCustomProduct(product)
-    setShowCustomModal(true)
-  }
-
-  const handleCreated = (p: Product) => setProducts(prev => [p, ...prev])
-  
-  const handleUpdated = (updatedProduct: Product) => {
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
-  }
-
   // Thống kê sản phẩm
   const productStats = {
     total: products.length,
@@ -150,21 +125,28 @@ const AdminProductsList: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
       <TopNav />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Quản lý sản phẩm</h1>
-              <p className="text-gray-600 mt-1">Quản lý và theo dõi tất cả sản phẩm trong hệ thống</p>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                Quản lý sản phẩm
+              </h1>
+              <p className="text-gray-600 mt-2 flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-indigo-500">
+                  <path d="M20 6h-2.18c.11-.31.18-.65.18-1a2.996 2.996 0 00-5.5-1.65l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/>
+                </svg>
+                Quản lý và theo dõi tất cả sản phẩm trong hệ thống
+              </p>
             </div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={() => fetchData(true)} // Force refresh
                 disabled={isLoading}
-                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl text-sm font-semibold hover:from-indigo-600 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
               >
                 <svg className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -174,75 +156,82 @@ const AdminProductsList: React.FC = () => {
             </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards - Modern Gradient Design */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                  </div>
+            {/* Total Products */}
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-100 text-sm font-medium mb-1">Tổng sản phẩm</p>
+                  <p className="text-4xl font-bold text-white">{productStats.total}</p>
+                  <p className="text-blue-200 text-xs mt-2">Tất cả loại</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Tổng sản phẩm</p>
-                  <p className="text-2xl font-bold text-gray-900">{productStats.total}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Đang hoạt động</p>
-                  <p className="text-2xl font-bold text-green-600">{productStats.active}</p>
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
+            {/* Active Products */}
+            <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-green-100 text-sm font-medium mb-1">Đang hoạt động</p>
+                  <p className="text-4xl font-bold text-white">{productStats.active}</p>
+                  <p className="text-green-200 text-xs mt-2">Có sẵn bán</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Tạm dừng</p>
-                  <p className="text-2xl font-bold text-orange-600">{productStats.inactive}</p>
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
-                    </svg>
-                  </div>
+            {/* Inactive Products */}
+            <div className="bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-orange-100 text-sm font-medium mb-1">Tạm dừng</p>
+                  <p className="text-4xl font-bold text-white">{productStats.inactive}</p>
+                  <p className="text-orange-200 text-xs mt-2">Không bán</p>
                 </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Tùy chỉnh</p>
-                  <p className="text-2xl font-bold text-purple-600">{productStats.custom}</p>
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            {/* Custom Products */}
+            <div className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-purple-100 text-sm font-medium mb-1">Tùy chỉnh</p>
+                  <p className="text-4xl font-bold text-white">{productStats.custom}</p>
+                  <p className="text-purple-200 text-xs mt-2">Có thể tuỳ biến</p>
+                </div>
+                <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
+                  <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l2 4 4 .5-3 3 1 4-4-2-4 2 1-4-3-3 4-.5z"/>
+                  </svg>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Filters and Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          {/* Filters and Actions - Modern Glass Design */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-purple-100 p-6 mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <h3 className="text-lg font-semibold text-gray-800">Bộ lọc & Hành động</h3>
+            </div>
+            
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <ProductFilters
                 query={query}
@@ -252,7 +241,7 @@ const AdminProductsList: React.FC = () => {
                 productType={productType}
                 setProductType={setProductType}
               />
-              <ProductActions onOpenCustomModal={openCustomModal} />
+              <ProductActions />
             </div>
           </div>
         </div>
@@ -271,9 +260,9 @@ const AdminProductsList: React.FC = () => {
           </div>
         )}
 
-        {/* Products Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+        {/* Products Table - Modern Design */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl border-2 border-purple-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-purple-200 bg-gradient-to-r from-indigo-50 to-purple-50">
             <h2 className="text-lg font-semibold text-gray-900">Danh sách sản phẩm</h2>
             <p className="text-sm text-gray-600 mt-1">
               Hiển thị {filtered.length} sản phẩm
@@ -290,19 +279,8 @@ const AdminProductsList: React.FC = () => {
             sortDir={sortDir}
             onSort={handleSort}
             onDeleteProduct={handleDeleteProduct}
-            onEditCustomProduct={openCustomEditModal}
           />
         </div>
-
-        {/* Custom Product Modal */}
-        {showCustomModal && (
-          <CustomProductModal
-            open={showCustomModal}
-            onClose={closeCustomModal}
-            onCreated={editingCustomProduct ? handleUpdated : handleCreated}
-            initialProduct={editingCustomProduct || undefined}
-          />
-        )}
       </div>
     </div>
   )

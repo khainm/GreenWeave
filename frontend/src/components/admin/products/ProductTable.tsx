@@ -14,7 +14,7 @@ interface ProductTableProps {
   sortDir: 'asc' | 'desc'
   onSort: (key: SortableProductKey) => void
   onDeleteProduct: (id: number) => void
-  onEditCustomProduct: (product: Product) => void
+  onEditCustomProduct?: (product: Product) => void
 }
 
 const ProductTable: React.FC<ProductTableProps> = ({

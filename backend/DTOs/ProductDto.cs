@@ -19,20 +19,20 @@ namespace backend.DTOs
         [MaxLength(1000)]
         public string? Description { get; set; }
         
-        [Required]
+        // Optional for custom products - required for regular products (validated in service layer)
         [Range(0, double.MaxValue, ErrorMessage = "Giá phải lớn hơn 0")]
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
         
         [Range(0, double.MaxValue, ErrorMessage = "Giá gốc phải lớn hơn 0")]
         public decimal? OriginalPrice { get; set; }
         
-        [Required]
+        // Optional for custom products - required for regular products
         [Range(0, int.MaxValue, ErrorMessage = "Tồn kho phải lớn hơn hoặc bằng 0")]
-        public int Stock { get; set; }
+        public int? Stock { get; set; }
         
-        [Required]
+        // Optional for custom products - required for regular products
         [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
-        public decimal Weight { get; set; }
+        public decimal? Weight { get; set; }
         
         // Primary warehouse field
         public Guid? PrimaryWarehouseId { get; set; }
@@ -48,11 +48,7 @@ namespace backend.DTOs
         // Optional mapping: color code -> image URL (nếu gửi trực tiếp)
         public Dictionary<string, string>? ColorImageMap { get; set; }
 
-        // Stickers (URLs) optional
-        public List<string>? StickerUrls { get; set; }
-        
-        // Stickers from placedStickers (from frontend)
-        public List<ProductStickerDto>? Stickers { get; set; }
+        // Stickers removed - using external Sticker Library instead
     }
     
     public class ProductImageUploadDto
@@ -69,10 +65,13 @@ namespace backend.DTOs
         public string Sku { get; set; } = string.Empty;
         public string Category { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public decimal Price { get; set; }
+        
+        // Optional for custom products
+        public decimal? Price { get; set; }
         public decimal? OriginalPrice { get; set; }
-        public int Stock { get; set; }
-        public decimal Weight { get; set; }
+        public int? Stock { get; set; }
+        public decimal? Weight { get; set; }
+        
         public string Status { get; set; } = string.Empty;
         
         // Primary warehouse fields
@@ -84,8 +83,10 @@ namespace backend.DTOs
         
         public List<ProductImageDto> Images { get; set; } = new();
         public List<ProductColorDto> Colors { get; set; } = new();
-        public List<ProductStickerDto> Stickers { get; set; } = new();
-        // tiện ích: map màu -> ảnh nếu có
+        
+        // Stickers removed - using external Sticker Library instead
+        
+        // Utility: map color -> image if available
         public Dictionary<string, string> ColorImageMap => Images
             .Where(i => !string.IsNullOrEmpty(i.ColorCode))
             .GroupBy(i => i.ColorCode!.ToLower())

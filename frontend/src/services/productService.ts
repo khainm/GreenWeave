@@ -113,24 +113,39 @@ export class ProductService {
 
   private static buildFormData(productData: CreateProductRequest): FormData {
     const formData = new FormData()
+    
+    // Required fields for all products
     formData.append('Name', productData.name)
     formData.append('Sku', productData.sku)
     formData.append('Category', productData.category)
-    formData.append('Price', productData.price.toString())
-    formData.append('Stock', productData.stock.toString())
-    formData.append('Weight', productData.weight.toString())
     formData.append('Status', productData.status)
     
-    // Add PrimaryWarehouseId if provided
+    // Optional fields for regular products (có price = regular product)
+    if (productData.price !== undefined && productData.price !== null) {
+      formData.append('Price', productData.price.toString())
+    }
+    if (productData.stock !== undefined && productData.stock !== null) {
+      formData.append('Stock', productData.stock.toString())
+    }
+    if (productData.weight !== undefined && productData.weight !== null) {
+      formData.append('Weight', productData.weight.toString())
+    }
     if (productData.primaryWarehouseId) {
       formData.append('PrimaryWarehouseId', productData.primaryWarehouseId)
+    }
+    
+    // Optional field for custom products
+    if (productData.consultationNote) {
+      formData.append('ConsultationNote', productData.consultationNote)
     }
     
     // Debug logging
     console.log('🔍 ProductService - buildFormData:', {
       name: productData.name,
+      price: productData.price,
       weight: productData.weight,
-      weightType: typeof productData.weight,
+      stock: productData.stock,
+      consultationNote: productData.consultationNote,
       primaryWarehouseId: productData.primaryWarehouseId
     })
     if (productData.description) formData.append('Description', productData.description)
@@ -144,39 +159,9 @@ export class ProductService {
     if (productData.imageFiles?.length) {
       productData.imageFiles.forEach(file => formData.append('ImageFiles', file))
     }
-    if (productData.colorImageFiles) {
-      Object.entries(productData.colorImageFiles).forEach(([color, file]) => {
-        // Backend expects dictionary ColorImages[#RRGGBB]
-        formData.append(`ColorImages[${color}]`, file)
-      })
-    }
+    // Note: Backend tự động map ảnh với màu theo thứ tự upload
+    // Ảnh đầu tiên = ảnh chính, các ảnh tiếp theo tương ứng với từng màu
     
-    // Handle sticker files từ máy tính
-    if (productData.stickerFiles?.length) {
-      productData.stickerFiles.forEach(file => formData.append('StickerFiles', file))
-    }
-    
-    // Handle sticker URLs từ internet 
-    if (productData.stickerUrls?.length) {
-      productData.stickerUrls.forEach((url, index) => formData.append(`StickerUrls[${index}]`, url))
-    }
-    
-    // Handle placed stickers (chỉ gửi fields backend hỗ trợ)
-    if (productData.stickers?.length) {
-      productData.stickers.forEach((sticker, index) => {
-        console.log(`🔍 Building FormData for sticker ${index}:`, sticker)
-        
-        // Đảm bảo ID là number
-        const stickerIdNumber = Number(sticker.id)
-        console.log(`🔍 Sticker ID conversion: ${sticker.id} -> ${stickerIdNumber}`)
-        
-        // Gửi từng field của sticker theo format backend mong đợi  
-        formData.append(`Stickers[${index}].Id`, stickerIdNumber.toString())
-        formData.append(`Stickers[${index}].ImageUrl`, sticker.imageUrl)
-        formData.append(`Stickers[${index}].SortOrder`, sticker.sortOrder.toString())
-        // Không gửi x, y, scale vì ProductStickerDto không có
-      })
-    }
     return formData
   }
 
@@ -219,35 +204,6 @@ export class ProductService {
     }
   }
 
-  // 🚀 Customizable products với caching
-  static async getCustomizableProducts(useCache: boolean = true): Promise<Product[]> {
-    try {
-      const cacheKey = 'customizable_products';
-      
-      // Check cache first if enabled
-      if (useCache) {
-        const cached = productCache.get<Product[]>(cacheKey);
-        if (cached) {
-          console.log('📦 [ProductService] Returning cached customizable products');
-          return cached;
-        }
-      }
-      
-      console.log('🌐 [ProductService] Fetching customizable products from API');
-      const products = await apiClient.get<Product[]>(`${this.BASE_PATH}/customizable`);
-      
-      // Cache the result
-      if (useCache) {
-        productCache.set(cacheKey, products);
-      }
-      
-      return products;
-    } catch (error) {
-      console.error('Error fetching customizable products:', error);
-      throw error;
-    }
-  }
-
   // 🚀 Cache management methods
   static invalidateCache(): void {
     productCache.invalidateAll();
@@ -258,7 +214,6 @@ export class ProductService {
       productCache.invalidatePattern(new RegExp(`product_${productId}`));
     }
     productCache.invalidatePattern(/^all_products/);
-    productCache.invalidate('customizable_products');
   }
 
   // 🚀 OPTIMIZATION: Preload data for instant access
@@ -275,25 +230,8 @@ export class ProductService {
       );
       productCache.set('all_products', updated);
     }
-
-    const customizableProducts = productCache.get<Product[]>('customizable_products');
-    if (customizableProducts) {
-      const updated = customizableProducts.map(p => 
-        p.id === productId ? { ...p, stock: newStock } : p
-      );
-      productCache.set('customizable_products', updated);
-    }
     
     console.log(`🔄 [ProductService] Updated product ${productId} stock to ${newStock}`);
-  }
-
-  static async getCustomizableProductById(id: number): Promise<Product> {
-    try {
-      return await apiClient.get<Product>(`${this.BASE_PATH}/customizable/${id}`)
-    } catch (error) {
-      console.error('Error fetching customizable product by id:', error)
-      throw error
-    }
   }
 
   // Lấy sản phẩm theo ID

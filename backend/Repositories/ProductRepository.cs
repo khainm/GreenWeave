@@ -70,7 +70,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
-                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    // Removed: Stickers - use Sticker Library instead
                     .FirstOrDefaultAsync(p => p.Id == id);
             }
             catch (Exception ex)
@@ -87,7 +87,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
-                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    // Removed: Stickers - use Sticker Library instead
                     .FirstOrDefaultAsync(p => p.Sku == sku);
             }
             catch (Exception ex)
@@ -202,23 +202,7 @@ namespace backend.Repositories
             }
         }
 
-        public async Task AddStickersAsync(int productId, IEnumerable<ProductSticker> stickers)
-        {
-            try
-            {
-                foreach (var s in stickers)
-                {
-                    s.ProductId = productId;
-                    _context.ProductStickers.Add(s);
-                }
-                await _context.SaveChangesAsync();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error adding stickers for product {Id}", productId);
-                throw;
-            }
-        }
+        // Removed: AddStickersAsync - Stickers moved to external Sticker Library
         
         public async Task<bool> DeleteAsync(int id)
         {
@@ -279,7 +263,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
-                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    // Removed: Stickers - use Sticker Library instead
                     .Where(p => _context.Categories.Any(c => c.Name == p.Category && c.IsCustomizable))
                     .OrderByDescending(p => p.CreatedAt)
                     .ToListAsync();
@@ -298,7 +282,7 @@ namespace backend.Repositories
                 return await _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
-                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    // Removed: Stickers - use Sticker Library instead
                     .Where(p => _context.Categories.Any(c => c.Name == p.Category && c.IsCustomizable))
                     .FirstOrDefaultAsync(p => p.Id == id);
             }
@@ -309,26 +293,7 @@ namespace backend.Repositories
             }
         }
         
-        public async Task ClearStickersAsync(int productId)
-        {
-            try
-            {
-                var stickers = await _context.ProductStickers
-                    .Where(s => s.ProductId == productId)
-                    .ToListAsync();
-                
-                if (stickers.Any())
-                {
-                    _context.ProductStickers.RemoveRange(stickers);
-                    await _context.SaveChangesAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error clearing stickers for product: {ProductId}", productId);
-                throw;
-            }
-        }
+        // Removed: ClearStickersAsync - Stickers moved to external Sticker Library
 
         public async Task ClearImagesAsync(int productId)
         {
@@ -369,7 +334,7 @@ namespace backend.Repositories
                 var query = _context.Products
                     .Include(p => p.Images.OrderBy(i => i.SortOrder))
                     .Include(p => p.Colors.OrderBy(c => c.SortOrder))
-                    .Include(p => p.Stickers.OrderBy(s => s.SortOrder))
+                    // Removed: Stickers - use Sticker Library instead
                     .AsQueryable();
 
                 // Apply search filter
@@ -378,7 +343,7 @@ namespace backend.Repositories
                     query = query.Where(p => 
                         p.Name.Contains(search) ||
                         p.Sku.Contains(search) ||
-                        p.Description.Contains(search));
+                        (p.Description != null && p.Description.Contains(search)));
                 }
 
                 // Apply category filter

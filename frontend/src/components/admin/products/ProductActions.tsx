@@ -1,32 +1,30 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 
-interface ProductActionsProps {
-  onOpenCustomModal: () => void
-}
-
-const ProductActions: React.FC<ProductActionsProps> = ({ onOpenCustomModal }) => {
+const ProductActions: React.FC = () => {
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+      {/* Add Regular Product */}
       <Link 
-        to="/admin/products/add" 
-        className="bg-green-600 hover:bg-green-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center"
+        to="/admin/products/add-regular" 
+        className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
       >
-        <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <svg className="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
         </svg>
-        Thêm hàng hóa
+        📦 Thêm sản phẩm thường
       </Link>
-      <button
-        type="button"
-        onClick={onOpenCustomModal}
-        className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-colors flex items-center"
+      
+      {/* Add Custom Product */}
+      <Link
+        to="/admin/products/add-custom"
+        className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
       >
-        <svg className="mr-2" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1.003 1.003 0 000-1.42l-2.34-2.34a1.003 1.003 0 00-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z"/>
+        <svg className="mr-2" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l2 4 4 .5-3 3 1 4-4-2-4 2 1-4-3-3 4-.5z"/>
         </svg>
-        Thêm hàng hóa tùy chỉnh
-      </button>
+        ⚙️ Thêm sản phẩm tùy chỉnh
+      </Link>
     </div>
   )
 }

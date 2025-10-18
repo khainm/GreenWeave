@@ -27,21 +27,21 @@ namespace backend.Models
         [MaxLength(1000)]
         public string? Description { get; set; }
         
-        [Required]
+        // Optional fields - not required for custom products
         [Range(0, double.MaxValue)]
-        public decimal Price { get; set; }
+        public decimal? Price { get; set; }
         
         [Range(0, double.MaxValue)]
         public decimal? OriginalPrice { get; set; }
         
-        [Required]
+        // Optional - custom products don't need stock tracking
         [Range(0, int.MaxValue)]
-        public int Stock { get; set; } // Tổng stock (tính từ ProductWarehouseStock)
+        public int? Stock { get; set; } // Tổng stock (tính từ ProductWarehouseStock)
         
-        [Required]
+        // Optional - custom products don't need weight for shipping
         [Range(0, double.MaxValue, ErrorMessage = "Khối lượng phải lớn hơn hoặc bằng 0 gram")]
-        public decimal Weight { get; set; } // Khối lượng sản phẩm (gram)
-        
+        public decimal? Weight { get; set; } // Khối lượng sản phẩm (gram)
+
         // Primary warehouse (kho chính lưu trữ sản phẩm)
         public Guid? PrimaryWarehouseId { get; set; }
         
@@ -58,7 +58,7 @@ namespace backend.Models
         // Navigation properties
         public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
         public ICollection<ProductColor> Colors { get; set; } = new List<ProductColor>();
-        public ICollection<ProductSticker> Stickers { get; set; } = new List<ProductSticker>();
+        // Stickers removed - using external Sticker Library instead
         public ICollection<ProductWarehouseStock> WarehouseStocks { get; set; } = new List<ProductWarehouseStock>();
         
         [ForeignKey("PrimaryWarehouseId")]

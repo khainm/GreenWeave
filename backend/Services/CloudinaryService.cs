@@ -25,6 +25,88 @@ namespace backend.Services
             _cloudinary.Api.Secure = true;
             _logger = logger;
         }
+
+        // ==================== NEW METHODS FOR CUSTOM DESIGN ====================
+        
+        /// <summary>
+        /// Upload design preview image to Cloudinary (returns URL string)
+        /// </summary>
+        public async Task<string> UploadDesignPreviewAsync(Stream imageStream, string fileName)
+        {
+            var uploadParams = new ImageUploadParams
+            {
+                File = new FileDescription(fileName, imageStream),
+                Folder = "custom-designs/previews",
+                Transformation = new Transformation()
+                    .Width(1200).Height(1200).Crop("limit").Quality("auto"),
+                UseFilename = true,
+                UniqueFilename = true
+            };
+
+            var result = await _cloudinary.UploadAsync(uploadParams);
+            
+            if (result.Error != null)
+            {
+                _logger.LogError("Cloudinary upload error: {Error}", result.Error.Message);
+                throw new Exception($"Image upload failed: {result.Error.Message}");
+            }
+
+            _logger.LogInformation("Design preview uploaded to Cloudinary: {PublicId}", result.PublicId);
+            return result.SecureUrl.ToString();
+        }
+
+        /// <summary>
+        /// Upload user-uploaded image to Cloudinary (returns URL string)
+        /// </summary>
+        public async Task<string> UploadUserImageAsync(Stream imageStream, string fileName)
+        {
+            var uploadParams = new ImageUploadParams
+            {
+                File = new FileDescription(fileName, imageStream),
+                Folder = "custom-designs/user-images",
+                Transformation = new Transformation()
+                    .Width(800).Height(800).Crop("limit").Quality("auto"),
+                UseFilename = true,
+                UniqueFilename = true
+            };
+
+            var result = await _cloudinary.UploadAsync(uploadParams);
+            
+            if (result.Error != null)
+            {
+                _logger.LogError("Cloudinary upload error: {Error}", result.Error.Message);
+                throw new Exception($"Image upload failed: {result.Error.Message}");
+            }
+
+            _logger.LogInformation("User image uploaded to Cloudinary: {PublicId}", result.PublicId);
+            return result.SecureUrl.ToString();
+        }
+
+        /// <summary>
+        /// Delete image from Cloudinary by public ID (returns bool)
+        /// </summary>
+        public async Task<bool> DeleteImageByPublicIdAsync(string publicId)
+        {
+            if (string.IsNullOrEmpty(publicId))
+                throw new ArgumentException("Public ID is required");
+                
+            var deleteParams = new DeletionParams(publicId);
+            
+            try
+            {
+                var result = await _cloudinary.DestroyAsync(deleteParams);
+                _logger.LogInformation("Image deleted from Cloudinary: {PublicId}", publicId);
+                return result.Result == "ok";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting image from Cloudinary: {PublicId}", publicId);
+                return false;
+            }
+        }
+
+        // ==================== EXISTING METHODS (backward compatibility) ====================
+
         
         public async Task<ImageUploadResult> UploadImageAsync(IFormFile file, string folder = "products")
         {
@@ -84,6 +166,9 @@ namespace backend.Services
             }
         }
         
+        /// <summary>
+        /// Delete image from Cloudinary (returns DeletionResult for backward compatibility)
+        /// </summary>
         public async Task<DeletionResult> DeleteImageAsync(string publicId)
         {
             if (string.IsNullOrEmpty(publicId))
