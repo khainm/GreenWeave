@@ -97,17 +97,17 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               <div className="p-2">
                 <p className="text-xs text-gray-600 truncate font-medium">{product.name}</p>
                 <p className="text-xs text-green-600 font-semibold">
-                  {product.price.toLocaleString('vi-VN')}đ
+                  {product.price?.toLocaleString('vi-VN') || '0'}đ
                 </p>
-                <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-2 mt-1">
                   {product.colors && product.colors.length > 0 && (
                     <p className="text-xs text-blue-600">
                       {product.colors.length} màu
                     </p>
                   )}
-                  {product.stickers && product.stickers.length > 0 && (
-                    <p className="text-xs text-purple-600">
-                      {product.stickers.length} stickers
+                  {product.category && (
+                    <p className="text-xs text-gray-500 bg-gray-100 px-1 rounded">
+                      {product.category}
                     </p>
                   )}
                 </div>
@@ -120,7 +120,10 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
       {(!products || products.length === 0) && !loading && !error && (
         <div className="text-center text-gray-500 py-8">
           <PhotoIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-          <p className="text-sm">Chưa có sản phẩm tùy chỉnh</p>
+          <p className="text-sm font-medium mb-2">Chưa có sản phẩm tùy chỉnh</p>
+          <p className="text-xs text-gray-400 px-4">
+            Sản phẩm cần thuộc danh mục có cờ "IsCustomizable" để hiển thị ở đây
+          </p>
         </div>
       )}
     </div>

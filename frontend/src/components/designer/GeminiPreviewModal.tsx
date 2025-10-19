@@ -48,25 +48,37 @@ const GeminiPreviewModal: React.FC<GeminiPreviewModalProps> = ({
       setLoading(true);
       setError(null);
 
+      console.log('🎨 Starting AI preview generation...');
+
       // Convert data URL to Blob
       const response = await fetch(canvasDataUrl);
       const blob = await response.blob();
+      console.log('📦 Canvas converted to blob:', blob.size, 'bytes');
 
       // Create FormData
       const formData = new FormData();
       formData.append('image', blob, 'design.png');
 
-      // Call Gemini API
-      const apiResponse = await fetch('/api/geminipreview/generate', {
+      // Call Gemini API with full URL
+      const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7146';
+      const apiUrl = `${baseUrl}/api/geminipreview/generate`;
+      console.log('🚀 Calling API:', apiUrl);
+
+      const apiResponse = await fetch(apiUrl, {
         method: 'POST',
         body: formData
       });
 
+      console.log('📡 API response status:', apiResponse.status);
+
       if (!apiResponse.ok) {
-        throw new Error('Failed to generate previews');
+        const errorText = await apiResponse.text();
+        console.error('❌ API error:', errorText);
+        throw new Error(`Server error (${apiResponse.status}): ${errorText}`);
       }
 
       const result = await apiResponse.json();
+      console.log('✅ API result:', result);
 
       if (result.success && result.data) {
         setPreviews({
@@ -74,11 +86,12 @@ const GeminiPreviewModal: React.FC<GeminiPreviewModalProps> = ({
           cartoonUrl: result.data.cartoonUrl,
           cutoutUrl: result.data.cutoutUrl
         });
+        console.log('🎉 Previews generated successfully!');
       } else {
         throw new Error(result.message || 'Failed to generate previews');
       }
     } catch (err) {
-      console.error('Error generating previews:', err);
+      console.error('💥 Error generating previews:', err);
       setError(err instanceof Error ? err.message : 'Failed to generate AI previews');
     } finally {
       setLoading(false);

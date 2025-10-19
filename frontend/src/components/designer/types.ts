@@ -7,10 +7,10 @@ export interface ProductResponseDto {
   sku: string;
   category: string;
   description?: string;
-  price: number;
+  price?: number; // Optional for custom products
   originalPrice?: number;
-  stock: number;
-  weight: number;
+  stock?: number; // Optional for custom products
+  weight?: number; // Optional for custom products
   status: string;
   primaryWarehouseId?: string;
   primaryWarehouseName?: string;
@@ -18,7 +18,7 @@ export interface ProductResponseDto {
   updatedAt: string;
   images: ProductImageDto[];
   colors: ProductColorDto[];
-  stickers: ProductStickerDto[];
+  // Stickers removed - using external Sticker Library instead
   colorImageMap?: { [key: string]: string };
 }
 
@@ -37,30 +37,29 @@ export interface ProductColorDto {
   stock: number;
 }
 
-export interface ProductStickerDto {
-  id: number;
-  name: string;
-  imageUrl: string;
-  price: number;
-  isDefault: boolean;
-}
+// Removed: ProductStickerDto - Stickers moved to external Sticker Library
 
 // 🎯 Canvas design elements - Core types for Konva.js integration
 export interface DesignElement {
   id: string;
-  type: 'image' | 'sticker' | 'text';
+  type: 'image' | 'text'; // Removed 'sticker' - use external Sticker Library
   x: number;
   y: number;
-  width: number;
-  height: number;
+  width?: number; // Optional for text elements
+  height?: number; // Optional for text elements
   rotation: number;
   scaleX: number;
   scaleY: number;
-  src?: string; // For images/stickers
+  src?: string; // For images
   text?: string; // For text elements
   fontSize?: number;
   fontFamily?: string;
   fill?: string; // Text color
+  fontWeight?: string; // Text weight: normal, bold
+  fontStyle?: string; // Text style: normal, italic
+  align?: string; // Text alignment: left, center, right
+  curveAmount?: number; // Text curve: -100 (down) to 100 (up)
+  letterSpacing?: number; // Letter spacing: 0-50px
   zIndex: number;
   createdAt: Date;
   opacity?: number;
@@ -104,8 +103,8 @@ export interface UploadResponse {
 }
 
 // 🔧 Tool and interaction types
-export type UploadMode = 'image' | 'sticker';
-export type ToolType = 'select' | 'image' | 'sticker' | 'text' | 'move' | 'delete';
+export type UploadMode = 'image'; // Removed 'sticker' - use external Sticker Library
+export type ToolType = 'select' | 'image' | 'text' | 'move' | 'delete'; // Removed 'sticker'
 
 // 🎮 Canvas interaction state
 export interface CanvasState {

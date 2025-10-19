@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
-import { PhotoIcon, CloudArrowUpIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { PhotoIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
 import { CustomProductService } from '../../services/customProductService';
-import type { UploadMode } from './types';
 
 interface UploadSectionProps {
-  uploadMode: UploadMode;
-  onUploadModeChange: (mode: UploadMode) => void;
   onImageUpload: (file: File) => void;
 }
 
 const UploadSection: React.FC<UploadSectionProps> = ({
-  uploadMode,
-  onUploadModeChange,
   onImageUpload,
 }) => {
   const [uploading, setUploading] = useState(false);
@@ -27,15 +22,15 @@ const UploadSection: React.FC<UploadSectionProps> = ({
       return;
     }
 
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Kích thước file không được vượt quá 5MB');
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Kích thước file không được vượt quá 10MB');
       return;
     }
 
     try {
       setUploading(true);
-      const result = await CustomProductService.uploadImage(file, uploadMode);
+      const result = await CustomProductService.uploadImage(file);
       
       if (result.success && result.url) {
         // Add to canvas via global method
@@ -47,7 +42,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
         alert('Upload thất bại');
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('❌ Upload error:', error);
       alert('Có lỗi xảy ra khi upload ảnh');
     } finally {
       setUploading(false);
@@ -57,41 +52,18 @@ const UploadSection: React.FC<UploadSectionProps> = ({
   };
 
   return (
-    <div>
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Tải ảnh cá nhân lên</h3>
-      
-      <div className="flex space-x-2 mb-4">
-        <button
-          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
-            uploadMode === 'image'
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-          }`}
-          onClick={() => onUploadModeChange('image')}
-        >
-          <PhotoIcon className="w-4 h-4 inline mr-2" />
-          Ảnh
-        </button>
-        <button
-          className={`flex-1 py-2 px-4 rounded-lg border text-sm font-medium transition-colors ${
-            uploadMode === 'sticker'
-              ? 'bg-green-50 border-green-200 text-green-700'
-              : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-          }`}
-          onClick={() => onUploadModeChange('sticker')}
-        >
-          <DocumentTextIcon className="w-4 h-4 inline mr-2" />
-          Sticker
-        </button>
-      </div>
+    <div className="space-y-3">
+      <p className="text-xs text-gray-600">
+        📸 Tải ảnh cá nhân của bạn lên canvas
+      </p>
 
-      <label className={`w-full py-3 px-4 rounded-lg font-medium transition-colors cursor-pointer inline-block text-center ${
+      <label className={`w-full py-3 px-4 rounded-lg font-medium transition-all cursor-pointer inline-flex items-center justify-center space-x-2 ${
         uploading 
           ? 'bg-gray-400 text-white cursor-not-allowed' 
-          : 'bg-green-600 text-white hover:bg-green-700'
+          : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 shadow-sm hover:shadow-md'
       }`}>
-        <CloudArrowUpIcon className="w-4 h-4 inline mr-2" />
-        {uploading ? 'Đang tải lên...' : 'Tải ảnh lên'}
+        <CloudArrowUpIcon className="w-5 h-5" />
+        <span>{uploading ? 'Đang tải lên...' : 'Chọn ảnh để tải lên'}</span>
         <input
           type="file"
           accept="image/*"
@@ -101,10 +73,11 @@ const UploadSection: React.FC<UploadSectionProps> = ({
         />
       </label>
       
-      <p className="text-xs text-gray-500 mt-2">
-        Hướng dẫn: Chọn file ảnh (JPG, PNG, GIF, WebP) có kích thước tối đa 5MB. 
-        Ảnh sẽ được thêm vào canvas, sticker có thể được sử dụng nhiều lần.
-      </p>
+      <div className="text-xs text-gray-500 space-y-1">
+        <p>✓ Hỗ trợ: JPG, PNG, GIF, WebP</p>
+        <p>✓ Kích thước tối đa: 10MB</p>
+        <p>💡 Ảnh sẽ được thêm vào canvas để chỉnh sửa</p>
+      </div>
     </div>
   );
 };

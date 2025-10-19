@@ -8,6 +8,7 @@ import CanvasArea from '../components/designer/CanvasArea';
 import ToolsPanel from '../components/designer/ToolsPanel';
 import ConsultationModal from '../components/designer/ConsultationModal';
 import GeminiPreviewModal from '../components/designer/GeminiPreviewModal';
+import TextEditPanel from '../components/designer/TextEditPanel';
 import { CustomProductService } from '../services/customProductService';
 
 // 🎨 Heroicons - Official Tailwind CSS Icon Library
@@ -62,6 +63,14 @@ const CustomProductDesigner: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+
+  // 📝 Text editing state - for TextEditPanel
+  const [selectedTextElementId, setSelectedTextElementId] = useState<string | null>(null);
+
+  // Debug selectedTextElementId changes
+  useEffect(() => {
+    console.log('🔄 selectedTextElementId changed to:', selectedTextElementId);
+  }, [selectedTextElementId]);
 
   // 🎯 Enhanced success message system
   const showSuccessToast = useCallback((message: string) => {
@@ -163,6 +172,18 @@ const CustomProductDesigner: React.FC = () => {
         ...design,
         elements: [...design.elements, newElement]
       });
+    }
+  }, [design, handleDesignChange]);
+
+  // 📝 Handle text addition
+  const handleTextAdd = useCallback((textConfig: any) => {
+    if (design) {
+      const newElement = createTextElement(textConfig);
+      handleDesignChange({
+        ...design,
+        elements: [...design.elements, newElement]
+      });
+      console.log('📝 Text element added to canvas:', newElement);
     }
   }, [design, handleDesignChange]);
 
@@ -476,6 +497,29 @@ const CustomProductDesigner: React.FC = () => {
     visible: true
   });
 
+  const createTextElement = (textConfig: any) => ({
+    id: `text_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    type: 'text' as const,
+    x: 200,
+    y: 200,
+    rotation: textConfig.rotation || 0,
+    scaleX: 1,
+    scaleY: 1,
+    text: textConfig.text,
+    fontSize: textConfig.fontSize || 32,
+    fontFamily: textConfig.fontFamily || 'Arial',
+    fill: textConfig.color || '#000000',
+    fontWeight: textConfig.fontWeight || 'normal',
+    fontStyle: textConfig.fontStyle || 'normal',
+    align: textConfig.textAlign || 'left',
+    curveAmount: textConfig.curveAmount || 0,
+    letterSpacing: textConfig.letterSpacing || 0,
+    zIndex: design?.elements.length || 0,
+    createdAt: new Date(),
+    opacity: 1,
+    visible: true
+  });
+
   // ⏰ Debounced auto-save (save after 3 seconds of inactivity)
   const debouncedAutoSave = useCallback(
     debounce(async (designToSave: CustomDesign) => {
@@ -678,6 +722,10 @@ const CustomProductDesigner: React.FC = () => {
                   selectedColorCode={selectedColorCode}
                   design={design}
                   onDesignChange={handleDesignChange}
+                  onTextElementSelect={(id) => {
+                    console.log('🎨 onTextElementSelect received in CustomProductDesigner:', id);
+                    setSelectedTextElementId(id);
+                  }}
                 />
               </div>
             </div>
@@ -788,13 +836,11 @@ const CustomProductDesigner: React.FC = () => {
                 selectedProduct={selectedProduct}
                 selectedColorCode={selectedColorCode}
                 onColorSelect={handleColorSelect}
-                uploadMode={uploadMode}
-                onUploadModeChange={setUploadMode}
                 onImageUpload={handleImageUpload}
                 onStickerSelect={handleStickerSelect}
+                onTextAdd={handleTextAdd}
                 onClearDesign={handleClearDesign}
                 onExportPNG={handleExportPNG}
-                onSaveJSON={handleSaveJSON}
               />
             </div>
           </div>
@@ -821,6 +867,32 @@ const CustomProductDesigner: React.FC = () => {
           onPreviewSelected={handleGeminiPreviewSelected}
         />
       )}
+
+      {/* Text Edit Panel - Floating panel when text element is selected */}
+      {(() => {
+        console.log('🔍 TextEditPanel render check:', { 
+          selectedTextElementId, 
+          hasDesign: !!design,
+          elementFound: design?.elements.find(el => el.id === selectedTextElementId)
+        });
+        return selectedTextElementId && design ? (
+          <TextEditPanel
+            element={design.elements.find(el => el.id === selectedTextElementId)!}
+            onUpdate={(updates) => {
+              if (design) {
+                const updatedElements = design.elements.map(el =>
+                  el.id === selectedTextElementId ? { ...el, ...updates } : el
+                );
+                handleDesignChange({
+                  ...design,
+                  elements: updatedElements
+                });
+              }
+            }}
+            onClose={() => setSelectedTextElementId(null)}
+          />
+        ) : null;
+      })()}
 
       {/* Enhanced Success Toast with React Icons */}
       {showSuccessMessage && (

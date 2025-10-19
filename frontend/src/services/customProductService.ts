@@ -33,12 +33,11 @@ export class CustomProductService {
       
       console.log('🛍️ [CustomProductService] Products extracted:', products.length);
       
-      // Validate each product has required fields
+      // Validate each product has required fields (price is optional for custom products)
       const validProducts = products.filter(product => 
         product && 
         product.id && 
-        product.name && 
-        typeof product.price === 'number'
+        product.name
       );
       
       console.log('🛍️ [CustomProductService] Valid products:', validProducts.length);
@@ -68,14 +67,13 @@ export class CustomProductService {
     }
   }
 
-  // 📤 Upload image/sticker with progress tracking
+  // 📤 Upload image with progress tracking
   static async uploadImage(
     file: File, 
-    type: 'image' | 'sticker' = 'image',
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
     try {
-      console.log(`📤 [CustomProductService] Uploading ${type}:`, file.name, file.size);
+      console.log('📤 [CustomProductService] Uploading image:', file.name, file.size);
       
       // Validate file
       if (!file || file.size === 0) {
@@ -96,7 +94,7 @@ export class CustomProductService {
 
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('type', type);
+      formData.append('type', 'image');
       formData.append('category', 'custom-design');
 
       // Use postForm method 
@@ -252,8 +250,8 @@ export class CustomProductService {
     return {
       elementCount: design.elements.length,
       imageCount: design.elements.filter(e => e.type === 'image').length,
-      stickerCount: design.elements.filter(e => e.type === 'sticker').length,
       textCount: design.elements.filter(e => e.type === 'text').length,
+      // Removed: stickerCount - Stickers moved to external Sticker Library
       canvasSize: design.canvasWidth * design.canvasHeight,
       estimatedComplexity: this.calculateComplexity(design)
     };
