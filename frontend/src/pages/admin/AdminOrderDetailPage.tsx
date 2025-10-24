@@ -45,6 +45,11 @@ const AdminOrderDetailPage: React.FC = () => {
   const [showCreateShipmentModal, setShowCreateShipmentModal] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<ShippingProvider>('ViettelPost');
   const [shipmentNote, setShipmentNote] = useState('');
+  
+  // ViettelPost order status update states
+  const [showApproveVTPModal, setShowApproveVTPModal] = useState(false);
+  const [showCancelVTPModal, setShowCancelVTPModal] = useState(false);
+  const [vtpUpdateNote, setVtpUpdateNote] = useState('');
 
   useEffect(() => {
     if (!user || !user.roles?.includes('Admin') && !user.roles?.includes('Staff')) {
@@ -154,6 +159,62 @@ const AdminOrderDetailPage: React.FC = () => {
       setShowCancelShipmentModal(false);
       setCancelReason('');
       
+    } catch (err: any) {
+      setError(err.message || 'Không thể hủy vận đơn');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleApproveViettelPostOrder = async () => {
+    if (!order) return;
+
+    setActionLoading('approve-vtp');
+    try {
+      const result = await ShippingService.updateViettelPostOrderStatus(order.id, {
+        updateType: 1, // Approve
+        note: vtpUpdateNote || 'Duyệt vận đơn'
+      });
+
+      if (result.success) {
+        await loadOrderDetails();
+        await loadShippingData();
+        setShowApproveVTPModal(false);
+        setVtpUpdateNote('');
+        // Show success message
+        setError(null);
+      } else {
+        setError(result.error || 'Không thể duyệt vận đơn');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Không thể duyệt vận đơn');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleCancelViettelPostOrder = async () => {
+    if (!order || !vtpUpdateNote.trim()) {
+      setError('Vui lòng nhập lý do hủy vận đơn');
+      return;
+    }
+
+    setActionLoading('cancel-vtp');
+    try {
+      const result = await ShippingService.updateViettelPostOrderStatus(order.id, {
+        updateType: 4, // Cancel
+        note: vtpUpdateNote.trim()
+      });
+
+      if (result.success) {
+        await loadOrderDetails();
+        await loadShippingData();
+        setShowCancelVTPModal(false);
+        setVtpUpdateNote('');
+        setError(null);
+      } else {
+        setError(result.error || 'Không thể hủy vận đơn');
+      }
     } catch (err: any) {
       setError(err.message || 'Không thể hủy vận đơn');
     } finally {
@@ -510,6 +571,29 @@ const AdminOrderDetailPage: React.FC = () => {
                         Hủy vận đơn
                       </button>
                     )}
+
+                    {/* ViettelPost order status update buttons */}
+                    {order.shippingCode && order.shippingProvider === 'ViettelPost' && (
+                      <>
+                        <button
+                          onClick={() => setShowApproveVTPModal(true)}
+                          disabled={!!actionLoading}
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+                        >
+                          <CheckCircleIcon className="w-4 h-4 mr-1" />
+                          Duyệt vận đơn VTP
+                        </button>
+                        
+                        <button
+                          onClick={() => setShowCancelVTPModal(true)}
+                          disabled={!!actionLoading}
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          <XCircleIcon className="w-4 h-4 mr-1" />
+                          Hủy VTP Order
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -716,6 +800,126 @@ const AdminOrderDetailPage: React.FC = () => {
                   onClick={() => {
                     setShowCancelShipmentModal(false);
                     setCancelReason('');
+                  }}
+                  disabled={!!actionLoading}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 disabled:opacity-50"
+                >
+                  Hủy bỏ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve ViettelPost Order Modal */}
+      {showApproveVTPModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Duyệt vận đơn ViettelPost</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ghi chú (không bắt buộc)
+                  </label>
+                  <textarea
+                    value={vtpUpdateNote}
+                    onChange={(e) => setVtpUpdateNote(e.target.value)}
+                    placeholder="Nhập ghi chú cho việc duyệt vận đơn..."
+                    maxLength={150}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    rows={3}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {vtpUpdateNote.length}/150 ký tự
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 p-3 rounded-md">
+                  <div className="flex">
+                    <CheckCircleIcon className="w-5 h-5 text-blue-400 mr-2" />
+                    <div className="text-sm text-blue-700">
+                      <p>Vận đơn sẽ được duyệt trên hệ thống ViettelPost và chuyển sang trạng thái "Đã lấy hàng".</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  onClick={handleApproveViettelPostOrder}
+                  disabled={actionLoading === 'approve-vtp'}
+                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50"
+                >
+                  {actionLoading === 'approve-vtp' ? 'Đang duyệt...' : 'Xác nhận duyệt'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowApproveVTPModal(false);
+                    setVtpUpdateNote('');
+                  }}
+                  disabled={!!actionLoading}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel ViettelPost Order Modal */}
+      {showCancelVTPModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Hủy vận đơn ViettelPost</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Lý do hủy <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={vtpUpdateNote}
+                    onChange={(e) => setVtpUpdateNote(e.target.value)}
+                    placeholder="Nhập lý do hủy vận đơn ViettelPost..."
+                    maxLength={150}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    rows={3}
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {vtpUpdateNote.length}/150 ký tự
+                  </p>
+                </div>
+
+                <div className="bg-orange-50 border border-orange-200 p-3 rounded-md">
+                  <div className="flex">
+                    <ExclamationTriangleIcon className="w-5 h-5 text-orange-400 mr-2" />
+                    <div className="text-sm text-orange-700">
+                      <p><strong>Điều kiện hủy:</strong> Vận đơn phải có trạng thái &lt; 200 và khác 105, 107.</p>
+                      <p className="mt-1">Lưu ý: Hành động này sẽ hủy vận đơn trên hệ thống ViettelPost.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-6">
+                <button
+                  onClick={handleCancelViettelPostOrder}
+                  disabled={!vtpUpdateNote.trim() || actionLoading === 'cancel-vtp'}
+                  className="flex-1 bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {actionLoading === 'cancel-vtp' ? 'Đang hủy...' : 'Xác nhận hủy'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowCancelVTPModal(false);
+                    setVtpUpdateNote('');
                   }}
                   disabled={!!actionLoading}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 disabled:opacity-50"

@@ -101,6 +101,22 @@ export interface CancelShipmentRequest {
   reason: string;
 }
 
+export interface UpdateViettelPostOrderStatusRequest {
+  updateType: number; // 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete
+  note?: string;      // max 150 chars
+}
+
+export interface UpdateViettelPostOrderStatusResponse {
+  success: boolean;
+  data?: {
+    isSuccess: boolean;
+    message?: string;
+    errorMessage?: string;
+  };
+  message?: string;
+  error?: string;
+}
+
 export interface ShippingRequest {
   id: number;
   orderId: number;

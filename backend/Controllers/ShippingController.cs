@@ -198,6 +198,99 @@ namespace backend.Controllers
         }
 
         /// <summary>
+        /// Update ViettelPost order status (Admin/Staff only)
+        /// </summary>
+        /// <param name="orderId">Order ID</param>
+        /// <param name="request">Update request with type and note</param>
+        /// <returns>Update result</returns>
+        /// <response code="200">Order status updated successfully</response>
+        /// <response code="400">Invalid request data</response>
+        /// <response code="401">Unauthorized</response>
+        /// <response code="403">Forbidden - Admin/Staff only</response>
+        /// <response code="404">Order not found</response>
+        /// <response code="500">Internal server error</response>
+        /// <remarks>
+        /// Update types:
+        /// - 1: Approve order (Duyệt đơn hàng)
+        /// - 2: Approve return (Duyệt hoàn - when status is 505)
+        /// - 3: Re-deliver (Phát tiếp - after status 505)
+        /// - 4: Cancel order (Hủy đơn hàng - when status &lt; 200 and not 105, 107)
+        /// - 11: Delete cancelled order (Xóa đơn hàng đã hủy - after status 107)
+        /// </remarks>
+        [HttpPost("{orderId}/update-status")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Staff}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<UpdateOrderResult>> UpdateOrderStatus(
+            [Required] int orderId,
+            [FromBody] UpdateOrderStatusRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
+
+                // Validate update type
+                if (!new[] { 1, 2, 3, 4, 11 }.Contains(request.UpdateType))
+                {
+                    return BadRequest(new { 
+                        success = false, 
+                        message = "Invalid update type. Valid types: 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete" 
+                    });
+                }
+
+                // Validate note length
+                if (!string.IsNullOrEmpty(request.Note) && request.Note.Length > 150)
+                {
+                    return BadRequest(new { success = false, message = "Note cannot exceed 150 characters" });
+                }
+
+                var result = await _shippingService.UpdateOrderStatusAsync(orderId, request.UpdateType, request.Note ?? "");
+
+                if (result.IsSuccess)
+                {
+                    string actionName = request.UpdateType switch
+                    {
+                        1 => "duyệt đơn hàng",
+                        2 => "duyệt hoàn",
+                        3 => "phát tiếp",
+                        4 => "hủy đơn hàng",
+                        11 => "xóa đơn hàng đã hủy",
+                        _ => "cập nhật"
+                    };
+
+                    _logger.LogInformation("Order status updated successfully ({Action}) for order {OrderId} by user {UserId}",
+                        actionName, orderId, User.GetUserId());
+                    
+                    return Ok(new { 
+                        success = true, 
+                        data = result, 
+                        message = result.Message ?? $"Cập nhật trạng thái thành công: {actionName}" 
+                    });
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to update order status for order {OrderId}: {Error}",
+                        orderId, result.ErrorMessage);
+                    return BadRequest(new { success = false, message = result.ErrorMessage });
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order status for order {OrderId}", orderId);
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi cập nhật trạng thái vận đơn" });
+            }
+        }
+
+        /// <summary>
         /// Get tracking information for an order
         /// </summary>
         /// <param name="orderId">Order ID</param>
@@ -394,5 +487,24 @@ namespace backend.Controllers
         [Required]
         [StringLength(500, ErrorMessage = "Lý do hủy không được vượt quá 500 ký tự")]
         public string Reason { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Request DTO for updating ViettelPost order status
+    /// </summary>
+    public class UpdateOrderStatusRequest
+    {
+        /// <summary>
+        /// Update type: 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete
+        /// </summary>
+        [Required]
+        [Range(1, 11, ErrorMessage = "Update type must be 1, 2, 3, 4, or 11")]
+        public int UpdateType { get; set; }
+
+        /// <summary>
+        /// Update note/reason (max 150 characters)
+        /// </summary>
+        [StringLength(150, ErrorMessage = "Note cannot exceed 150 characters")]
+        public string? Note { get; set; }
     }
 }

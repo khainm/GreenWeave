@@ -45,6 +45,16 @@ namespace backend.Interfaces.Services
         Task<UpdateOrderResult> UpdateOrderAsync(int orderId, UpdateOrderRequest request);
 
         /// <summary>
+        /// Update order status (approve, cancel, return, delete)
+        /// Uses /v2/order/UpdateOrder API for ViettelPost
+        /// </summary>
+        /// <param name="orderId">Order ID</param>
+        /// <param name="updateType">Update type: 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete</param>
+        /// <param name="note">Update note/reason (max 150 chars)</param>
+        /// <returns>Status update result</returns>
+        Task<UpdateOrderResult> UpdateOrderStatusAsync(int orderId, int updateType, string note);
+
+        /// <summary>
         /// Cancel a shipment
         /// </summary>
         /// <param name="orderId">Order ID</param>

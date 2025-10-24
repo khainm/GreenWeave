@@ -458,6 +458,105 @@ namespace backend.Services
             }
         }
 
+        public async Task<UpdateOrderResult> UpdateOrderStatusAsync(int orderId, int updateType, string note)
+        {
+            try
+            {
+                // Validate update type
+                if (!new[] { 1, 2, 3, 4, 11 }.Contains(updateType))
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Invalid update type. Valid types: 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete"
+                    };
+                }
+
+                var order = await _orderRepository.GetByIdAsync(orderId);
+                if (order == null)
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Order not found"
+                    };
+                }
+
+                var shippingRequest = await _shippingRequestRepository.GetByOrderIdAsync(orderId);
+                if (shippingRequest == null || string.IsNullOrEmpty(shippingRequest.TrackingCode))
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "No active shipment found for this order"
+                    };
+                }
+
+                // Find the appropriate provider
+                var provider = _shippingProviders.FirstOrDefault(p => p.Provider == order.ShippingProvider);
+                if (provider == null)
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = $"Provider {order.ShippingProvider} not found"
+                    };
+                }
+
+                // Call provider's UpdateOrderStatusAsync
+                var result = await provider.UpdateOrderStatusAsync(shippingRequest.TrackingCode, updateType, note ?? "");
+
+                // Update order status based on update type
+                if (result.IsSuccess)
+                {
+                    switch (updateType)
+                    {
+                        case 1: // Approve
+                            shippingRequest.Status = ShippingStatus.Picked;
+                            order.ShippingStatus = ShippingStatus.Picked;
+                            break;
+                        case 4: // Cancel
+                            shippingRequest.Status = ShippingStatus.Cancelled;
+                            shippingRequest.CancelledAt = DateTime.UtcNow;
+                            shippingRequest.CancelReason = note;
+                            order.ShippingStatus = ShippingStatus.Cancelled;
+                            break;
+                        case 2: // Approve Return
+                        case 3: // Re-deliver
+                            // Status will be updated via webhook
+                            break;
+                        case 11: // Delete
+                            // Soft delete by marking as cancelled
+                            shippingRequest.Status = ShippingStatus.Cancelled;
+                            order.ShippingStatus = ShippingStatus.Cancelled;
+                            break;
+                    }
+
+                    shippingRequest.UpdatedAt = DateTime.UtcNow;
+                    order.UpdatedAt = DateTime.UtcNow;
+
+                    await _shippingRequestRepository.UpdateAsync(shippingRequest);
+                    await _orderRepository.UpdateAsync(order);
+                }
+
+                // Log the transaction
+                await LogTransactionAsync(shippingRequest.Id, "UpdateOrderStatus", order.ShippingProvider.ToString(),
+                    JsonSerializer.Serialize(new { TrackingCode = shippingRequest.TrackingCode, UpdateType = updateType, Note = note }),
+                    JsonSerializer.Serialize(result), null, result.IsSuccess, result.ErrorMessage);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating order status for order {OrderId}, updateType {UpdateType}", orderId, updateType);
+                return new UpdateOrderResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
         public async Task<TrackingResponseDto?> GetTrackingAsync(int orderId)
         {
             try

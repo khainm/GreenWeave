@@ -4,6 +4,7 @@ using backend.Models;
 using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace backend.Services
 {
@@ -485,50 +486,21 @@ namespace backend.Services
         {
             try
             {
-                var payload = new
-                {
-                    TYPE = 1, // Cancel type
-                    NOTE = reason,
-                    LIST_ORDER_NUMBER = new[] { trackingCode }
-                };
-
-                // Get valid token before making API call
-                var token = await GetValidTokenAsync();
-                if (string.IsNullOrEmpty(token))
-                {
-                    return new CancelShipmentResult
-                    {
-                        IsSuccess = false,
-                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
-                    };
-                }
-
-                _httpClient.DefaultRequestHeaders.Clear();
-                _httpClient.DefaultRequestHeaders.Add("Token", token);
-
-                var response = await _httpClient.PostAsync("/v2/order/cancel",
-                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
-
-                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Cancelling ViettelPost shipment {TrackingCode}", trackingCode);
                 
-                if (response.IsSuccessStatusCode)
-                {
-                    return new CancelShipmentResult
-                    {
-                        IsSuccess = true,
-                        CancelReason = reason
-                    };
-                }
-
+                // Use UpdateOrderStatusAsync with TYPE=4 (Cancel order)
+                var result = await UpdateOrderStatusAsync(trackingCode, 4, reason);
+                
                 return new CancelShipmentResult
                 {
-                    IsSuccess = false,
-                    ErrorMessage = $"Viettel Post cancel error: {responseContent}"
+                    IsSuccess = result.IsSuccess,
+                    ErrorMessage = result.ErrorMessage,
+                    CancelReason = reason
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error cancelling Viettel Post shipment {TrackingCode}", trackingCode);
+                _logger.LogError(ex, "Error cancelling ViettelPost shipment {TrackingCode}", trackingCode);
                 return new CancelShipmentResult
                 {
                     IsSuccess = false,
@@ -537,21 +509,30 @@ namespace backend.Services
             }
         }
 
-        public async Task<UpdateOrderResult> UpdateOrderAsync(Order order, ShippingRequest shippingRequest)
+        /// <summary>
+        /// Edit order information - Uses /v2/order/edit API
+        /// Only works when ORDER_STATUS < 200
+        /// </summary>
+        public async Task<UpdateOrderResult> EditOrderInfoAsync(Order order, ShippingRequest shippingRequest)
         {
             try
             {
-                _logger.LogInformation("Updating order in ViettelPost for order {OrderNumber}", order.OrderNumber);
+                _logger.LogInformation("Editing order info in ViettelPost for order {OrderNumber}", order.OrderNumber);
                 var fromAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.FromAddress);
                 var toAddress = JsonSerializer.Deserialize<ShippingAddressDto>(shippingRequest.ToAddress);
                 
-                // Validate required address IDs for updateOrder
+                // Validate required address IDs
                 if (toAddress?.WardId == null || toAddress?.DistrictId == null || toAddress?.ProvinceId == null)
                 {
-                    throw new InvalidOperationException("Complete address information (ProvinceId, DistrictId, WardId) is required for updating order");
+                    throw new InvalidOperationException("Complete receiver address information (ProvinceId, DistrictId, WardId) is required for editing order");
+                }
+                
+                if (fromAddress?.WardId == null || fromAddress?.DistrictId == null || fromAddress?.ProvinceId == null)
+                {
+                    throw new InvalidOperationException("Complete sender address information (ProvinceId, DistrictId, WardId) is required for editing order");
                 }
 
-                // Calculate total weight and dimensions
+                // Calculate total weight and price
                 var totalWeight = order.Items.Sum(i => i.Product.Weight * i.Quantity);
                 var totalPrice = order.Items.Sum(i => i.Product.Price * i.Quantity);
                 
@@ -564,16 +545,139 @@ namespace backend.Services
                     PRODUCT_QUANTITY = item.Quantity
                 }).ToArray();
 
-                // Payload theo API documentation cho UpdateOrder - chỉ cần 3 fields
+                // Payload theo ViettelPost /v2/order/edit API - GIỐNG HỆT CreateOrder
                 var payload = new
                 {
-                    Type = 1, // ✅ NUMBER - Status type: 1. Confirm order
-                    ORDER_NUMBER = order.OrderNumber, // ✅ NUMBER - Order number
-                    NOTE = shippingRequest.Note ?? order.Notes ?? "", // ✅ VARCHAR2(250) - Order note
-                    DATE = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss") // ✅ VARCHAR2(250) - Date (optional, only for re-order)
+                    ORDER_NUMBER = order.OrderNumber,
+                    GROUPADDRESS_ID = "",
+                    CUS_ID = "",
+                    DELIVERY_DATE = order.ShippedAt?.ToString("dd/MM/yyyy HH:mm:ss") ?? DateTime.Now.AddDays(1).ToString("dd/MM/yyyy HH:mm:ss"),
+                    SENDER_FULLNAME = fromAddress?.Name ?? _config.DefaultPickupAddress.Name,
+                    SENDER_ADDRESS = fromAddress?.AddressDetail ?? _config.DefaultPickupAddress.AddressDetail,
+                    SENDER_PHONE = fromAddress?.Phone ?? _config.DefaultPickupAddress.Phone,
+                    SENDER_EMAIL = "",
+                    SENDER_WARD = fromAddress?.WardId ?? _config.DefaultPickupAddress.WardId,
+                    SENDER_DISTRICT = fromAddress?.DistrictId ?? _config.DefaultPickupAddress.DistrictId,
+                    SENDER_PROVINCE = fromAddress?.ProvinceId ?? _config.DefaultPickupAddress.ProvinceId,
+                    RECEIVER_FULLNAME = toAddress?.Name ?? throw new InvalidOperationException("Receiver name is required"),
+                    RECEIVER_ADDRESS = toAddress?.AddressDetail ?? throw new InvalidOperationException("Receiver address is required"),
+                    RECEIVER_PHONE = toAddress?.Phone ?? throw new InvalidOperationException("Receiver phone is required"),
+                    RECEIVER_EMAIL = "",
+                    RECEIVER_WARD = toAddress?.WardId ?? throw new InvalidOperationException("Receiver ward ID is required"),
+                    RECEIVER_DISTRICT = toAddress?.DistrictId ?? throw new InvalidOperationException("Receiver district ID is required"),
+                    RECEIVER_PROVINCE = toAddress?.ProvinceId ?? throw new InvalidOperationException("Receiver province ID is required"),
+                    PRODUCT_NAME = $"Đơn hàng {order.OrderNumber}",
+                    PRODUCT_QUANTITY = order.Items.Sum(i => i.Quantity),
+                    PRODUCT_PRICE = (int)totalPrice,
+                    PRODUCT_WEIGHT = (int)totalWeight,
+                    PRODUCT_LENGTH = 0,
+                    PRODUCT_WIDTH = 0,
+                    PRODUCT_HEIGHT = 0,
+                    PRODUCT_TYPE = "HH",
+                    ORDER_PAYMENT = order.PaymentMethod == PaymentMethod.CashOnDelivery ? 3 : 1,
+                    ORDER_SERVICE = shippingRequest.ServiceId ?? "VCN",
+                    ORDER_SERVICE_ADD = "",
+                    ORDER_VOUCHER = "",
+                    ORDER_NOTE = shippingRequest.Note ?? order.Notes ?? "",
+                    MONEY_COLLECTION = order.PaymentMethod == PaymentMethod.CashOnDelivery ? (int)shippingRequest.CodAmount : 0,
+                    EXTRA_MONEY = 0,
+                    CHECK_UNIQUE = true,
+                    LIST_ITEM = listItems
                 };
 
-                // Get valid token before making API call
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new UpdateOrderResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
+
+                var response = await _httpClient.PostAsync("/v2/order/edit",
+                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("ViettelPost /v2/order/edit response for {OrderNumber}: {Response}", 
+                    order.OrderNumber, responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonSerializer.Deserialize<ViettelPostCreateOrderResponse>(responseContent);
+                    
+                    if (result?.Status == 200 && result.Data != null)
+                    {
+                        _logger.LogInformation("✅ Order {OrderNumber} edited successfully in ViettelPost", order.OrderNumber);
+                        
+                        return new UpdateOrderResult
+                        {
+                            IsSuccess = true,
+                            Message = "Cập nhật thông tin đơn hàng thành công",
+                            AdditionalData = new Dictionary<string, object>
+                            {
+                                ["order_number"] = result.Data.ORDER_NUMBER,
+                                ["money_total"] = result.Data.MONEY_TOTAL,
+                                ["money_total_fee"] = result.Data.MONEY_TOTAL_FEE
+                            }
+                        };
+                    }
+                }
+
+                var errorResult = JsonSerializer.Deserialize<ViettelPostCreateOrderResponse>(responseContent);
+                string errorMessage = errorResult?.Status switch
+                {
+                    203 => "Đơn hàng không tồn tại hoặc trạng thái đã thay đổi (ORDER_STATUS >= 200, không thể sửa)",
+                    _ => errorResult?.Message ?? "Lỗi khi cập nhật đơn hàng"
+                };
+
+                _logger.LogError("ViettelPost /v2/order/edit error {Status}: {Message} for {OrderNumber}", 
+                    errorResult?.Status, errorMessage, order.OrderNumber);
+
+                return new UpdateOrderResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = errorMessage
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error editing ViettelPost order {OrderNumber}", order.OrderNumber);
+                return new UpdateOrderResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
+        /// <summary>
+        /// Update order status - Uses /v2/order/UpdateOrder API
+        /// TYPE: 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete
+        /// </summary>
+        public async Task<UpdateOrderResult> UpdateOrderStatusAsync(string trackingCode, int updateType, string note)
+        {
+            try
+            {
+                _logger.LogInformation("Updating ViettelPost order status for {TrackingCode}, Type={Type}", trackingCode, updateType);
+                
+                // Validate
+                if (string.IsNullOrEmpty(trackingCode))
+                    throw new ArgumentException("Tracking code is required", nameof(trackingCode));
+                
+                if (note?.Length > 150)
+                    throw new ArgumentException("Note cannot exceed 150 characters", nameof(note));
+
+                var payload = new
+                {
+                    TYPE = updateType,
+                    ORDER_NUMBER = trackingCode,
+                    NOTE = note ?? ""
+                };
+
                 var token = await GetValidTokenAsync();
                 if (string.IsNullOrEmpty(token))
                 {
@@ -591,91 +695,63 @@ namespace backend.Services
                     new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
 
                 var responseContent = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Viettel Post update order response: {Response}", responseContent);
+                _logger.LogInformation("ViettelPost /v2/order/UpdateOrder response for {TrackingCode}: {Response}", 
+                    trackingCode, responseContent);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var result = JsonSerializer.Deserialize<ViettelPostUpdateOrderResponse>(responseContent);
+                    var result = JsonSerializer.Deserialize<ViettelPostUpdateOrderStatusResponse>(responseContent);
                     
-                    if (result?.Status == 200 && result.Data != null)
+                    if (result?.Status == 200)
                     {
-                        // Sử dụng dữ liệu từ API response thay vì hard code
-                        var updateData = result.Data;
+                        string actionName = updateType switch
+                        {
+                            1 => "duyệt đơn hàng",
+                            2 => "duyệt hoàn",
+                            3 => "phát tiếp",
+                            4 => "hủy đơn hàng",
+                            11 => "xóa đơn hàng đã hủy",
+                            _ => "cập nhật"
+                        };
+                        
+                        _logger.LogInformation("✅ {Action} thành công cho đơn {TrackingCode}", actionName, trackingCode);
                         
                         return new UpdateOrderResult
                         {
                             IsSuccess = true,
-                            Message = updateData.MESSAGE ?? "Order updated successfully in ViettelPost",
-                            AdditionalData = new Dictionary<string, object>
-                            {
-                                ["viettelpost_response"] = result,
-                                ["order_number"] = updateData.ORDER_NUMBER,
-                                ["order_reference"] = updateData.ORDER_REFERENCE,
-                                ["order_status"] = updateData.ORDER_STATUS,
-                                ["status_name"] = updateData.STATUS_NAME,
-                                ["current_location"] = updateData.LOCALION_CURRENTLY,
-                                ["money_collection"] = updateData.MONEY_COLLECTION,
-                                ["money_total"] = updateData.MONEY_TOTAL,
-                                ["product_weight"] = updateData.PRODUCT_WEIGHT,
-                                ["expected_delivery_date"] = updateData.EXPECTED_DELIVERY_DATE,
-                                ["order_service"] = updateData.ORDER_SERVICE,
-                                ["money_total_fee"] = updateData.MONEY_TOTALFEE,
-                                ["is_production"] = true
-                            }
+                            Message = result.Message ?? $"Cập nhật trạng thái thành công: {actionName}"
                         };
                     }
                 }
 
-                // Xử lý error response với các status code cụ thể
-                try
-                {
-                    var errorResult = JsonSerializer.Deserialize<ViettelPostUpdateOrderResponse>(responseContent);
-                    if (errorResult != null)
-                    {
-                        string errorMessage = errorResult.Status switch
-                        {
-                            201 => "Cancel key in delivery note!",
-                            202 => "Correct delivery note",
-                            203 => "Order does not exist or status has been changed..",
-                            204 => "Invalid account or owner password!",
-                            205 => "System error",
-                            207 => "No order found",
-                            _ => errorResult.Message ?? "Viettel Post UpdateOrder API error"
-                        };
-
-                        _logger.LogError("Viettel Post UpdateOrder API returned error {Status}: {Message} for order {OrderNumber}", 
-                            errorResult.Status, errorMessage, order.OrderNumber);
-
-                        return new UpdateOrderResult
-                        {
-                            IsSuccess = false,
-                            ErrorMessage = errorMessage
-                        };
-                    }
-                }
-                catch (JsonException)
-                {
-                    // Fallback nếu không parse được JSON
-                }
-
-                // Log error and return failure
-                _logger.LogError("Viettel Post UpdateOrder API returned error for order {OrderNumber}: {Response}", order.OrderNumber, responseContent);
+                var errorResult = JsonSerializer.Deserialize<ViettelPostUpdateOrderStatusResponse>(responseContent);
+                _logger.LogError("ViettelPost /v2/order/UpdateOrder error {Status}: {Message} for {TrackingCode}", 
+                    errorResult?.Status, errorResult?.Message, trackingCode);
 
                 return new UpdateOrderResult
                 {
                     IsSuccess = false,
-                    ErrorMessage = $"Viettel Post UpdateOrder API error: {responseContent}"
+                    ErrorMessage = errorResult?.Message ?? "Lỗi khi cập nhật trạng thái đơn hàng"
                 };
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error updating Viettel Post order for order {OrderId}", order.Id);
+                _logger.LogError(ex, "Error updating ViettelPost order status for {TrackingCode}", trackingCode);
                 return new UpdateOrderResult
                 {
                     IsSuccess = false,
                     ErrorMessage = ex.Message
                 };
             }
+        }
+
+        /// <summary>
+        /// Legacy method - redirects to EditOrderInfoAsync
+        /// </summary>
+        [Obsolete("Use EditOrderInfoAsync for editing order info or UpdateOrderStatusAsync for status changes")]
+        public async Task<UpdateOrderResult> UpdateOrderAsync(Order order, ShippingRequest shippingRequest)
+        {
+            return await EditOrderInfoAsync(order, shippingRequest);
         }
 
         public async Task<TrackingResult> GetTrackingAsync(string trackingCode)
@@ -2408,6 +2484,24 @@ namespace backend.Services
         public decimal MONEY_TOTALFEE { get; set; }
         public string DETAIL { get; set; } = string.Empty;
         public string MESSAGE { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Response from ViettelPost /v2/order/UpdateOrder API (Update order status)
+    /// </summary>
+    public class ViettelPostUpdateOrderStatusResponse
+    {
+        [JsonPropertyName("status")]
+        public int Status { get; set; }
+        
+        [JsonPropertyName("error")]
+        public bool Error { get; set; }
+        
+        [JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty;
+        
+        [JsonPropertyName("data")]
+        public object? Data { get; set; } // Usually null for this API
     }
     #endregion
 }

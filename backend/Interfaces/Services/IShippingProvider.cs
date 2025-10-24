@@ -34,11 +34,31 @@ namespace backend.Interfaces.Services
         Task<CreateShipmentResult> CreateShipmentAsync(Order order, ShippingRequest shippingRequest);
 
         /// <summary>
-        /// Update an existing order with the provider
+        /// Edit order information (address, products, etc.) - Only when ORDER_STATUS < 200
+        /// Uses /v2/order/edit API
+        /// </summary>
+        /// <param name="order">Order to edit</param>
+        /// <param name="shippingRequest">Updated shipping request details</param>
+        /// <returns>Order edit result</returns>
+        Task<UpdateOrderResult> EditOrderInfoAsync(Order order, ShippingRequest shippingRequest);
+
+        /// <summary>
+        /// Update order status (approve, cancel, return, etc.)
+        /// Uses /v2/order/UpdateOrder API
+        /// </summary>
+        /// <param name="trackingCode">Tracking code</param>
+        /// <param name="updateType">Update type (1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete)</param>
+        /// <param name="note">Update note/reason (max 150 chars)</param>
+        /// <returns>Status update result</returns>
+        Task<UpdateOrderResult> UpdateOrderStatusAsync(string trackingCode, int updateType, string note);
+
+        /// <summary>
+        /// Update an existing order with the provider (Legacy method - use EditOrderInfoAsync instead)
         /// </summary>
         /// <param name="order">Order to update</param>
         /// <param name="shippingRequest">Updated shipping request details</param>
         /// <returns>Order update result</returns>
+        [Obsolete("Use EditOrderInfoAsync for editing order info or UpdateOrderStatusAsync for status changes")]
         Task<UpdateOrderResult> UpdateOrderAsync(Order order, ShippingRequest shippingRequest);
 
         /// <summary>

@@ -65,6 +65,49 @@ export class ShippingService {
   }
 
   /**
+   * Update ViettelPost order status (Admin/Staff only)
+   * TYPE: 1=Approve, 2=Approve Return, 3=Re-deliver, 4=Cancel, 11=Delete
+   */
+  static async updateViettelPostOrderStatus(
+    orderId: number,
+    request: { updateType: number; note?: string }
+  ): Promise<{ success: boolean; message?: string; error?: string }> {
+    try {
+      console.log(`🔄 [ShippingService] Updating ViettelPost order status for order ${orderId}:`, request);
+      
+      const response = await apiClient.post<{
+        success: boolean;
+        data?: { isSuccess: boolean; message?: string; errorMessage?: string };
+        message?: string;
+        error?: string;
+      }>(`/api/shipping/${orderId}/update-status`, {
+        updateType: request.updateType,
+        note: request.note || ''
+      });
+      
+      console.log(`✅ [ShippingService] ViettelPost order status updated:`, response);
+      
+      if (response?.success) {
+        return {
+          success: true,
+          message: response.data?.message || response.message || 'Cập nhật trạng thái thành công'
+        };
+      } else {
+        return {
+          success: false,
+          error: response?.data?.errorMessage || response?.error || 'Cập nhật trạng thái thất bại'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ [ShippingService] Error updating ViettelPost order status:', error);
+      return {
+        success: false,
+        error: error?.response?.data?.message || error?.message || 'Không thể cập nhật trạng thái vận đơn'
+      };
+    }
+  }
+
+  /**
    * ✅ NEW: Calculate e-commerce shipping fees (warehouse → customer)
    */
   static async calculateEcommerceShippingFees(request: CalculateEcommerceShippingFeeRequest): Promise<ShippingOptionsResponse> {
