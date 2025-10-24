@@ -389,11 +389,11 @@ const AdminOrderDetailPage: React.FC = () => {
                       <div>
                         <p className="text-sm font-medium text-gray-900">{order.customer.fullName}</p>
                         <p className="text-sm text-gray-600">{order.customer.email}</p>
-                        <p className="text-sm text-gray-600">{order.shippingAddress.phoneNumber}</p>
+                        <p className="text-sm text-gray-600">{order.shippingAddress.phone}</p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">
-                          {order.shippingAddress.addressLine}
+                          {order.shippingAddress.addressDetail}
                           {order.shippingAddress.ward && `, ${order.shippingAddress.ward}`}
                           , {order.shippingAddress.district}, {order.shippingAddress.province}
                         </p>

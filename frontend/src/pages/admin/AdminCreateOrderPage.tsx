@@ -424,7 +424,7 @@ const AdminCreateOrderPage: React.FC = () => {
                       <div className="flex-1">
                         <div className="font-medium text-gray-900">{product.name}</div>
                         <div className="text-sm text-gray-500">SKU: {product.sku} | Stock: {product.stock}</div>
-                        <div className="text-sm font-semibold text-green-600">{product.price.toLocaleString()} VNĐ</div>
+                        <div className="text-sm font-semibold text-green-600">{product.price?.toLocaleString()} VNĐ</div>
                       </div>
                       <button
                         type="button"

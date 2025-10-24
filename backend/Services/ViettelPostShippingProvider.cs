@@ -370,6 +370,8 @@ namespace backend.Services
                     MONEY_FEEOTHER = 0, // Có thể mở rộng thêm field này trong tương lai
                     MONEY_TOTALVAT = 0, // Có thể mở rộng thêm field này trong tương lai
                     MONEY_TOTAL = (int)shippingRequest.Fee,
+                    CHECK_UNIQUE = true, // Check trùng mã đơn hàng
+                    EXTRA_MONEY = 0, // Tiền thu khi cho khách xem hàng nhưng không lấy (dùng với dịch vụ XMG)
                     LIST_ITEM = listItems
                 };
 
