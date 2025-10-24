@@ -115,7 +115,7 @@ namespace backend.Services
                 var jsonContent = JsonSerializer.Serialize(connectRequest);
                 var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("/user/ownerconnect", content);
+                var response = await _httpClient.PostAsync("/v2/user/ownerconnect", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 _logger.LogInformation("ViettelPost owner connect response: Status {Status}", response.StatusCode);
@@ -275,7 +275,7 @@ namespace backend.Services
                 var jsonContent = JsonSerializer.Serialize(registerRequest);
                 var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
 
-                var response = await _httpClient.PostAsync("/user/ownerRegister", content);
+                var response = await _httpClient.PostAsync("/v2/user/ownerRegister", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
                 _logger.LogInformation("ViettelPost owner register response: Status {Status}", response.StatusCode);

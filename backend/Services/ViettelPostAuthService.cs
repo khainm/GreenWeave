@@ -97,14 +97,18 @@ namespace backend.Services
         {
             try
             {
-                _logger.LogInformation("🔄 Refreshing ViettelPost token...");
+                _logger.LogInformation("🔄 Refreshing ViettelPost token using 2-step authentication...");
 
-                // Always try to get fresh token via partner login
+                // Always try to get fresh token via 2-step process
                 if (!string.IsNullOrEmpty(_partnerUsername) && !string.IsNullOrEmpty(_partnerPassword))
                 {
-                    _logger.LogInformation("🔑 Getting fresh token via partner login...");
-                    await LoginPartnerAsync();
-                    _logger.LogInformation("✅ ViettelPost token refreshed successfully via partner login. Expires at: {Expiry}", _tokenExpiry);
+                    _logger.LogInformation("🔑 Step 1: Getting temporary token via partner login...");
+                    var tempToken = await LoginPartnerAsync();
+                    
+                    _logger.LogInformation("🔑 Step 2: Getting long-term token via ownerconnect...");
+                    await GetLongTermTokenAsync(tempToken);
+                    
+                    _logger.LogInformation("✅ ViettelPost long-term token obtained successfully. Expires at: {Expiry}", _tokenExpiry);
                     return;
                 }
 
@@ -131,11 +135,11 @@ namespace backend.Services
             }
         }
 
-        private async Task LoginPartnerAsync()
+        private async Task<string> LoginPartnerAsync()
         {
             try
             {
-                _logger.LogInformation("🔄 Starting ViettelPost partner login...");
+                _logger.LogInformation("🔄 Step 1: Starting ViettelPost partner login for temporary token...");
                 _logger.LogInformation("🔍 Base URL: {BaseUrl}", _httpClient.BaseAddress);
                 _logger.LogInformation("🔍 Username: {Username}", _partnerUsername);
                 
@@ -154,7 +158,72 @@ namespace backend.Services
                 var response = await _httpClient.PostAsync("/v2/user/Login", content);
                 var responseContent = await response.Content.ReadAsStringAsync();
 
-                _logger.LogInformation("📦 ViettelPost partner login response - Status: {Status}, Content: {Content}", 
+                _logger.LogInformation("📦 ViettelPost step 1 login response - Status: {Status}, Content: {Content}", 
+                    response.StatusCode, responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonSerializer.Deserialize<ViettelPostLoginResponse>(responseContent, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    if (result?.Status == 200 && !string.IsNullOrEmpty(result.Data?.Token))
+                    {
+                        _logger.LogInformation("✅ Step 1 successful. Temporary token obtained. UserId: {UserId}, Partner: {Partner}", 
+                            result.Data.UserId, result.Data.Partner);
+                        
+                        return result.Data.Token; // Return temporary token for step 2
+                    }
+                    else
+                    {
+                        _logger.LogError("ViettelPost step 1 login API returned error - Status: {Status}, Message: {Message}", 
+                            result?.Status, result?.Message);
+                        throw new InvalidOperationException($"ViettelPost step 1 login failed: {result?.Message}");
+                    }
+                }
+                else
+                {
+                    _logger.LogError("ViettelPost step 1 login HTTP error - Status: {Status}, Response: {Response}", 
+                        response.StatusCode, responseContent);
+                    throw new HttpRequestException($"ViettelPost step 1 login HTTP error: {response.StatusCode} - {responseContent}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during ViettelPost step 1 partner login");
+                throw;
+            }
+        }
+
+        private async Task GetLongTermTokenAsync(string temporaryToken)
+        {
+            try
+            {
+                _logger.LogInformation("🔄 Step 2: Getting long-term token via ownerconnect...");
+                
+                var ownerConnectRequest = new
+                {
+                    USERNAME = _partnerUsername,
+                    PASSWORD = _partnerPassword
+                };
+
+                var jsonContent = JsonSerializer.Serialize(ownerConnectRequest);
+                var content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+                // Clear headers and set temporary token
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", temporaryToken);
+                _httpClient.DefaultRequestHeaders.Add("Cookie", "SERVERID=A");
+
+                _logger.LogInformation("🔍 Step 2 URL: {FullUrl}", $"{_httpClient.BaseAddress}v2/user/ownerconnect");
+                _logger.LogInformation("🔍 Step 2 Request payload: {Payload}", jsonContent);
+                _logger.LogInformation("🔍 Using temporary token: {Token}", temporaryToken?.Substring(0, 20) + "...");
+
+                var response = await _httpClient.PostAsync("/v2/user/ownerconnect", content);
+                var responseContent = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation("📦 ViettelPost step 2 ownerconnect response - Status: {Status}, Content: {Content}", 
                     response.StatusCode, responseContent);
 
                 if (response.IsSuccessStatusCode)
@@ -168,34 +237,35 @@ namespace backend.Services
                     {
                         lock (_lockObject)
                         {
-                            _accessToken = result.Data.Token;
-                            // Set expiry based on API response or default to 23 hours
+                            _accessToken = result.Data.Token; // This is the long-term token
+                            
+                            // Set expiry: API doc says 1-2 years, so default to 1 year
                             var expiryHours = result.Data.Expired > 0 
                                 ? TimeSpan.FromMilliseconds(result.Data.Expired - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()).TotalHours 
-                                : 23;
+                                : 8760; // 1 year = 365 * 24 hours
                             _tokenExpiry = DateTime.UtcNow.AddHours(Math.Max(1, expiryHours)); // Minimum 1 hour
                         }
 
-                        _logger.LogInformation("ViettelPost partner login successful. UserId: {UserId}, Partner: {Partner}, Token expires at: {Expiry}", 
+                        _logger.LogInformation("✅ Step 2 successful. Long-term token obtained. UserId: {UserId}, Partner: {Partner}, Token expires at: {Expiry}", 
                             result.Data.UserId, result.Data.Partner, _tokenExpiry);
                     }
                     else
                     {
-                        _logger.LogError("ViettelPost login API returned error - Status: {Status}, Message: {Message}", 
+                        _logger.LogError("ViettelPost step 2 ownerconnect API returned error - Status: {Status}, Message: {Message}", 
                             result?.Status, result?.Message);
-                        throw new InvalidOperationException($"ViettelPost login failed: {result?.Message}");
+                        throw new InvalidOperationException($"ViettelPost step 2 ownerconnect failed: {result?.Message}");
                     }
                 }
                 else
                 {
-                    _logger.LogError("ViettelPost login HTTP error - Status: {Status}, Response: {Response}", 
+                    _logger.LogError("ViettelPost step 2 ownerconnect HTTP error - Status: {Status}, Response: {Response}", 
                         response.StatusCode, responseContent);
-                    throw new HttpRequestException($"ViettelPost login HTTP error: {response.StatusCode} - {responseContent}");
+                    throw new HttpRequestException($"ViettelPost step 2 ownerconnect HTTP error: {response.StatusCode} - {responseContent}");
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during ViettelPost partner login");
+                _logger.LogError(ex, "Error during ViettelPost step 2 ownerconnect");
                 throw;
             }
         }
