@@ -504,6 +504,76 @@ namespace backend.Services
             }
         }
 
+        /// <summary>
+        /// ✅ NEW: Get optimal warehouse for shipping to customer
+        /// Priority logic:
+        /// 1. Same province/district → Fastest & cheapest shipping
+        /// 2. Same province → Good shipping cost
+        /// 3. Default warehouse → Fallback
+        /// TODO: Add stock availability check when ProductWarehouseStock is integrated
+        /// </summary>
+        public async Task<WarehouseDto?> GetOptimalWarehouseForShippingAsync(
+            int customerProvinceId,
+            int customerDistrictId,
+            List<int>? productIds = null)
+        {
+            try
+            {
+                var activeWarehouses = await GetActiveWarehousesAsync();
+                
+                if (activeWarehouses.Count == 0)
+                {
+                    _logger.LogWarning("⚠️ No active warehouses found for optimal shipping");
+                    return null;
+                }
+
+                _logger.LogInformation("🔍 Finding optimal warehouse for customer (Province: {ProvinceId}, District: {DistrictId})",
+                    customerProvinceId, customerDistrictId);
+
+                // Priority 1: Same district (fastest & cheapest)
+                var sameDistrictWarehouse = activeWarehouses
+                    .FirstOrDefault(w => w.ProvinceId == customerProvinceId && w.DistrictId == customerDistrictId);
+                
+                if (sameDistrictWarehouse != null)
+                {
+                    _logger.LogInformation("✅ Found warehouse in same district: {WarehouseName} (ID: {WarehouseId})",
+                        sameDistrictWarehouse.Name, sameDistrictWarehouse.Id);
+                    return sameDistrictWarehouse;
+                }
+
+                // Priority 2: Same province (good shipping cost)
+                var sameProvinceWarehouse = activeWarehouses
+                    .FirstOrDefault(w => w.ProvinceId == customerProvinceId);
+                
+                if (sameProvinceWarehouse != null)
+                {
+                    _logger.LogInformation("✅ Found warehouse in same province: {WarehouseName} (ID: {WarehouseId})",
+                        sameProvinceWarehouse.Name, sameProvinceWarehouse.Id);
+                    return sameProvinceWarehouse;
+                }
+
+                // Priority 3: Default warehouse
+                var defaultWarehouse = activeWarehouses.FirstOrDefault(w => w.IsDefault);
+                if (defaultWarehouse != null)
+                {
+                    _logger.LogInformation("✅ Using default warehouse: {WarehouseName} (ID: {WarehouseId}) - Province: {ProvinceId}, District: {DistrictId}, Ward: {WardId}",
+                        defaultWarehouse.Name, defaultWarehouse.Id, defaultWarehouse.ProvinceId, defaultWarehouse.DistrictId, defaultWarehouse.WardId);
+                    return defaultWarehouse;
+                }
+
+                // Priority 4: First active warehouse (last resort)
+                var fallbackWarehouse = activeWarehouses.First();
+                _logger.LogWarning("⚠️ Using fallback warehouse: {WarehouseName} (ID: {WarehouseId})",
+                    fallbackWarehouse.Name, fallbackWarehouse.Id);
+                return fallbackWarehouse;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error getting optimal warehouse for shipping");
+                return null;
+            }
+        }
+
         private static WarehouseDto MapToDto(Warehouse warehouse)
         {
             return new WarehouseDto

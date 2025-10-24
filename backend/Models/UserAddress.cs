@@ -35,6 +35,11 @@ namespace backend.Models
         [StringLength(100)]
         public string Province { get; set; } = string.Empty; // Tỉnh/Thành phố
 
+        // ✅ NEW: Store address IDs for shipping providers (ViettelPost, etc.)
+        public int? ProvinceId { get; set; } // ViettelPost Province ID
+        public int? DistrictId { get; set; } // ViettelPost District ID
+        public int? WardId { get; set; } // ViettelPost Ward ID
+
         [StringLength(10)]
         public string? PostalCode { get; set; } // Mã bưu điện
 

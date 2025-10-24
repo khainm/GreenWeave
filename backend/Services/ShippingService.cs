@@ -116,13 +116,53 @@ namespace backend.Services
 
         /// <summary>
         /// ✅ NEW: Get e-commerce shipping options (warehouse → customer)
+        /// Uses intelligent warehouse selection based on customer address
         /// </summary>
         public async Task<ShippingOptionsResponseDto> GetEcommerceShippingOptionsAsync(CalculateEcommerceShippingFeeRequest request)
         {
-            _logger.LogInformation("Getting e-commerce shipping options");
+            _logger.LogInformation("🚀 Getting e-commerce shipping options for customer");
 
-            // Convert to standard request using default warehouse as FROM address
-            var warehouseAddress = await GetDefaultWarehouseAddressAsync();
+            // ✅ SMART WAREHOUSE SELECTION
+            // Try to get optimal warehouse based on customer address
+            WarehouseDto? optimalWarehouse = null;
+            ShippingAddressDto warehouseAddress;
+
+            if (request.ToAddress.ProvinceId.HasValue && request.ToAddress.DistrictId.HasValue)
+            {
+                _logger.LogInformation("🔍 Finding optimal warehouse for customer address (Province: {ProvinceId}, District: {DistrictId})",
+                    request.ToAddress.ProvinceId, request.ToAddress.DistrictId);
+
+                optimalWarehouse = await _warehouseService.GetOptimalWarehouseForShippingAsync(
+                    request.ToAddress.ProvinceId.Value,
+                    request.ToAddress.DistrictId.Value,
+                    null // TODO: Pass productIds when available
+                );
+            }
+
+            if (optimalWarehouse != null)
+            {
+                _logger.LogInformation("✅ Using optimal warehouse: {WarehouseName} (ID: {WarehouseId})",
+                    optimalWarehouse.Name, optimalWarehouse.Id);
+                
+                warehouseAddress = new ShippingAddressDto
+                {
+                    Name = optimalWarehouse.Name,
+                    Phone = optimalWarehouse.Phone,
+                    AddressDetail = optimalWarehouse.AddressDetail,
+                    Ward = optimalWarehouse.WardName,
+                    District = optimalWarehouse.DistrictName,
+                    Province = optimalWarehouse.ProvinceName,
+                    ProvinceId = optimalWarehouse.ProvinceId,
+                    DistrictId = optimalWarehouse.DistrictId,
+                    WardId = optimalWarehouse.WardId
+                };
+            }
+            else
+            {
+                // Fallback to default warehouse
+                _logger.LogWarning("⚠️ No optimal warehouse found, using default warehouse");
+                warehouseAddress = await GetDefaultWarehouseAddressAsync();
+            }
             
             var standardRequest = new CalculateShippingFeeRequest
             {
@@ -135,7 +175,20 @@ namespace backend.Services
                 ServiceId = request.ServiceId
             };
 
-            return await GetShippingOptionsAsync(standardRequest);
+            _logger.LogInformation("📦 Calculating shipping from warehouse '{WarehouseName}' to customer in {District}, {Province}",
+                warehouseAddress.Name, request.ToAddress.District, request.ToAddress.Province);
+
+            var result = await GetShippingOptionsAsync(standardRequest);
+            
+            // ✅ Warehouse selection is done silently - customer doesn't need to see this
+            // Just log it for admin/debugging purposes
+            if (optimalWarehouse != null)
+            {
+                _logger.LogInformation("✅ Using warehouse '{WarehouseName}' (ID: {WarehouseId}) for shipping calculation",
+                    optimalWarehouse.Name, optimalWarehouse.Id);
+            }
+
+            return result;
         }
 
         public async Task<FeeResult> CalculateShippingFeeAsync(CalculateShippingFeeRequest request)

@@ -120,7 +120,7 @@ if (!string.IsNullOrEmpty(connectionString))
     Console.WriteLine($"🔍 Preview: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
 }
 Console.WriteLine($"📧 SendGrid API Key: {(string.IsNullOrEmpty(builder.Configuration["SendGrid:ApiKey"]) ? "NULL/EMPTY" : "[LOADED]")}");
-Console.WriteLine($"🚚 ViettelPost Token: {(string.IsNullOrEmpty(builder.Configuration["Shipping:ViettelPost:Token"]) ? "NULL/EMPTY" : "[LOADED]")}");
+
 
 // Add services to the container.
 builder.Services.AddControllers()

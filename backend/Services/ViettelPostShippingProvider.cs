@@ -45,11 +45,25 @@ namespace backend.Services
             // _ = Task.Run(async () => await RegisterDefaultInventoryAsync());
         }
 
-        public Task<bool> IsAvailableAsync()
+        public async Task<bool> IsAvailableAsync()
         {
-            return Task.FromResult(_config.IsEnabled && 
-                   !string.IsNullOrEmpty(_config.Token) && 
-                   !string.IsNullOrEmpty(_config.PartnerID));
+            // ✅ Check if enabled
+            if (!_config.IsEnabled)
+            {
+                _logger.LogWarning("⚠️ ViettelPost provider is disabled in configuration");
+                return false;
+            }
+
+            // ✅ Try to get valid token (will use AuthService if available)
+            var token = await GetValidTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                _logger.LogWarning("⚠️ ViettelPost provider: Cannot get valid token");
+                return false;
+            }
+
+            _logger.LogInformation("✅ ViettelPost provider is available with valid token");
+            return true;
         }
 
         /// <summary>
@@ -928,14 +942,17 @@ namespace backend.Services
 
                 var senderProvinceId = request.FromAddress.ProvinceId ?? await GetProvinceIdAsync(request.FromAddress.Province);
                 var senderDistrictId = request.FromAddress.DistrictId ?? await GetDistrictIdAsync(request.FromAddress.District, senderProvinceId);
+                var senderWardId = request.FromAddress.WardId ?? 0; // ⚠️ Ward may be optional for getPriceAll
+                
                 var receiverProvinceId = request.ToAddress.ProvinceId ?? await GetProvinceIdAsync(request.ToAddress.Province);
                 var receiverDistrictId = request.ToAddress.DistrictId ?? await GetDistrictIdAsync(request.ToAddress.District, receiverProvinceId);
+                var receiverWardId = request.ToAddress.WardId ?? 0; // ⚠️ Ward may be optional for getPriceAll
 
                 _logger.LogInformation("=== ADDRESS MAPPING DEBUG ===");
-                _logger.LogInformation("FROM: {FromProvince} -> ID: {FromProvinceId}, {FromDistrict} -> ID: {FromDistrictId}", 
-                    request.FromAddress.Province, senderProvinceId, request.FromAddress.District, senderDistrictId);
-                _logger.LogInformation("TO: {ToProvince} -> ID: {ToProvinceId}, {ToDistrict} -> ID: {ToDistrictId}", 
-                    request.ToAddress.Province, receiverProvinceId, request.ToAddress.District, receiverDistrictId);
+                _logger.LogInformation("FROM: {FromProvince} -> ID: {FromProvinceId}, {FromDistrict} -> ID: {FromDistrictId}, Ward ID: {FromWardId}", 
+                    request.FromAddress.Province, senderProvinceId, request.FromAddress.District, senderDistrictId, senderWardId);
+                _logger.LogInformation("TO: {ToProvince} -> ID: {ToProvinceId}, {ToDistrict} -> ID: {ToDistrictId}, Ward ID: {ToWardId}", 
+                    request.ToAddress.Province, receiverProvinceId, request.ToAddress.District, receiverDistrictId, receiverWardId);
                 _logger.LogInformation("🏠 FROM ADDRESS: {FromAddress}", 
                     $"{request.FromAddress.AddressDetail}, {request.FromAddress.Ward}, {request.FromAddress.District}, {request.FromAddress.Province}");
                 _logger.LogInformation("📦 TO ADDRESS: {ToAddress}", 
@@ -946,8 +963,10 @@ namespace backend.Services
                 {
                     SENDER_PROVINCE = senderProvinceId,
                     SENDER_DISTRICT = senderDistrictId,
+                    SENDER_WARD = senderWardId, // ✅ ADDED
                     RECEIVER_PROVINCE = receiverProvinceId,
                     RECEIVER_DISTRICT = receiverDistrictId,
+                    RECEIVER_WARD = receiverWardId, // ✅ ADDED
                     PRODUCT_TYPE = "HH", // Hàng hóa/Goods - có thể mở rộng để hỗ trợ "TH" (Thư/Envelope)
                     PRODUCT_WEIGHT = request.Weight,
                     PRODUCT_PRICE = request.InsuranceValue,
@@ -955,13 +974,24 @@ namespace backend.Services
                     TYPE = 1
                 };
                 
-                _logger.LogInformation("📤 [API REQUEST] ViettelPost payload:");
-                _logger.LogInformation("  🏠 From: Province {FromProvinceId}, District {FromDistrictId}", 
-                    senderProvinceId, senderDistrictId);
-                _logger.LogInformation("  📦 To: Province {ToProvinceId}, District {ToDistrictId}", 
-                    receiverProvinceId, receiverDistrictId);
+                _logger.LogInformation("📤 [API REQUEST] ViettelPost getPriceAll payload:");
+                _logger.LogInformation("  🏠 From: Province {FromProvinceId}, District {FromDistrictId}, Ward {FromWardId}", 
+                    senderProvinceId, senderDistrictId, senderWardId);
+                _logger.LogInformation("  📦 To: Province {ToProvinceId}, District {ToDistrictId}, Ward {ToWardId}", 
+                    receiverProvinceId, receiverDistrictId, receiverWardId);
                 _logger.LogInformation("  ⚖️ Weight: {Weight}g, Price: {Price} VND, COD: {CodAmount} VND", 
                     request.Weight, request.InsuranceValue, request.CodAmount);
+                _logger.LogInformation("  📋 Full JSON payload: {Payload}", JsonSerializer.Serialize(payload));
+                
+                // ⚠️ WARNING: Ward ID = 0 means missing ward data, may affect pricing
+                if (senderWardId == 0)
+                {
+                    _logger.LogWarning("⚠️ SENDER_WARD = 0 (missing ward data) - this may affect shipping cost calculation!");
+                }
+                if (receiverWardId == 0)
+                {
+                    _logger.LogWarning("⚠️ RECEIVER_WARD = 0 (missing ward data) - this may affect shipping cost calculation!");
+                }
                 
                 // Check if it's intra-province delivery
                 var isIntraProvince = senderProvinceId == receiverProvinceId;
@@ -1003,7 +1033,15 @@ namespace backend.Services
                             
                             _logger.LogInformation("✅ GetPriceAll successful - Found {ServiceCount} services", priceAllResponse.Count);
                             
-                            foreach (var service in priceAllResponse)
+                            // ✅ Filter to only show 3 main services: Economy, Standard, Express
+                            var mainServiceCodes = new[] { "STK", "SCN", "SHT" }; // Tiêu chuẩn, Nhanh, Hỏa tốc
+                            var filteredServices = priceAllResponse
+                                .Where(s => mainServiceCodes.Contains(s.MA_DV_CHINH))
+                                .ToList();
+                            
+                            _logger.LogInformation("🎯 Filtered to {FilteredCount} main services (STK, SCN, SHT)", filteredServices.Count);
+                            
+                            foreach (var service in filteredServices)
                             {
                                 var deliveryDays = ParseDeliveryTime(service.THOI_GIAN ?? "3 ngày");
                                 
@@ -1035,12 +1073,13 @@ namespace backend.Services
                                     service.MA_DV_CHINH, service.TEN_DICHVU, service.GIA_CUOC, service.THOI_GIAN, deliveryDays);
                             }
                             
-                            // Sort by price (cheapest first)
-                            shippingOptions = shippingOptions.OrderBy(s => s.Fee).ToList();
+                            // Sort by delivery speed (fastest first)
+                            shippingOptions = shippingOptions.OrderBy(s => s.EstimatedDeliveryDays).ThenBy(s => s.Fee).ToList();
                             
-                            _logger.LogInformation("💰 Returning {OptionsCount} shipping options, cheapest: {CheapestService} - {CheapestFee:C}", 
+                            _logger.LogInformation("💰 Returning {OptionsCount} shipping options, fastest: {FastestService} ({FastestDays} days, {FastestFee:C})", 
                                 shippingOptions.Count, 
                                 shippingOptions.FirstOrDefault()?.ServiceName,
+                                shippingOptions.FirstOrDefault()?.EstimatedDeliveryDays ?? 0,
                                 shippingOptions.FirstOrDefault()?.Fee ?? 0);
                             
                             return shippingOptions;

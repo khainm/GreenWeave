@@ -148,39 +148,37 @@ const ShippingProviderSelector: React.FC<ShippingProviderSelectorProps> = ({
                 className="sr-only"
               />
               
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      {option.providerName || option.provider}
-                    </h4>
-                    {option.serviceName && (
-                      <p className="text-sm text-gray-600">{option.serviceName}</p>
-                    )}
-                    {option.estimatedDeliveryDays !== undefined && option.estimatedDeliveryDays !== null && (
-                      <p className="text-sm text-blue-600">
-                        Dự kiến: {option.estimatedDeliveryDays} ngày
-                      </p>
-                    )}
-                    {option.errorMessage && (
-                      <p className="text-sm text-orange-600 font-medium">
-                        ⚠️ {option.errorMessage}
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-gray-900">
-                      {option.fee.toLocaleString('vi-VN')}đ
-                    </p>
-                    {option.fee === 0 && (
-                      <p className="text-sm text-green-600">Miễn phí</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Custom radio indicator */}
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-medium text-gray-900">
+                          {option.providerName || option.provider}
+                        </h4>
+                        {option.serviceName && (
+                          <p className="text-sm text-gray-600">{option.serviceName}</p>
+                        )}
+                        {option.estimatedDeliveryDays !== undefined && option.estimatedDeliveryDays !== null && (
+                          <p className="text-sm text-blue-600">
+                            Dự kiến: {option.estimatedDeliveryDays} ngày
+                          </p>
+                        )}
+                        {option.errorMessage && (
+                          <p className="text-sm text-orange-600 font-medium">
+                            ⚠️ {option.errorMessage}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="text-right">
+                        <p className="text-lg font-semibold text-gray-900">
+                          {option.fee.toLocaleString('vi-VN')}đ
+                        </p>
+                        {option.fee === 0 && (
+                          <p className="text-sm text-green-600">Miễn phí</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>              {/* Custom radio indicator */}
               <div className={`
                 absolute top-4 right-4 w-4 h-4 rounded-full border-2 transition-all
                 ${selectedOption?.serviceId === option.serviceId

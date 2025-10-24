@@ -57,6 +57,9 @@ export interface ShippingOption {
   estimatedDeliveryDays?: number;
   isAvailable: boolean;
   errorMessage?: string;
+  
+  // NOTE: Warehouse selection happens silently in backend
+  // Customer only cares about: fee, delivery time, service quality
 }
 
 export interface ShippingOptionsResponse {

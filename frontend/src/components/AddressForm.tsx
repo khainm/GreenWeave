@@ -168,7 +168,16 @@ const AddressForm: React.FC<AddressFormProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(formData);
+    
+    // ✅ Include address IDs in submission
+    const submitData = {
+      ...formData,
+      provinceId: selectedProvinceId || undefined,
+      districtId: selectedDistrictId || undefined,
+      wardId: selectedWardId || undefined
+    };
+    
+    await onSubmit(submitData);
   };
 
   return (

@@ -280,6 +280,12 @@ namespace backend.DTOs
         public int? EstimatedDeliveryDays { get; set; }
         public bool IsAvailable { get; set; }
         public string? ErrorMessage { get; set; }
+        
+        // ⚠️ NOTE: Warehouse selection happens silently in backend
+        // Customer doesn't need to know which warehouse ships the order
+        // System automatically picks optimal warehouse based on:
+        // - Distance (same district > same province > default)
+        // - Stock availability (TODO: integrate with inventory)
     }
 
     /// <summary>

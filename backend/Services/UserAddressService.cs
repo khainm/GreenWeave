@@ -104,6 +104,9 @@ namespace backend.Services
                     Ward = createAddressDto.Ward,
                     District = createAddressDto.District,
                     Province = createAddressDto.Province,
+                    ProvinceId = createAddressDto.ProvinceId,
+                    DistrictId = createAddressDto.DistrictId,
+                    WardId = createAddressDto.WardId,
                     PostalCode = createAddressDto.PostalCode,
                     AddressType = createAddressDto.AddressType,
                     IsDefault = createAddressDto.IsDefault,
@@ -151,6 +154,9 @@ namespace backend.Services
                 existingAddress.Ward = updateAddressDto.Ward;
                 existingAddress.District = updateAddressDto.District;
                 existingAddress.Province = updateAddressDto.Province;
+                existingAddress.ProvinceId = updateAddressDto.ProvinceId;
+                existingAddress.DistrictId = updateAddressDto.DistrictId;
+                existingAddress.WardId = updateAddressDto.WardId;
                 existingAddress.PostalCode = updateAddressDto.PostalCode;
                 existingAddress.AddressType = updateAddressDto.AddressType;
                 existingAddress.IsDefault = updateAddressDto.IsDefault;
@@ -263,6 +269,9 @@ namespace backend.Services
                 Ward = address.Ward,
                 District = address.District,
                 Province = address.Province,
+                ProvinceId = address.ProvinceId,
+                DistrictId = address.DistrictId,
+                WardId = address.WardId,
                 PostalCode = address.PostalCode,
                 AddressType = address.AddressType,
                 IsDefault = address.IsDefault,

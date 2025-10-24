@@ -115,7 +115,10 @@ const CheckoutPage: React.FC = () => {
         addressDetail: selectedAddress.addressLine,
         ward: selectedAddress.ward || '',
         district: selectedAddress.district,
-        province: selectedAddress.province
+        province: selectedAddress.province,
+        provinceId: selectedAddress.provinceId,
+        districtId: selectedAddress.districtId,
+        wardId: selectedAddress.wardId
       },
       weight: getTotalWeight(),
       insuranceValue: subtotal,
@@ -488,32 +491,6 @@ const CheckoutPage: React.FC = () => {
                   </button>
                 </div>
               )}
-            </div>
-
-            {/* Auto-selected Warehouse Display (Information Only) */}
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-lg font-semibold mb-4">📦 Điểm gửi hàng</h3>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8l6 6 10-10" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-medium text-green-900">🤖 Được chọn tự động</h4>
-                    <p className="text-sm text-green-700 mt-1">
-                      Hệ thống đã tự động chọn kho hàng tối ưu nhất dựa trên:
-                    </p>
-                    <ul className="text-sm text-green-700 mt-2 list-disc list-inside space-y-1">
-                      <li>Khoảng cách đến địa chỉ của bạn</li>
-                      <li>Tình trạng tồn kho sản phẩm</li>
-                      <li>Thời gian giao hàng nhanh nhất</li>
-                      <li>Chi phí vận chuyển tối ưu</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
             </div>
 
         {/* Shipping Provider */}

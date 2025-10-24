@@ -17,5 +17,14 @@ namespace backend.Interfaces.Services
         Task<List<WarehouseDto>> GetActiveWarehousesAsync();
         Task<WarehouseDto?> GetDefaultPickupWarehouseAsync();
         Task<ShippingAddressDto?> GetDefaultPickupAddressAsync();
+        
+        /// <summary>
+        /// ✅ NEW: Get optimal warehouse for shipping to customer address
+        /// Considers: distance, stock availability, warehouse priority
+        /// </summary>
+        Task<WarehouseDto?> GetOptimalWarehouseForShippingAsync(
+            int customerProvinceId,
+            int customerDistrictId,
+            List<int>? productIds = null);
     }
 }

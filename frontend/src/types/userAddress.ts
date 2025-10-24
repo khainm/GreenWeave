@@ -6,6 +6,9 @@ export interface UserAddress {
   ward?: string;
   district: string;
   province: string;
+  provinceId?: number; // ViettelPost Province ID
+  districtId?: number; // ViettelPost District ID
+  wardId?: number; // ViettelPost Ward ID
   postalCode?: string;
   addressType: string;
   isDefault: boolean;
@@ -20,6 +23,9 @@ export interface CreateUserAddressRequest {
   ward?: string;
   district: string;
   province: string;
+  provinceId?: number;
+  districtId?: number;
+  wardId?: number;
   postalCode?: string;
   addressType: string;
   isDefault: boolean;
@@ -32,6 +38,9 @@ export interface UpdateUserAddressRequest {
   ward?: string;
   district: string;
   province: string;
+  provinceId?: number;
+  districtId?: number;
+  wardId?: number;
   postalCode?: string;
   addressType: string;
   isDefault: boolean;
