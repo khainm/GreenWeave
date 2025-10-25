@@ -54,6 +54,17 @@ namespace backend.DTOs
     }
 
     /// <summary>
+    /// Result of getting printing code for ViettelPost orders
+    /// </summary>
+    public class PrintingCodeResult
+    {
+        public bool IsSuccess { get; set; }
+        public string? PrintingCode { get; set; }
+        public long ExpiryTime { get; set; }
+        public string? ErrorMessage { get; set; }
+    }
+
+    /// <summary>
     /// Result of tracking a shipment
     /// </summary>
     public class TrackingResult

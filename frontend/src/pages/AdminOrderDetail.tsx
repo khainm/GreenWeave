@@ -213,8 +213,7 @@ const AdminOrderDetail: React.FC = () => {
                 <p className="font-medium">{order.shippingAddress?.fullName}</p>
                 <p className="text-gray-600">{order.shippingAddress?.phoneNumber}</p>
                 <p className="text-gray-600">
-                  {order.shippingAddress?.address}, {order.shippingAddress?.ward},<br />
-                  {order.shippingAddress?.district}, {order.shippingAddress?.province}
+                  {order.shippingAddress?.addressLine || order.shippingAddress?.addressDetail || 'Chưa có địa chỉ chi tiết'}, {order.shippingAddress?.ward || 'Chưa có phường/xã'}, {order.shippingAddress?.district || 'Chưa có quận/huyện'}, {order.shippingAddress?.province || 'Chưa có tỉnh/thành phố'}
                 </p>
                 {order.notes && (
                   <p className="text-gray-600 italic">Ghi chú: {order.notes}</p>

@@ -181,3 +181,23 @@ export interface ListInventoryResult {
   errorMessage?: string;
   inventories?: InventoryData[];
 }
+
+// ViettelPost Printing Code API
+export interface GetPrintingCodeRequest {
+  orderIds: number[]; // Max 100 orders
+  expiryTime: number; // Epoch milliseconds (future timestamp)
+}
+
+export interface PrintingCodeResult {
+  isSuccess: boolean;
+  printingCode?: string;
+  expiryTime?: number;
+  errorMessage?: string;
+}
+
+export interface GetPrintingCodeResponse {
+  success: boolean;
+  data?: PrintingCodeResult;
+  message?: string;
+  error?: string;
+}

@@ -137,6 +137,49 @@ export class ShippingService {
   }
 
   /**
+   * Get printing code for ViettelPost orders (Admin/Staff only)
+   * Returns printing code to generate print label URL
+   */
+  static async getPrintingCode(
+    orderIds: number[],
+    expiryTime: number
+  ): Promise<{ success: boolean; printingCode?: string; error?: string }> {
+    try {
+      console.log(`🖨️ [ShippingService] Getting printing code for ${orderIds.length} orders, expiry: ${expiryTime}`);
+      
+      const response = await apiClient.post<{
+        success: boolean;
+        data?: { isSuccess: boolean; printingCode?: string; errorMessage?: string };
+        message?: string;
+        error?: string;
+      }>('/api/shipping/printing-code', {
+        orderIds,
+        expiryTime
+      });
+      
+      console.log(`✅ [ShippingService] Printing code response:`, response);
+      
+      if (response?.success && response.data?.isSuccess) {
+        return {
+          success: true,
+          printingCode: response.data.printingCode
+        };
+      } else {
+        return {
+          success: false,
+          error: response?.data?.errorMessage || response?.error || 'Không thể lấy mã in'
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ [ShippingService] Error getting printing code:', error);
+      return {
+        success: false,
+        error: error?.response?.data?.message || error?.message || 'Không thể lấy mã in vận đơn'
+      };
+    }
+  }
+
+  /**
    * Get tracking information for an order
    */
   static async getTracking(orderId: number): Promise<TrackingInfo | null> {

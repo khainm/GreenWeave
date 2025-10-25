@@ -8,9 +8,12 @@ export interface ApiResponse<T> {
 }
 
 export interface ShippingAddress {
-  name: string;
-  phone: string;
-  addressDetail: string;
+  fullName?: string;       // Backend uses this
+  name?: string;           // Legacy field
+  phoneNumber?: string;    // Backend uses this
+  phone?: string;          // Legacy field
+  addressLine?: string;    // Backend uses this
+  addressDetail?: string;  // Legacy field
   ward?: string;
   district: string;
   province: string;

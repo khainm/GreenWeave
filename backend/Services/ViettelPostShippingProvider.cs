@@ -754,6 +754,92 @@ namespace backend.Services
             return await EditOrderInfoAsync(order, shippingRequest);
         }
 
+        /// <summary>
+        /// Get printing code for ViettelPost orders - Uses /v2/order/printing-code API
+        /// </summary>
+        /// <param name="orderNumbers">Array of ViettelPost tracking codes (max 100)</param>
+        /// <param name="expiryTime">Link expiry time in epoch milliseconds (future timestamp)</param>
+        /// <returns>Printing code result</returns>
+        public async Task<PrintingCodeResult> GetPrintingCodeAsync(string[] orderNumbers, long expiryTime)
+        {
+            try
+            {
+                _logger.LogInformation("Getting ViettelPost printing code for {Count} orders, expiry: {ExpiryTime}", 
+                    orderNumbers.Length, expiryTime);
+
+                // Validate
+                if (orderNumbers == null || orderNumbers.Length == 0)
+                    throw new ArgumentException("Order numbers array cannot be empty", nameof(orderNumbers));
+
+                if (orderNumbers.Length > 100)
+                    throw new ArgumentException("Maximum 100 orders allowed per request", nameof(orderNumbers));
+
+                if (expiryTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                    throw new ArgumentException("Expiry time must be in the future", nameof(expiryTime));
+
+                var payload = new
+                {
+                    EXPIRY_TIME = expiryTime,
+                    ORDER_ARRAY = orderNumbers
+                };
+
+                var token = await GetValidTokenAsync();
+                if (string.IsNullOrEmpty(token))
+                {
+                    return new PrintingCodeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Không thể lấy token hợp lệ cho ViettelPost API"
+                    };
+                }
+
+                _httpClient.DefaultRequestHeaders.Clear();
+                _httpClient.DefaultRequestHeaders.Add("Token", token);
+
+                var response = await _httpClient.PostAsync("/v2/order/printing-code",
+                    new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json"));
+
+                var responseContent = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("ViettelPost /v2/order/printing-code response: {Response}", responseContent);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var result = JsonSerializer.Deserialize<ViettelPostPrintingCodeResponse>(responseContent);
+                    
+                    if (result?.Status == 200 && !string.IsNullOrEmpty(result.Message))
+                    {
+                        _logger.LogInformation("✅ Printing code retrieved successfully for {Count} orders", orderNumbers.Length);
+                        
+                        return new PrintingCodeResult
+                        {
+                            IsSuccess = true,
+                            PrintingCode = result.Message,
+                            ExpiryTime = expiryTime
+                        };
+                    }
+                }
+
+                var errorResult = JsonSerializer.Deserialize<ViettelPostPrintingCodeResponse>(responseContent);
+                _logger.LogError("ViettelPost /v2/order/printing-code error {Status}: {Message}", 
+                    errorResult?.Status, errorResult?.Message);
+
+                return new PrintingCodeResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = errorResult?.Message ?? "Lỗi khi lấy mã in vận đơn"
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting ViettelPost printing code");
+                return new PrintingCodeResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
         public async Task<TrackingResult> GetTrackingAsync(string trackingCode)
         {
             try
@@ -2499,6 +2585,24 @@ namespace backend.Services
         
         [JsonPropertyName("message")]
         public string Message { get; set; } = string.Empty;
+        
+        [JsonPropertyName("data")]
+        public object? Data { get; set; } // Usually null for this API
+    }
+
+    /// <summary>
+    /// Response from ViettelPost /v2/order/printing-code API
+    /// </summary>
+    public class ViettelPostPrintingCodeResponse
+    {
+        [JsonPropertyName("status")]
+        public int Status { get; set; }
+        
+        [JsonPropertyName("error")]
+        public bool Error { get; set; }
+        
+        [JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty; // This is the printing code
         
         [JsonPropertyName("data")]
         public object? Data { get; set; } // Usually null for this API

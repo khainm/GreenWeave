@@ -291,6 +291,86 @@ namespace backend.Controllers
         }
 
         /// <summary>
+        /// Get printing code for ViettelPost orders (Admin/Staff only)
+        /// </summary>
+        /// <param name="request">Printing code request with order IDs</param>
+        /// <returns>Printing code result</returns>
+        /// <response code="200">Printing code retrieved successfully</response>
+        /// <response code="400">Invalid request data</response>
+        /// <response code="401">Unauthorized</response>
+        /// <response code="403">Forbidden - Admin/Staff only</response>
+        /// <response code="500">Internal server error</response>
+        /// <remarks>
+        /// Get printing code to generate print label URL for ViettelPost orders.
+        /// Maximum 100 orders per request. The expiry time should be in the future (epoch milliseconds).
+        /// 
+        /// Example print URLs:
+        /// - A5 with postage: https://digitalize.viettelpost.vn/DigitalizePrint/report.do?type=1&amp;bill={code}&amp;showPostage=1
+        /// - A6 with postage: https://digitalize.viettelpost.vn/DigitalizePrint/report.do?type=2&amp;bill={code}&amp;showPostage=1
+        /// - A6_1 with postage: https://digitalize.viettelpost.vn/DigitalizePrint/report.do?type=a6_1&amp;bill={code}&amp;showPostage=1
+        /// </remarks>
+        [HttpPost("printing-code")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Staff}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<PrintingCodeResult>> GetPrintingCode([FromBody] GetPrintingCodeRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ", errors = ModelState });
+
+                // Validate order IDs
+                if (request.OrderIds == null || request.OrderIds.Length == 0)
+                {
+                    return BadRequest(new { success = false, message = "Order IDs array cannot be empty" });
+                }
+
+                if (request.OrderIds.Length > 100)
+                {
+                    return BadRequest(new { success = false, message = "Maximum 100 orders allowed per request" });
+                }
+
+                // Validate expiry time (must be in future)
+                if (request.ExpiryTime <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+                {
+                    return BadRequest(new { success = false, message = "Expiry time must be in the future" });
+                }
+
+                var result = await _shippingService.GetPrintingCodeAsync(request.OrderIds, request.ExpiryTime);
+
+                if (result.IsSuccess)
+                {
+                    _logger.LogInformation("Printing code retrieved successfully for {Count} orders by user {UserId}",
+                        request.OrderIds.Length, User.GetUserId());
+                    
+                    return Ok(new { 
+                        success = true, 
+                        data = result,
+                        message = "Lấy mã in thành công" 
+                    });
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to get printing code for orders: {Error}", result.ErrorMessage);
+                    return BadRequest(new { success = false, message = result.ErrorMessage });
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting printing code");
+                return StatusCode(500, new { success = false, message = "Có lỗi xảy ra khi lấy mã in vận đơn" });
+            }
+        }
+
+        /// <summary>
         /// Get tracking information for an order
         /// </summary>
         /// <param name="orderId">Order ID</param>
@@ -507,4 +587,25 @@ namespace backend.Controllers
         [StringLength(150, ErrorMessage = "Note cannot exceed 150 characters")]
         public string? Note { get; set; }
     }
+
+    /// <summary>
+    /// Request DTO for getting ViettelPost printing code
+    /// </summary>
+    public class GetPrintingCodeRequest
+    {
+        /// <summary>
+        /// Array of order IDs to print (max 100)
+        /// </summary>
+        [Required]
+        public int[] OrderIds { get; set; } = Array.Empty<int>();
+
+        /// <summary>
+        /// Link expiry time in epoch milliseconds (must be in future)
+        /// Example: 1735516800000 for 2024-12-30
+        /// </summary>
+        [Required]
+        [Range(1, long.MaxValue, ErrorMessage = "Expiry time must be a valid epoch timestamp")]
+        public long ExpiryTime { get; set; }
+    }
 }
+

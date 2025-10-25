@@ -342,10 +342,10 @@ const OrderDetailsPage: React.FC = () => {
                     <UserIcon className="w-4 h-4 mr-2" />
                     Người nhận
                   </h3>
-                  <p className="text-gray-600">{order.shippingAddress.name}</p>
+                  <p className="text-gray-600">{order.shippingAddress.fullName || order.shippingAddress.name || order.customer.fullName}</p>
                   <p className="text-gray-600 flex items-center mt-1">
                     <PhoneIcon className="w-4 h-4 mr-2" />
-                    {order.shippingAddress.phone}
+                    {order.shippingAddress.phoneNumber || order.shippingAddress.phone}
                   </p>
                 </div>
                 
@@ -355,7 +355,7 @@ const OrderDetailsPage: React.FC = () => {
                     Địa chỉ giao hàng
                   </h3>
                   <p className="text-gray-600">
-                    {order.shippingAddress.addressDetail}
+                    {order.shippingAddress.addressLine || order.shippingAddress.addressDetail || 'Chưa có địa chỉ chi tiết'}
                     {order.shippingAddress.ward && `, ${order.shippingAddress.ward}`}
                     , {order.shippingAddress.district}, {order.shippingAddress.province}
                   </p>

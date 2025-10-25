@@ -55,6 +55,14 @@ namespace backend.Interfaces.Services
         Task<UpdateOrderResult> UpdateOrderStatusAsync(int orderId, int updateType, string note);
 
         /// <summary>
+        /// Get printing code for ViettelPost orders
+        /// </summary>
+        /// <param name="orderIds">Array of order IDs to print (max 100)</param>
+        /// <param name="expiryTime">Link expiry time in epoch milliseconds</param>
+        /// <returns>Printing code result</returns>
+        Task<PrintingCodeResult> GetPrintingCodeAsync(int[] orderIds, long expiryTime);
+
+        /// <summary>
         /// Cancel a shipment
         /// </summary>
         /// <param name="orderId">Order ID</param>

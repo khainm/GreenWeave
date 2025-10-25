@@ -23,7 +23,8 @@ import {
   ExclamationTriangleIcon,
   DocumentTextIcon,
   CpuChipIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  PrinterIcon
 } from '@heroicons/react/24/outline';
 
 const AdminOrderDetailPage: React.FC = () => {
@@ -217,6 +218,33 @@ const AdminOrderDetailPage: React.FC = () => {
       }
     } catch (err: any) {
       setError(err.message || 'Không thể hủy vận đơn');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handlePrintLabel = async () => {
+    if (!order) return;
+
+    setActionLoading('print-label');
+    try {
+      // Set expiry time to 7 days from now
+      const expiryTime = Date.now() + (7 * 24 * 60 * 60 * 1000);
+      
+      const result = await ShippingService.getPrintingCode([order.id], expiryTime);
+
+      if (result.success && result.printingCode) {
+        // Generate print URL (A6_1 format with postage - suitable for small items like bags and hats)
+        const printUrl = `https://digitalize.viettelpost.vn/DigitalizePrint/report.do?type=a6_1&bill=${result.printingCode}&showPostage=1`;
+        
+        // Open in new tab
+        window.open(printUrl, '_blank');
+        setError(null);
+      } else {
+        setError(result.error || 'Không thể lấy mã in vận đơn');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Không thể in vận đơn');
     } finally {
       setActionLoading(null);
     }
@@ -448,13 +476,17 @@ const AdminOrderDetailPage: React.FC = () => {
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{order.customer.fullName}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {order.shippingAddress.fullName || order.shippingAddress.name || order.customer.fullName}
+                        </p>
                         <p className="text-sm text-gray-600">{order.customer.email}</p>
-                        <p className="text-sm text-gray-600">{order.shippingAddress.phone}</p>
+                        <p className="text-sm text-gray-600">
+                          {order.shippingAddress.phoneNumber || order.shippingAddress.phone}
+                        </p>
                       </div>
                       <div>
                         <p className="text-sm text-gray-600">
-                          {order.shippingAddress.addressDetail}
+                          {order.shippingAddress.addressLine || order.shippingAddress.addressDetail || 'Chưa có địa chỉ chi tiết'}
                           {order.shippingAddress.ward && `, ${order.shippingAddress.ward}`}
                           , {order.shippingAddress.district}, {order.shippingAddress.province}
                         </p>
@@ -528,6 +560,48 @@ const AdminOrderDetailPage: React.FC = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Shipping info overview */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Thông tin vận chuyển</h3>
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 mb-2">Đơn vị vận chuyển</p>
+                        <p className="text-gray-600">{order.shippingProvider}</p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 mb-2">Trạng thái vận chuyển</p>
+                        {order.shippingStatus ? (
+                          <ShippingStatusBadge status={order.shippingStatus} />
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Chưa có thông tin
+                          </span>
+                        )}
+                      </div>
+
+                      {order.shippingCode && (
+                        <div className="md:col-span-2">
+                          <p className="text-sm font-medium text-gray-900 mb-2">Mã vận đơn</p>
+                          <p className="text-gray-600 font-mono">{order.shippingCode}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {!order.shippingCode && (
+                      <div className="mt-4 pt-4 border-t border-gray-200">
+                        <p className="text-sm text-gray-500">
+                          {order.status === 'Pending' 
+                            ? '💡 Cần duyệt đơn hàng trước khi tạo vận đơn'
+                            : '💡 Chuyển sang tab "Vận chuyển" để tạo vận đơn'
+                          }
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -575,6 +649,15 @@ const AdminOrderDetailPage: React.FC = () => {
                     {/* ViettelPost order status update buttons */}
                     {order.shippingCode && order.shippingProvider === 'ViettelPost' && (
                       <>
+                        <button
+                          onClick={handlePrintLabel}
+                          disabled={!!actionLoading}
+                          className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          <PrinterIcon className="w-4 h-4 mr-1" />
+                          In vận đơn
+                        </button>
+
                         <button
                           onClick={() => setShowApproveVTPModal(true)}
                           disabled={!!actionLoading}

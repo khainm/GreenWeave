@@ -406,7 +406,7 @@ const AdminOrdersList: React.FC = () => {
         'Email': order.customer?.email || 'N/A',
         'Số điện thoại': order.customer?.phoneNumber || 'N/A',
         'Địa chỉ giao hàng': order.shippingAddress ? 
-          `${order.shippingAddress.address}, ${order.shippingAddress.ward}, ${order.shippingAddress.district}, ${order.shippingAddress.province}` : 'N/A',
+          `${order.shippingAddress.addressLine || order.shippingAddress.addressDetail || 'Chưa có địa chỉ chi tiết'}, ${order.shippingAddress.ward || 'Chưa có phường/xã'}, ${order.shippingAddress.district || 'Chưa có quận/huyện'}, ${order.shippingAddress.province || 'Chưa có tỉnh/thành phố'}` : 'N/A',
         'Tổng tiền': order.total || 0,
         'Trạng thái': OrderService.getStatusInfo(order.status || 'pending').label,
         'Có hóa đơn': order.hasInvoice ? 'Có' : 'Không',

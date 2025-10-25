@@ -557,6 +557,101 @@ namespace backend.Services
             }
         }
 
+        public async Task<PrintingCodeResult> GetPrintingCodeAsync(int[] orderIds, long expiryTime)
+        {
+            try
+            {
+                if (orderIds == null || orderIds.Length == 0)
+                {
+                    return new PrintingCodeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Order IDs array cannot be empty"
+                    };
+                }
+
+                if (orderIds.Length > 100)
+                {
+                    return new PrintingCodeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "Maximum 100 orders allowed per request"
+                    };
+                }
+
+                _logger.LogInformation("Getting printing code for {Count} orders", orderIds.Length);
+
+                // Get orders and extract tracking codes
+                var trackingCodes = new List<string>();
+                foreach (var orderId in orderIds)
+                {
+                    var order = await _orderRepository.GetByIdAsync(orderId);
+                    if (order == null)
+                    {
+                        return new PrintingCodeResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = $"Order {orderId} not found"
+                        };
+                    }
+
+                    if (string.IsNullOrEmpty(order.ShippingCode))
+                    {
+                        return new PrintingCodeResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = $"Order {orderId} does not have a shipping code"
+                        };
+                    }
+
+                    if (order.ShippingProvider != ShippingProvider.ViettelPost)
+                    {
+                        return new PrintingCodeResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = $"Order {orderId} is not a ViettelPost order"
+                        };
+                    }
+
+                    trackingCodes.Add(order.ShippingCode);
+                }
+
+                // Get ViettelPost provider
+                var provider = _shippingProviders.FirstOrDefault(p => p.Provider == ShippingProvider.ViettelPost);
+                if (provider == null)
+                {
+                    return new PrintingCodeResult
+                    {
+                        IsSuccess = false,
+                        ErrorMessage = "ViettelPost provider not available"
+                    };
+                }
+
+                // Call provider method
+                var result = await provider.GetPrintingCodeAsync(trackingCodes.ToArray(), expiryTime);
+
+                if (result.IsSuccess)
+                {
+                    _logger.LogInformation("✅ Printing code retrieved successfully for {Count} orders", orderIds.Length);
+                }
+                else
+                {
+                    _logger.LogWarning("Failed to get printing code: {Error}", result.ErrorMessage);
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting printing code for orders");
+                return new PrintingCodeResult
+                {
+                    IsSuccess = false,
+                    ErrorMessage = ex.Message
+                };
+            }
+        }
+
         public async Task<TrackingResponseDto?> GetTrackingAsync(int orderId)
         {
             try

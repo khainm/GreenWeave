@@ -53,6 +53,15 @@ namespace backend.Interfaces.Services
         Task<UpdateOrderResult> UpdateOrderStatusAsync(string trackingCode, int updateType, string note);
 
         /// <summary>
+        /// Get printing code for ViettelPost orders
+        /// Uses /v2/order/printing-code API
+        /// </summary>
+        /// <param name="orderNumbers">Array of ViettelPost tracking codes (max 100)</param>
+        /// <param name="expiryTime">Link expiry time in epoch milliseconds (future timestamp)</param>
+        /// <returns>Printing code result</returns>
+        Task<PrintingCodeResult> GetPrintingCodeAsync(string[] orderNumbers, long expiryTime);
+
+        /// <summary>
         /// Update an existing order with the provider (Legacy method - use EditOrderInfoAsync instead)
         /// </summary>
         /// <param name="order">Order to update</param>
