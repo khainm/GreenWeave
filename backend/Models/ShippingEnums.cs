@@ -27,6 +27,11 @@ namespace backend.Models
         Picked = 2,
         
         /// <summary>
+        /// ⏳ Shipping request created but API timed out - waiting for webhook to confirm
+        /// </summary>
+        PendingWebhook = 10,
+        
+        /// <summary>
         /// Package is in transit to destination
         /// </summary>
         InTransit = 3,

@@ -75,6 +75,27 @@ namespace backend.Repositories
             }
         }
 
+        /// <summary>
+        /// ✅ NEW: Get shipping request by external ID (ORDER_NUMBER for timeout recovery)
+        /// </summary>
+        public async Task<ShippingRequest?> GetByExternalIdAsync(string externalId)
+        {
+            try
+            {
+                return await _context.ShippingRequests
+                    .Include(sr => sr.Order)
+                        .ThenInclude(o => o.Customer)
+                    .Include(sr => sr.Order)
+                        .ThenInclude(o => o.ShippingAddress)
+                    .FirstOrDefaultAsync(sr => sr.ExternalId == externalId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting shipping request by external ID {ExternalId}", externalId);
+                throw;
+            }
+        }
+
         public async Task<(IEnumerable<ShippingRequest> requests, int total)> GetFilteredAsync(
             ShippingProvider? provider = null,
             ShippingStatus? status = null,

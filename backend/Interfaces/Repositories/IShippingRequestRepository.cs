@@ -29,6 +29,13 @@ namespace backend.Interfaces.Repositories
         Task<ShippingRequest?> GetByTrackingCodeAsync(string trackingCode);
 
         /// <summary>
+        /// ✅ NEW: Get shipping request by external ID (ORDER_NUMBER for timeout recovery)
+        /// </summary>
+        /// <param name="externalId">External ID (e.g., ORDER_NUMBER from ViettelPost)</param>
+        /// <returns>Shipping request or null</returns>
+        Task<ShippingRequest?> GetByExternalIdAsync(string externalId);
+
+        /// <summary>
         /// Get all shipping requests with optional filtering
         /// </summary>
         /// <param name="provider">Optional provider filter</param>

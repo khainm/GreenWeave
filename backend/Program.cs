@@ -105,6 +105,10 @@ if (!string.IsNullOrEmpty(viettelPostToken))
 {
     builder.Configuration["Shipping:ViettelPost:Token"] = viettelPostToken;
     builder.Configuration["Shipping:ViettelPost:PrintToken"] = viettelPostPrintToken;
+}
+// ✅ FIX: Always set WebhookSecret if available (independent of Token)
+if (!string.IsNullOrEmpty(viettelPostWebhookSecret))
+{
     builder.Configuration["Shipping:ViettelPost:WebhookSecret"] = viettelPostWebhookSecret;
 }
 
@@ -120,6 +124,7 @@ if (!string.IsNullOrEmpty(connectionString))
     Console.WriteLine($"🔍 Preview: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
 }
 Console.WriteLine($"📧 SendGrid API Key: {(string.IsNullOrEmpty(builder.Configuration["SendGrid:ApiKey"]) ? "NULL/EMPTY" : "[LOADED]")}");
+Console.WriteLine($"🔐 ViettelPost WebhookSecret: {(string.IsNullOrEmpty(builder.Configuration["Shipping:ViettelPost:WebhookSecret"]) ? "NULL/EMPTY" : "[LOADED]")}");
 
 
 // Add services to the container.

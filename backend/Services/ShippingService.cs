@@ -262,8 +262,12 @@ namespace backend.Services
                     };
                 }
 
-                // Create shipping request
+                // ✅ FIX: Create shipping request and save ORDER_NUMBER BEFORE calling API
                 var shippingRequest = await CreateShippingRequestAsync(order, request);
+                
+                // ✅ FIX: Store ORDER_NUMBER in ExternalId so webhook can find the order
+                shippingRequest.ExternalId = order.OrderNumber;
+                await _shippingRequestRepository.UpdateAsync(shippingRequest);
 
 
                 // Find the appropriate provider
@@ -277,14 +281,43 @@ namespace backend.Services
                     };
                 }
 
-                // Create shipment with provider
-                var result = await provider.CreateShipmentAsync(order, shippingRequest);
+                // ✅ FIX: Try to create shipment with provider (may timeout)
+                CreateShipmentResult result;
+                try
+                {
+                    result = await provider.CreateShipmentAsync(order, shippingRequest);
+                }
+                catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException || ex.Message.Contains("timeout"))
+                {
+                    // ✅ FIX: API timeout - save order with PendingWebhook status, webhook will update later
+                    _logger.LogWarning("⏳ [TIMEOUT] ViettelPost API timeout for order {OrderNumber}. Waiting for webhook to confirm.", order.OrderNumber);
+                    
+                    shippingRequest.Status = ShippingStatus.PendingWebhook;
+                    shippingRequest.UpdatedAt = DateTime.UtcNow;
+                    
+                    order.ShippingStatus = ShippingStatus.PendingWebhook;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    
+                    await _shippingRequestRepository.UpdateAsync(shippingRequest);
+                    await _orderRepository.UpdateAsync(order);
+                    
+                    await LogTransactionAsync(shippingRequest.Id, "CreateShipment", request.Provider.ToString(),
+                        JsonSerializer.Serialize(request), null, null, false, "API Timeout - Waiting for webhook");
+                    
+                    return new CreateShipmentResult
+                    {
+                        IsSuccess = true, // ✅ Return success because order is saved and webhook will update
+                        TrackingCode = null,
+                        ExternalId = order.OrderNumber,
+                        ErrorMessage = "Đơn hàng đang được xử lý. Vui lòng đợi webhook từ ViettelPost để cập nhật mã vận đơn."
+                    };
+                }
 
-                // Update shipping request with result
+                // ✅ Update shipping request with result
                 if (result.IsSuccess)
                 {
                     shippingRequest.TrackingCode = result.TrackingCode;
-                    shippingRequest.ExternalId = result.ExternalId;
+                    shippingRequest.ExternalId = result.ExternalId; // ViettelPost returns ORDER_NUMBER
                     shippingRequest.Status = ShippingStatus.PendingPickup;
                     
                     // Update order
@@ -294,6 +327,16 @@ namespace backend.Services
 
                     await _shippingRequestRepository.UpdateAsync(shippingRequest);
                     await _orderRepository.UpdateAsync(order);
+                }
+                else
+                {
+                    // ✅ FIX: API returned error - mark as failed but keep order in database
+                    _logger.LogError("❌ [API-ERROR] ViettelPost API error for order {OrderNumber}: {Error}", 
+                        order.OrderNumber, result.ErrorMessage);
+                    
+                    shippingRequest.Status = ShippingStatus.Failed;
+                    shippingRequest.UpdatedAt = DateTime.UtcNow;
+                    await _shippingRequestRepository.UpdateAsync(shippingRequest);
                 }
 
                 // Log the transaction
@@ -792,8 +835,29 @@ namespace backend.Services
                     }
                 }
 
-                // Find order by tracking code
+                // ✅ FIX: Find order by tracking code OR ORDER_NUMBER (for timeout recovery)
                 var shippingRequest = await _shippingRequestRepository.GetByTrackingCodeAsync(webhookInfo.TrackingCode);
+                
+                // ✅ FIX: If not found by TrackingCode, try finding by ORDER_NUMBER (stored in ExternalId)
+                if (shippingRequest == null && webhookPayload?.DATA?.ORDER_NUMBER != null)
+                {
+                    _logger.LogInformation("🔍 [TIMEOUT-RECOVERY] Order not found by TrackingCode {TrackingCode}, searching by ORDER_NUMBER {OrderNumber}",
+                        webhookInfo.TrackingCode, webhookPayload.DATA.ORDER_NUMBER);
+                    
+                    shippingRequest = await _shippingRequestRepository.GetByExternalIdAsync(webhookPayload.DATA.ORDER_NUMBER);
+                    
+                    if (shippingRequest != null)
+                    {
+                        _logger.LogInformation("✅ [TIMEOUT-RECOVERY] Found order by ORDER_NUMBER {OrderNumber}. Updating TrackingCode from NULL to {TrackingCode}",
+                            webhookPayload.DATA.ORDER_NUMBER, webhookInfo.TrackingCode);
+                        
+                        // ✅ FIX: Update TrackingCode from webhook (recovery from timeout)
+                        shippingRequest.TrackingCode = webhookInfo.TrackingCode;
+                        shippingRequest.UpdatedAt = DateTime.UtcNow;
+                        await _shippingRequestRepository.UpdateAsync(shippingRequest);
+                    }
+                }
+                
                 var order = shippingRequest?.Order;
 
                 bool isSuccess = false;
@@ -803,11 +867,22 @@ namespace backend.Services
                 {
                     if (order == null)
                     {
-                        _logger.LogWarning("Order not found for tracking code {TrackingCode}", webhookInfo.TrackingCode);
+                        _logger.LogWarning("❌ Order not found for tracking code {TrackingCode} and ORDER_NUMBER {OrderNumber}", 
+                            webhookInfo.TrackingCode, webhookPayload?.DATA?.ORDER_NUMBER);
                         errorMessage = $"Order not found for tracking code {webhookInfo.TrackingCode}";
                     }
                     else
                     {
+                        // ✅ FIX: Update Order.ShippingCode if it's still NULL (timeout recovery)
+                        if (string.IsNullOrEmpty(order.ShippingCode) && !string.IsNullOrEmpty(webhookInfo.TrackingCode))
+                        {
+                            _logger.LogInformation("✅ [TIMEOUT-RECOVERY] Updating Order.ShippingCode from NULL to {TrackingCode} for order {OrderNumber}",
+                                webhookInfo.TrackingCode, order.OrderNumber);
+                            
+                            order.ShippingCode = webhookInfo.TrackingCode;
+                            order.UpdatedAt = DateTime.UtcNow;
+                        }
+                        
                         // ✅ NEW: Check if order is in end state (shouldn't be updated anymore)
                         if (IsEndState(order.ShippingStatus))
                         {
@@ -848,8 +923,8 @@ namespace backend.Services
                         }
 
                         isSuccess = true;
-                        _logger.LogInformation("Successfully processed webhook for tracking code {TrackingCode}", 
-                            webhookInfo.TrackingCode);
+                        _logger.LogInformation("✅ Successfully processed webhook for tracking code {TrackingCode}, order {OrderNumber}", 
+                            webhookInfo.TrackingCode, order.OrderNumber);
                         }
                     }
                 }

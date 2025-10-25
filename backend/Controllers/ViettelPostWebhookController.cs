@@ -89,18 +89,11 @@ namespace backend.Controllers
                 _logger.LogInformation("📥 [VIETTELPOST-WEBHOOK] Received from {RemoteIP}: {RawBody}", 
                     Request.HttpContext.Connection.RemoteIpAddress, rawBody);
 
-                // 🔍 Parse and validate JSON structure
-                ViettelPostWebhookData? payload;
-                try
+                // Optimize payload reading and parsing
+                var payload = await Request.ReadFromJsonAsync<ViettelPostWebhookData>();
+                if (payload == null)
                 {
-                    payload = JsonSerializer.Deserialize<ViettelPostWebhookData>(rawBody, new JsonSerializerOptions 
-                    { 
-                        PropertyNameCaseInsensitive = true 
-                    });
-                }
-                catch (JsonException ex)
-                {
-                    _logger.LogError(ex, "❌ [VIETTELPOST-WEBHOOK] Invalid JSON format");
+                    _logger.LogWarning("⚠️ [VIETTELPOST-WEBHOOK] Invalid JSON format");
                     return BadRequest(new { 
                         success = false, 
                         message = "Invalid JSON format",
@@ -152,10 +145,9 @@ namespace backend.Controllers
                 if (!string.IsNullOrEmpty(configuredSecret))
                 {
                     var incomingToken = payload.TOKEN ?? string.Empty;
-                    if (string.IsNullOrEmpty(incomingToken) || incomingToken != configuredSecret)
+                    if (string.IsNullOrEmpty(incomingToken) || !incomingToken.AsSpan().SequenceEqual(configuredSecret.AsSpan()))
                     {
-                        _logger.LogWarning("🚫 [VIETTELPOST-WEBHOOK] Security validation failed for order {OrderNumber}. Token length - Expected: {ExpectedLength}, Received: {ReceivedLength}", 
-                            payload.DATA.ORDER_NUMBER, configuredSecret.Length, incomingToken.Length);
+                        _logger.LogWarning("🚫 [VIETTELPOST-WEBHOOK] Security validation failed for order {OrderNumber}", payload.DATA.ORDER_NUMBER);
                         return Unauthorized(new { 
                             success = false, 
                             message = "Invalid or missing security token",
