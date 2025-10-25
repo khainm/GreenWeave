@@ -492,6 +492,36 @@ namespace backend.Services
                     };
                 }
 
+                // ✅ NEW: Validate status for cancel operation (TYPE=4)
+                if (updateType == 4 && order.ShippingProvider == ShippingProvider.ViettelPost)
+                {
+                    // Extract current ViettelPost status code from ShippingStatus
+                    var currentStatusCode = ExtractViettelPostStatusCode(order.ShippingStatus, shippingRequest);
+                    
+                    // According to ViettelPost API specification:
+                    // Cancel (TYPE=4) is only allowed when status < 200 and != 105, 107
+                    if (currentStatusCode >= 200)
+                    {
+                        return new UpdateOrderResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = $"Không thể hủy đơn hàng ở trạng thái hiện tại (status {currentStatusCode}). Chỉ cho phép hủy khi status < 200."
+                        };
+                    }
+
+                    if (currentStatusCode == 105 || currentStatusCode == 107)
+                    {
+                        return new UpdateOrderResult
+                        {
+                            IsSuccess = false,
+                            ErrorMessage = $"Không thể hủy đơn hàng ở trạng thái {currentStatusCode}. Trạng thái này không cho phép hủy."
+                        };
+                    }
+
+                    _logger.LogInformation("✅ [CANCEL-VALIDATION] Order {OrderId} with status {Status} is eligible for cancellation", 
+                        orderId, currentStatusCode);
+                }
+
                 // Find the appropriate provider
                 var provider = _shippingProviders.FirstOrDefault(p => p.Provider == order.ShippingProvider);
                 if (provider == null)
@@ -1170,6 +1200,51 @@ namespace backend.Services
         }
 
         /// <summary>
+        /// Extract ViettelPost status code from order's shipping history
+        /// Used for validation of allowed operations (e.g., cancel only allowed when status < 200)
+        /// </summary>
+        private int ExtractViettelPostStatusCode(ShippingStatus orderStatus, ShippingRequest shippingRequest)
+        {
+            try
+            {
+                // Try to get latest status from shipping history
+                if (!string.IsNullOrEmpty(shippingRequest.Order?.ShippingHistory))
+                {
+                    var history = JsonSerializer.Deserialize<List<TrackingEvent>>(shippingRequest.Order.ShippingHistory);
+                    if (history?.Count > 0)
+                    {
+                        // Get the latest event's status code
+                        var latestEvent = history.OrderByDescending(e => e.Timestamp).FirstOrDefault();
+                        if (latestEvent != null && int.TryParse(latestEvent.Status, out int statusCode))
+                        {
+                            return statusCode;
+                        }
+                    }
+                }
+
+                // Fallback: Map ShippingStatus to ViettelPost code
+                return orderStatus switch
+                {
+                    ShippingStatus.PendingPickup => 100,   // Processing
+                    ShippingStatus.Picked => 105,          // Picked up by courier
+                    ShippingStatus.InTransit => 300,       // In transit
+                    ShippingStatus.OutForDelivery => 500,  // Out for delivery
+                    ShippingStatus.Delivered => 501,       // Delivered
+                    ShippingStatus.Failed => 500,          // Failed delivery - map to out for delivery status
+                    ShippingStatus.Returning => 502,       // Being returned
+                    ShippingStatus.Returned => 504,        // Returned successfully
+                    ShippingStatus.Cancelled => 503,       // Cancelled
+                    _ => 100 // Default to processing
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error extracting ViettelPost status code");
+                return 100; // Default to safe value
+            }
+        }
+
+        /// <summary>
         /// Check if ViettelPost status code is an end state according to specification
         /// End states: 501 (delivered), 503 (cancelled), 504 (returned), 201 (cancel note), 107 (partner cancel), -15 (system cancel)
         /// </summary>
@@ -1177,12 +1252,21 @@ namespace backend.Services
         {
             return statusCode switch
             {
-                501 => true,  // Successful delivery
-                503 => true,  // Cancel - Customer requirement
-                504 => true,  // Successful return to customer
-                201 => true,  // Cancel delivery note
-                107 => true,  // Partner cancel order via API
-                -15 => true,  // System cancel order
+                // Trạng thái giao hàng thành công
+                501 => true,  // Phát thành công - DELIVERED ✅
+                504 => true,  // Hoàn thành công - Chuyển trả người gửi - RETURNED ✅
+                
+                // Trạng thái hủy đơn hàng  
+                503 => true,  // Hủy - Theo yêu cầu khách hàng - CANCELLED ✅
+                510 => true,  // Hủy giao hàng - CANCELLED ✅
+                107 => true,  // Đối tác yêu cầu hủy qua API - CANCELLED ✅
+                201 => true,  // Hủy nhập phiếu gửi - CANCELLED ✅
+                -15 => true,  // Hệ thống hủy đơn - CANCELLED ✅
+                
+                // Trạng thái chuyển hoàn
+                502 => true,  // Chuyển hoàn bưu cục gốc - RETURNED ✅
+                505 => true,  // Phát thất bại - Yêu cầu chuyển hoàn - RETURN_REQUESTED ✅
+                
                 _ => false
             };
         }

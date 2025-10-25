@@ -1736,43 +1736,55 @@ namespace backend.Services
         {
             return status switch
             {
+                // Trạng thái tạo đơn (âm)
                 -100 => "Đơn hàng mới tạo, chưa được duyệt",
                 -108 => "Đơn hàng đã gửi tại bưu cục",
                 -109 => "Đơn hàng đã gửi tại điểm tập kết",
                 -110 => "Đơn hàng được bàn giao bởi bưu cục",
                 -15 => "Hủy đơn hàng - Trạng thái kết thúc",
+                
+                // Trạng thái xử lý đơn (100-107) - VÀNG có thể hủy
                 100 => "Nhận đơn hàng của khách hàng - ViettelPost đang xử lý đơn hàng",
-                101 => "ViettelPost yêu cầu khách hàng hủy đơn hàng",
-                102 => "Đơn hàng đang được xử lý",
-                103 => "Giao đến Bưu cục - ViettelPost đang xử lý đơn hàng",
-                104 => "Giao đến người nhận - Bưu tá",
-                105 => "Bưu tá đã nhận đơn hàng",
+                101 => "ViettelPost từ chối nhận", // ✅ CẬP NHẬT THEO BẢNG 2025
+                102 => "Đơn hàng chờ xử lý",
+                103 => "Giao cho bưu cục",
+                104 => "Giao cho Bưu tá đi nhận",
+                105 => "Bưu Tá đã nhận hàng",
                 106 => "Đối tác yêu cầu thu hồi đơn hàng",
-                107 => "Đối tác yêu cầu hủy đơn hàng qua API",
-                200 => "Nhận từ Bưu tá - Bưu cục nhận",
-                201 => "Hủy nhập phiếu gửi",
+                107 => "Đối tác yêu cầu hủy đơn hàng qua API", // ✅ END STATE
+                
+                // Nhận từ bưu tá (200s)
+                200 => "Nhận từ bưu tá - Bưu cục gốc",
+                201 => "Hủy nhập phiếu gửi", // ✅ END STATE
                 202 => "Sửa phiếu gửi",
-                300 => "Đóng file giao hàng",
+                
+                // Khai thác đi (300s)
+                300 => "Khai thác đi",
                 301 => "Đóng gói giao hàng - Giao từ",
                 302 => "Đóng track thư giao hàng - Giao từ",
                 303 => "Đóng làn xe tải giao hàng - Giao từ",
-                400 => "Nhận file thu nhập - Nhận tại",
+                
+                // Khai thác đến (400s)
+                400 => "Khai thác đến",
                 401 => "Nhận túi bưu phẩm - Nhận tại",
                 402 => "Nhận track thư - Nhận tại",
                 403 => "Nhận làn xe tải - Nhận tại",
-                500 => "Giao đến Bưu tá giao hàng",
-                501 => "Thành công - Giao hàng thành công",
-                502 => "Giao trả về Bưu cục người gửi",
-                503 => "Hủy - Theo yêu cầu của khách hàng",
-                504 => "Thành công - Giao trả về khách hàng",
-                505 => "Tồn kho - Giao trả về Bưu cục người gửi",
-                506 => "Tồn kho - Khách hàng không nhận",
-                507 => "Tồn kho - Khách hàng nhận tại Bưu cục",
-                508 => "Đang giao hàng",
-                509 => "Giao đến Bưu cục khác",
-                510 => "Hủy giao hàng",
-                515 => "Bưu cục giao hàng trả đơn hàng chờ duyệt",
-                550 => "Yêu cầu Bưu cục giao hàng gửi lại",
+                
+                // Giao hàng (500s)
+                500 => "Giao bưu tá đi phát",
+                501 => "Phát thành công", // ✅ END STATE - DELIVERED
+                502 => "Chuyển hoàn bưu cục gốc", // ✅ END STATE - RETURNED
+                503 => "Hủy - Theo yêu cầu của khách hàng", // ✅ END STATE - CANCELLED
+                504 => "Hoàn thành công - Chuyển trả người gửi", // ✅ END STATE - RETURNED
+                505 => "Phát thất bại - Yêu cầu chuyển hoàn", // ✅ END STATE - RETURN REQUESTED
+                506 => "Phát thất bại", // Tạm thời, có thể phát lại
+                507 => "Khách hàng đến bưu cục nhận", // Phát thất bại nhưng KH tự đến lấy
+                508 => "Phát tiếp", // Đơn vị yêu cầu phát tiếp
+                509 => "Chuyển tiếp bưu cục khác",
+                510 => "Hủy giao hàng", // ✅ END STATE - CANCELLED
+                515 => "Duyệt hoàn", // Bưu cục phát duyệt hoàn
+                550 => "Phát tiếp", // Khách hàng yêu cầu phát tiếp
+                
                 _ => $"Trạng thái không xác định ({status})"
             };
         }
