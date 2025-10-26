@@ -2,6 +2,7 @@
 // Senior Frontend Engineer - Production Ready Types
 
 export interface ProductResponseDto {
+  stickers: any;
   id: number;
   name: string;
   sku: string;

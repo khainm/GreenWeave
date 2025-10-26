@@ -15,12 +15,11 @@ import { CustomProductService } from '../services/customProductService';
 import {
   CubeIcon, ArchiveBoxIcon, ShoppingCartIcon, ChatBubbleBottomCenterTextIcon,
   ArrowUturnLeftIcon, ArrowUturnRightIcon, ArrowUpTrayIcon, Squares2X2Icon,
-  BoltIcon, CheckCircleIcon, CurrencyDollarIcon, ChartBarIcon,
+  BoltIcon, CheckCircleIcon, ChartBarIcon,
   CogIcon, EyeIcon, ViewColumnsIcon, SparklesIcon, PaintBrushIcon
 } from '@heroicons/react/24/outline';import type { 
   ProductResponseDto, 
   CustomDesign, 
-  UploadMode, 
   CanvasState,
   ContactInfo,
   ConsultationRequest
@@ -30,7 +29,6 @@ const CustomProductDesigner: React.FC = () => {
   // 🎯 Core state management
   const [selectedProduct, setSelectedProduct] = useState<ProductResponseDto | null>(null);
   const [selectedColorCode, setSelectedColorCode] = useState<string | undefined>();
-  const [uploadMode, setUploadMode] = useState<UploadMode>('image');
   const [design, setDesign] = useState<CustomDesign | null>(null);
   
   // 🎮 Canvas state management
@@ -376,8 +374,7 @@ const CustomProductDesigner: React.FC = () => {
       setUploadProgress(0);
       
       const response = await CustomProductService.uploadImage(
-        file, 
-        uploadMode,
+        file,
         (progress) => {
           setUploadProgress(progress);
           console.log('Upload progress:', progress + '%');
@@ -403,7 +400,7 @@ const CustomProductDesigner: React.FC = () => {
     } finally {
       setUploadProgress(0);
     }
-  }, [uploadMode, design, handleDesignChange, showSuccessToast]);
+  }, [design, handleDesignChange, showSuccessToast]);
 
   // 📞 Handle consultation request submission
   const handleConsultationSubmit = useCallback(async (contactInfo: ContactInfo) => {
@@ -602,15 +599,6 @@ const CustomProductDesigner: React.FC = () => {
                   <div>
                     <div className="text-xl sm:text-2xl font-bold">{design?.elements.length || 0}</div>
                     <div className="text-green-200 text-xs sm:text-sm">Elements</div>
-                  </div>
-                </div>
-                <div className="text-center flex items-center space-x-2 lg:block lg:space-x-0">
-                  <CurrencyDollarIcon className="w-5 h-5 lg:hidden" />
-                  <div>
-                    <div className="text-xl sm:text-2xl font-bold">
-                      {selectedProduct.price > 0 ? `$${selectedProduct.price}` : 'TBD'}
-                    </div>
-                    <div className="text-green-200 text-xs sm:text-sm">Price</div>
                   </div>
                 </div>
                 <div className="text-center flex items-center space-x-2 lg:block lg:space-x-0">

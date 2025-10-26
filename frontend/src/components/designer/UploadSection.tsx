@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { PhotoIcon, CloudArrowUpIcon } from '@heroicons/react/24/outline';
-import { CustomProductService } from '../../services/customProductService';
+import { CloudArrowUpIcon } from '@heroicons/react/24/outline';
 
 interface UploadSectionProps {
   onImageUpload: (file: File) => void;
@@ -30,22 +29,32 @@ const UploadSection: React.FC<UploadSectionProps> = ({
 
     try {
       setUploading(true);
-      const result = await CustomProductService.uploadImage(file);
       
-      if (result.success && result.url) {
+      // Read file as Data URL (base64) - không upload lên server
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageUrl = e.target?.result as string;
+        
         // Add to canvas via global method
         if (window.customDesigner?.addImage) {
-          window.customDesigner.addImage(result.url);
+          window.customDesigner.addImage(imageUrl);
         }
         onImageUpload(file);
-      } else {
-        alert('Upload thất bại');
-      }
+        setUploading(false);
+      };
+      
+      reader.onerror = () => {
+        alert('Có lỗi xảy ra khi đọc file ảnh');
+        setUploading(false);
+      };
+      
+      reader.readAsDataURL(file);
+      
     } catch (error) {
       console.error('❌ Upload error:', error);
-      alert('Có lỗi xảy ra khi upload ảnh');
-    } finally {
+      alert('Có lỗi xảy ra khi xử lý ảnh');
       setUploading(false);
+    } finally {
       // Clear input
       event.target.value = '';
     }

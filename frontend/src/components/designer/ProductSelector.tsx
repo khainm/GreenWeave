@@ -96,9 +96,6 @@ const ProductSelector: React.FC<ProductSelectorProps> = ({
               )}
               <div className="p-2">
                 <p className="text-xs text-gray-600 truncate font-medium">{product.name}</p>
-                <p className="text-xs text-green-600 font-semibold">
-                  {product.price?.toLocaleString('vi-VN') || '0'}đ
-                </p>
                 <div className="flex items-center gap-2 mt-1">
                   {product.colors && product.colors.length > 0 && (
                     <p className="text-xs text-blue-600">
