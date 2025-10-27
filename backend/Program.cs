@@ -300,8 +300,10 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICustomProductRepository, CustomProductRepository>();
 builder.Services.AddScoped<ICustomProductService, CustomProductService>();
 builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
-builder.Services.AddScoped<IGeminiPreviewService, GeminiPreviewService>();
-builder.Services.AddHttpClient<GeminiPreviewService>(); // For HTTP calls to Gemini API
+//builder.Services.AddScoped<IGeminiPreviewService, GeminiPreviewService>();
+//builder.Services.AddHttpClient<GeminiPreviewService>(); // For HTTP calls to Gemini API
+builder.Services.AddHttpClient<AiEditController>();
+
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICartRepository, CartRepository>();

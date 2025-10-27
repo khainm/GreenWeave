@@ -19,7 +19,7 @@ const CanvasImage: React.FC<{
   onSelect: () => void;
   onChange: (newAttrs: any) => void;
 }> = ({ element, isSelected, onSelect, onChange }) => {
-  const [image] = useImage(element.src || '');
+  const [image] = useImage(element.src || '', 'anonymous');
   const imageRef = useRef<any>(null);
   const transformerRef = useRef<any>(null);
 
@@ -461,7 +461,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     return selectedProduct.images?.[0]?.imageUrl || null;
   };
 
-  const [productImage] = useImage(getProductImage() || '');
+  const [productImage] = useImage(getProductImage() || '', 'anonymous');
 
   // Thêm element mới vào design
   const addElement = (element: Omit<DesignElement, 'id'>) => {

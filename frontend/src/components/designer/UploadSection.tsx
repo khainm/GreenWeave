@@ -51,7 +51,7 @@ const UploadSection: React.FC<UploadSectionProps> = ({
       reader.readAsDataURL(file);
       
     } catch (error) {
-      console.error('❌ Upload error:', error);
+      console.error(' Upload error:', error);
       alert('Có lỗi xảy ra khi xử lý ảnh');
       setUploading(false);
     } finally {

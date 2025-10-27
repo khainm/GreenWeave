@@ -1,21 +1,20 @@
-import React, { useState } from 'react';
-import { 
-  WrenchScrewdriverIcon, 
-  SwatchIcon, 
-  PhotoIcon, 
+import React, { useState } from "react";
+import {
+  SwatchIcon,
+  PhotoIcon,
   ArrowDownTrayIcon,
   SparklesIcon,
-  PencilSquareIcon
-} from '@heroicons/react/24/outline';
-import UploadSection from './UploadSection';
-import ColorPicker from './ColorPicker';
-import GiphyStickerPicker from './GiphyStickerPicker';
-import TextEditor from './TextEditor';
-import type { TextConfig } from './TextEditor';
-import ActionButtons from './ActionButtons';
-import ExportOptions from './ExportOptions';
-import type { ProductResponseDto } from './types';
-import type { GiphySticker } from '../../services/giphyService';
+  PencilSquareIcon,
+  WrenchScrewdriverIcon,
+} from "@heroicons/react/24/outline";
+import UploadSection from "./UploadSection";
+import ColorPicker from "./ColorPicker";
+import GiphyStickerPicker from "./GiphyStickerPicker";
+import TextEditor, { type TextConfig } from "./TextEditor";
+import ActionButtons from "./ActionButtons";
+import ExportOptions from "./ExportOptions";
+import type { ProductResponseDto } from "./types";
+import type { GiphySticker } from "../../services/giphyService";
 
 interface ToolsPanelProps {
   selectedProduct: ProductResponseDto | null;
@@ -38,146 +37,159 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   onClearDesign,
   onExportPNG,
 }) => {
-  // 🧸 Giphy Sticker Picker modal state
+  const [activeTool, setActiveTool] = useState<string | null>(null);
   const [showGiphyPicker, setShowGiphyPicker] = useState(false);
 
   const handleGiphyStickerSelect = (sticker: GiphySticker) => {
-    console.log('🧸 [ToolsPanel] Giphy sticker selected:', sticker);
     onStickerSelect(sticker.url);
     setShowGiphyPicker(false);
   };
 
-  // 📱 Simple section component without collapse
-  const Section: React.FC<{
-    title: string;
-    icon: React.ReactNode;
-    children: React.ReactNode;
-    gradient?: string;
-  }> = ({ title, icon, children, gradient = 'from-gray-50 to-gray-100' }) => {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-        {/* Section Header - Always visible */}
-        <div className={`bg-gradient-to-r ${gradient} px-4 py-3 border-b border-gray-200`}>
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-700">
-              {icon}
-            </div>
-            <h3 className="text-sm font-semibold text-gray-800">
-              {title}
-            </h3>
-          </div>
-        </div>
-
-        {/* Section Content - Always visible */}
-        <div className="p-4">
-          {children}
-        </div>
-      </div>
-    );
+  const toggleTool = (tool: string) => {
+    setActiveTool((prev) => (prev === tool ? null : tool));
   };
 
+  const tools = [
+    {
+      id: "upload",
+      icon: <PhotoIcon className="w-5 h-5" />,
+      label: "Ảnh",
+      color: "text-blue-500",
+      gradient: "from-blue-500 to-indigo-500",
+    },
+    {
+      id: "text",
+      icon: <PencilSquareIcon className="w-5 h-5" />,
+      label: "Văn bản",
+      color: "text-amber-500",
+      gradient: "from-amber-400 to-orange-500",
+    },
+    {
+      id: "color",
+      icon: <SwatchIcon className="w-5 h-5" />,
+      label: "Màu",
+      color: "text-purple-500",
+      gradient: "from-purple-500 to-pink-500",
+    },
+    {
+      id: "sticker",
+      icon: <SparklesIcon className="w-5 h-5" />,
+      label: "Sticker",
+      color: "text-pink-500",
+      gradient: "from-pink-500 to-rose-500",
+    },
+    {
+      id: "action",
+      icon: <WrenchScrewdriverIcon className="w-5 h-5" />,
+      label: "Hành động",
+      color: "text-orange-500",
+      gradient: "from-orange-500 to-yellow-500",
+    },
+    {
+      id: "export",
+      icon: <ArrowDownTrayIcon className="w-5 h-5" />,
+      label: "Xuất",
+      color: "text-green-500",
+      gradient: "from-green-500 to-emerald-500",
+    },
+  ];
+
   return (
-    <div className="w-full lg:w-80 bg-gray-50 border-l border-gray-200 flex flex-col h-screen lg:h-auto">
-      {/* Header with Gradient Background */}
-      <div className="flex-shrink-0 bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-4 shadow-lg">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-            <WrenchScrewdriverIcon className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white">Design Tools</h2>
-            <p className="text-xs text-emerald-100">Customize your product</p>
-          </div>
-        </div>
+    <div className="flex flex-col h-full bg-white border-l border-gray-200 shadow-inner">
+      {/* 🔹 Toolbar Grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 p-3 bg-gray-50/80 border-b border-gray-200 backdrop-blur-sm">
+        {tools.map((tool) => (
+          <button
+            key={tool.id}
+            onClick={() => toggleTool(tool.id)}
+            className={`relative flex flex-col items-center justify-center rounded-xl p-2 transition-all duration-300 border group ${
+              activeTool === tool.id
+                ? "bg-gradient-to-br " + tool.gradient + " text-white shadow-lg border-transparent scale-105"
+                : "bg-white hover:bg-gray-100 border-gray-200 hover:shadow-md"
+            }`}
+          >
+            <div
+              className={`flex items-center justify-center w-8 h-8 rounded-lg ${
+                activeTool === tool.id
+                  ? "bg-white/20 text-white"
+                  : `${tool.color} bg-gray-50`
+              }`}
+            >
+              {tool.icon}
+            </div>
+            <span
+              className={`mt-1 text-[11px] font-medium ${
+                activeTool === tool.id ? "text-white" : "text-gray-700"
+              }`}
+            >
+              {tool.label}
+            </span>
+
+            {/* Tooltip on hover */}
+            <div className="absolute bottom-12 opacity-0 group-hover:opacity-100 bg-gray-900 text-white text-xs rounded-md px-2 py-1 transition-opacity">
+              {tool.label}
+            </div>
+          </button>
+        ))}
       </div>
 
-      {/* Scrollable Content Area with extra bottom padding */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
-        {/* Upload Section */}
-        <Section
-          title="Upload Images"
-          icon={<PhotoIcon className="w-5 h-5" />}
-          gradient="from-blue-50 to-indigo-50"
-        >
-          <UploadSection
-            onImageUpload={onImageUpload}
-          />
-        </Section>
+      {/* 🔸 Animated Content Area */}
+      <div
+        className={`flex-1 overflow-y-auto p-4 transition-all duration-300 ease-in-out ${
+          activeTool ? "opacity-100" : "opacity-0 h-0 p-0"
+        }`}
+      >
+        {activeTool === "upload" && (
+          <div className="animate-fadeIn">
+            <UploadSection onImageUpload={onImageUpload} />
+          </div>
+        )}
 
-        {/* Text Editor Section */}
-        <Section
-          title="Add Text"
-          icon={<PencilSquareIcon className="w-5 h-5" />}
-          gradient="from-amber-50 to-orange-50"
-        >
-          <TextEditor onAddText={onTextAdd} />
-        </Section>
+        {activeTool === "text" && (
+          <div className="animate-fadeIn">
+            <TextEditor onAddText={onTextAdd} />
+          </div>
+        )}
 
-        {/* Color Selection */}
-        {selectedProduct && (
-          <Section
-            title="Color Options"
-            icon={<SwatchIcon className="w-5 h-5" />}
-            gradient="from-purple-50 to-pink-50"
-          >
+        {activeTool === "color" && selectedProduct && (
+          <div className="animate-fadeIn">
             <ColorPicker
               product={selectedProduct}
               selectedColorCode={selectedColorCode}
               onColorSelect={onColorSelect}
             />
-          </Section>
+          </div>
         )}
 
-        {/* Giphy Sticker Library */}
-        <Section
-          title=" Stickers"
-          icon={<SparklesIcon className="w-5 h-5" />}
-          gradient="from-pink-50 to-rose-50"
-        >
-          <div className="space-y-3">
+        {activeTool === "sticker" && (
+          <div className="space-y-3 text-center animate-fadeIn">
             <p className="text-xs text-gray-600">
-              🎨 Tìm kiếm hàng triệu sticker miễn phí 
+              🎨 Chọn sticker miễn phí từ Giphy
             </p>
             <button
               onClick={() => setShowGiphyPicker(true)}
-              className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 transition-all flex items-center justify-center space-x-2 shadow-sm hover:shadow-md"
+              className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
             >
               <SparklesIcon className="w-5 h-5" />
-              <span>Open Sticker Picker</span>
+              <span>Mở thư viện Sticker</span>
             </button>
-            <div className="flex items-center justify-center space-x-2 text-xs text-gray-500">
-              <span>🔍 Search</span>
-              <span>•</span>
-              <span>🔥 Trending</span>
-            </div>
           </div>
-        </Section>
+        )}
 
-        {/* Quick Actions */}
-        <Section
-          title="Quick Actions"
-          icon={<WrenchScrewdriverIcon className="w-5 h-5" />}
-          gradient="from-orange-50 to-amber-50"
-        >
-          <ActionButtons onClearDesign={onClearDesign} />
-        </Section>
+        {activeTool === "action" && (
+          <div className="animate-fadeIn">
+            <ActionButtons onClearDesign={onClearDesign} />
+          </div>
+        )}
 
-        {/* Export Options */}
-        <Section
-          title="Export & Save"
-          icon={<ArrowDownTrayIcon className="w-5 h-5" />}
-          gradient="from-green-50 to-emerald-50"
-        >
-          <ExportOptions
-            onExportPNG={onExportPNG}
-          />
-        </Section>
-
-        {/* Extra spacing at bottom to ensure all content is accessible */}
-        <div className="h-20"></div>
+        {activeTool === "export" && (
+          <div className="animate-fadeIn">
+            <ExportOptions onExportPNG={onExportPNG} />
+          </div>
+        )}
       </div>
 
-      {/* Giphy Sticker Picker Modal */}
+      {/* Giphy Picker Modal */}
       {showGiphyPicker && (
         <GiphyStickerPicker
           onStickerSelect={handleGiphyStickerSelect}

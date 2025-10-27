@@ -12,7 +12,7 @@ import type {
 } from '../components/designer/types';
 
 export class CustomProductService {
-  private static readonly BASE_PATH = '/api/custom-design';
+  private static readonly BASE_PATH = '/api/customdesigns';
   private static readonly CONSULTATION_PATH = '/api/consultation-request';
 
   // 🛍️ Get customizable products with enhanced error handling

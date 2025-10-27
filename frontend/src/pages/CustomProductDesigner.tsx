@@ -7,7 +7,8 @@ import ProductSelector from '../components/designer/ProductSelector';
 import CanvasArea from '../components/designer/CanvasArea';
 import ToolsPanel from '../components/designer/ToolsPanel';
 import ConsultationModal from '../components/designer/ConsultationModal';
-import GeminiPreviewModal from '../components/designer/GeminiPreviewModal';
+import AiTryOnModal from '../components/designer/AiTryOnModal';
+
 import TextEditPanel from '../components/designer/TextEditPanel';
 import { CustomProductService } from '../services/customProductService';
 
@@ -64,6 +65,9 @@ const CustomProductDesigner: React.FC = () => {
 
   // 📝 Text editing state - for TextEditPanel
   const [selectedTextElementId, setSelectedTextElementId] = useState<string | null>(null);
+
+  // Add state for AI Try-On modal
+  const [showTryOnModal, setShowTryOnModal] = useState(false);
 
   // Debug selectedTextElementId changes
   useEffect(() => {
@@ -213,66 +217,97 @@ const CustomProductDesigner: React.FC = () => {
 
   // 📸 Export design as PNG
   const handleExportPNG = useCallback(() => {
-    if (window.customDesigner?.exportImage) {
-      window.customDesigner.exportImage();
-    } else {
-      alert('Export functionality not available');
+    try {
+      const stage = (window as any).Konva?.stages?.[0];
+      if (!stage) throw new Error("Canvas not found");
+
+      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+
+      // Create a download link for the PNG file
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = "design.png";
+      link.click();
+
+      console.log("✅ PNG exported successfully");
+    } catch (error) {
+      console.error("❌ Failed to export PNG:", error);
+      alert("Failed to export PNG. Please try again.");
     }
   }, []);
 
   // 🤖 Generate Gemini AI Preview
-  const handleGenerateGeminiPreview = useCallback(async () => {
-    if (!design || design.elements.length === 0) {
-      alert('Please add some elements to your design first');
-      return;
-    }
-
+  const handleAiTryOn = async () => {
     try {
       setIsLoading(true);
 
-      // Get canvas as data URL
+      // Lấy ảnh từ canvas Konva
       const stage = (window as any).Konva?.stages?.[0];
-      if (!stage) {
-        throw new Error('Canvas not found');
-      }
-
       const dataUrl = stage.toDataURL({ pixelRatio: 2 });
-      setCanvasDataUrl(dataUrl);
-      
-      // Open Gemini modal
+
+      // Chuyển base64 → Blob
+      const blob = await (await fetch(dataUrl)).blob();
+
+      // Gửi lên backend .NET
+      const formData = new FormData();
+      formData.append("image1", blob, "design.png");
+      formData.append("prompt", "Combine the person and the tote bag into a realistic photo where the person is wearing the tote bag naturally on the shoulder.");
+
+      const response = await fetch("/api/aiedit/multi-image-edit", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+      setCanvasDataUrl("data:image/png;base64," + result.imageBase64);
       setShowGeminiModal(true);
     } catch (error) {
-      console.error('Error preparing Gemini preview:', error);
-      alert('Failed to prepare design for AI preview');
+      console.error("AI Try-On failed:", error);
+      alert("AI Try-On thất bại.");
     } finally {
       setIsLoading(false);
     }
-  }, [design]);
+  };
 
-  // Handle Gemini preview selection
-  const handleGeminiPreviewSelected = useCallback((selectedPreview: {
-    type: 'original' | 'cartoon' | 'cutout';
-    url: string;
-  }) => {
-    console.log('✨ Gemini preview selected:', selectedPreview.type);
-    showSuccessToast(`AI Preview Applied: ${selectedPreview.type}`);
-    
-    // Optionally update design with selected preview URL
-    if (design) {
-      const updatedDesign: CustomDesign = {
-        ...design,
-        metadata: {
-          version: design.metadata?.version || '1.0',
-          createdAt: design.metadata?.createdAt || new Date(),
-          updatedAt: new Date(),
-          totalElements: design.elements.length,
-          geminiPreviewType: selectedPreview.type,
-          geminiPreviewUrl: selectedPreview.url
-        } as any
-      };
-      setDesign(updatedDesign);
+  // Add handleTryOnSubmit function
+  const handleTryOnSubmit = async (userImage: File) => {
+    try {
+      setShowTryOnModal(false);
+      setIsLoading(true);
+
+      // 1️⃣ Lấy ảnh canvas (sản phẩm)
+      const stage = (window as any).Konva?.stages?.[0];
+      if (!stage) throw new Error("Canvas not found");
+      const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+      const canvasBlob = await (await fetch(dataUrl)).blob();
+
+      // 2️⃣ Gửi ảnh người + sản phẩm lên backend
+      const formData = new FormData();
+      formData.append("image1", userImage); // ảnh người
+      formData.append("image2", canvasBlob, "design.png"); // ảnh sản phẩm
+      formData.append(
+        "prompt",
+        "Combine the person and the designed product into a realistic photo where the person is wearing or holding the product naturally."
+      );
+
+      const res = await fetch("http://localhost:7146/api/aiedit/multi-image-edit", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("AI service error");
+      const data = await res.json();
+
+      // 3️⃣ Hiển thị ảnh kết quả
+      setCanvasDataUrl("data:image/png;base64," + data.imageBase64);
+      setShowGeminiModal(true);
+    } catch (err) {
+      console.error("❌ AI Try-On failed:", err);
+      alert("AI Try-On thất bại. Vui lòng thử lại.");
+    } finally {
+      setIsLoading(false);
     }
-  }, [design, showSuccessToast]);
+  };
 
   // Check Gemini health on mount
   useEffect(() => {
@@ -285,53 +320,6 @@ const CustomProductDesigner: React.FC = () => {
     };
     checkHealth();
   }, []);
-
-  // 💾 Save design as JSON
-  const handleSaveJSON = useCallback(() => {
-    if (design) {
-      const dataStr = JSON.stringify(design, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `custom-design-${selectedProduct?.name || 'product'}-${Date.now()}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }
-  }, [design, selectedProduct]);
-
-  // 💾 Enhanced save design to backend with better UX
-  const handleSaveDesign = useCallback(async () => {
-    if (!design) {
-      showSuccessToast('⚠️ No design to save');
-      return;
-    }
-
-    try {
-      setSaveStatus('saving');
-      setIsAutoSaving(true);
-      
-      // Generate preview URL (you can implement canvas screenshot here)
-      const previewUrl = ''; // TODO: Implement canvas to image conversion
-      
-      const designId = await CustomProductService.saveCustomDesign(design, previewUrl);
-      
-      setLastSaved(new Date());
-      setSaveStatus('saved');
-      showSuccessToast('✅ Design saved successfully!');
-      
-      console.log('Design saved with ID:', designId);
-    } catch (error) {
-      console.error('Save failed:', error);
-      setSaveStatus('error');
-      showSuccessToast('❌ Failed to save design');
-    } finally {
-      setIsAutoSaving(false);
-      setTimeout(() => setSaveStatus('idle'), 2000);
-    }
-  }, [design, showSuccessToast]);
 
   // 🛒 Enhanced add to cart with better feedback
   const handleAddToCart = useCallback(() => {
@@ -348,7 +336,7 @@ const CustomProductDesigner: React.FC = () => {
     setIsLoading(true);
 
     // If product has price, add to cart directly
-    if (selectedProduct.price > 0) {
+    if (selectedProduct?.price !== undefined && selectedProduct.price > 0) {
       // TODO: Integrate with your cart system
       console.log('Adding to cart:', {
         productId: selectedProduct.id,
@@ -396,7 +384,7 @@ const CustomProductDesigner: React.FC = () => {
       }
     } catch (error) {
       console.error('Upload failed:', error);
-      showSuccessToast('❌ Upload failed: ' + (error as Error).message);
+      //showSuccessToast('❌ Upload failed: ' + (error as Error).message);
     } finally {
       setUploadProgress(0);
     }
@@ -551,6 +539,19 @@ const CustomProductDesigner: React.FC = () => {
     };
   }, [design, handleDesignChange, handleExportPNG]);
 
+  // Define handleSaveDesign function
+  const handleSaveDesign = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      // Logic to save the design
+      console.log("Saving design...");
+    } catch (error) {
+      console.error("Error saving design:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       {/* Fixed Header */}
@@ -592,32 +593,34 @@ const CustomProductDesigner: React.FC = () => {
             </div>
             
             {/* Enhanced Quick Stats with Icons */}
-            {selectedProduct && (
-              <div className="flex sm:hidden lg:flex items-center justify-around sm:justify-center sm:space-x-6 lg:space-x-8 text-sm bg-white/10 rounded-xl p-3 sm:bg-transparent sm:p-0">
-                <div className="text-center flex items-center space-x-2 lg:block lg:space-x-0">
-                  <Squares2X2Icon className="w-5 h-5 lg:hidden" />
-                  <div>
-                    <div className="text-xl sm:text-2xl font-bold">{design?.elements.length || 0}</div>
-                    <div className="text-green-200 text-xs sm:text-sm">Elements</div>
-                  </div>
-                </div>
-                <div className="text-center flex items-center space-x-2 lg:block lg:space-x-0">
-                  <ChartBarIcon className="w-5 h-5 lg:hidden" />
-                  <div>
-                    <div className="text-xl sm:text-2xl font-bold">Ready</div>
-                    <div className="text-green-200 text-xs sm:text-sm">Status</div>
-                  </div>
-                </div>
-              </div>
-            )}
+            {/* {selectedProduct && (
+              // <div className="flex sm:hidden lg:flex items-center justify-around sm:justify-center sm:space-x-6 lg:space-x-8 text-sm bg-white/10 rounded-xl p-3 sm:bg-transparent sm:p-0">
+              //   <div className="text-center flex items-center space-x-2 lg:block lg:space-x-0">
+              //     <Squares2X2Icon className="w-5 h-5 lg:hidden" />
+              //     <div>
+              //       <div className="text-xl sm:text-2xl font-bold">{design?.elements.length || 0}</div>
+              //       <div className="text-green-200 text-xs sm:text-sm">Elements</div>
+              //     </div>
+              //   </div>
+              //   <div className="text-center flex items-center space-x-2 lg:block lg:space-x-0">
+              //     <ChartBarIcon className="w-5 h-5 lg:hidden" />
+              //     <div>
+              //       <div className="text-xl sm:text-2xl font-bold">Ready</div>
+              //       <div className="text-green-200 text-xs sm:text-sm">Status</div>
+              //     </div>
+              //   </div>
+              // </div>
+            )} */}
           </div>
         </div>
       </div>
 
       {/* Enhanced Main Design Workspace - Mobile-First */}
-      <div className="max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-8">
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr_320px] lg:grid-cols-[280px_1fr_280px] gap-2 sm:gap-4 lg:gap-6 min-h-[calc(100vh-200px)] sm:min-h-[calc(100vh-240px)]">
-          
+      {/* <div className="max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-4 lg:py-8">
+        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr_320px] lg:grid-cols-[280px_1fr_280px] gap-2 sm:gap-4 lg:gap-6 min-h-[calc(100vh-200px)] sm:min-h-[calc(100vh-240px)]"> */}
+          <div className="max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 py-0">
+  <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr_320px] lg:grid-cols-[280px_1fr_280px] gap-0 sm:gap-2 lg:gap-3 min-h-[calc(100vh-160px)]">
+
           {/* Left Panel - Enhanced Product Selection */}
           <div className="order-1 xl:order-1 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
             <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200 p-3 sm:p-4">
@@ -760,25 +763,14 @@ const CustomProductDesigner: React.FC = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
                   {/* Gemini AI Preview Button */}
                   <button
-                    onClick={handleGenerateGeminiPreview}
-                    disabled={!design || design.elements.length === 0 || !geminiHealthy}
-                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-2 shadow-sm hover:shadow-md text-sm sm:text-base"
-                    title={geminiHealthy ? 'Generate AI preview with Gemini 2.0' : 'AI service unavailable'}
+                    onClick={() => setShowTryOnModal(true)}
+                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 flex items-center justify-center space-x-2"
+                    title={geminiHealthy ? 'Generate AI preview ' : 'AI service unavailable'}
                   >
                     <SparklesIcon className="w-4 h-4" />
-                    <span className="hidden sm:inline">AI Preview</span>
-                    <span className="sm:hidden">AI</span>
+                    <span>Phòng thay đồ AI</span>
                   </button>
 
-                  <button
-                    onClick={handleSaveDesign}
-                    disabled={!design || design.elements.length === 0}
-                    className="px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-2 shadow-sm hover:shadow-md text-sm sm:text-base"
-                  >
-                    <ArchiveBoxIcon className="w-4 h-4" />
-                    <span>Save Design</span>
-                  </button>
-                  
                   <button
                     onClick={handleAddToCart}
                     disabled={!selectedProduct || !design || design.elements.length === 0 || isLoading}
@@ -809,8 +801,12 @@ const CustomProductDesigner: React.FC = () => {
           </div>
 
           {/* Right Panel - Enhanced Design Tools */}
-          <div className="order-2 xl:order-3 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-3 sm:p-4">
+          {/* <div className="order-2 xl:order-3 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-3 sm:p-4"> */}
+
+            <div className="order-2 xl:order-3 bg-white border-l border-gray-200 flex flex-col h-full">
+  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-3 sm:p-3">
+
               <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
                 <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
                   <PaintBrushIcon className="w-4 h-4 text-white" />
@@ -819,7 +815,9 @@ const CustomProductDesigner: React.FC = () => {
                 <span className="sm:hidden">Tools</span>
               </h2>
             </div>
-            <div className="h-[300px] sm:h-[400px] lg:h-[calc(100vh-320px)] overflow-y-auto">
+            {/* <div className="h-[300px] sm:h-[400px] lg:h-[calc(100vh-320px)] overflow-y-auto"> */}
+            <div className="flex-1 overflow-y-auto">
+
               <ToolsPanel
                 selectedProduct={selectedProduct}
                 selectedColorCode={selectedColorCode}
@@ -848,11 +846,28 @@ const CustomProductDesigner: React.FC = () => {
 
       {/* Gemini AI Preview Modal */}
       {showGeminiModal && (
-        <GeminiPreviewModal
-          isOpen={showGeminiModal}
-          onClose={() => setShowGeminiModal(false)}
-          canvasDataUrl={canvasDataUrl}
-          onPreviewSelected={handleGeminiPreviewSelected}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-2xl shadow-lg text-center max-w-2xl mx-auto">
+            <h2 className="text-xl font-semibold mb-4 text-gray-800">Kết quả AI Try-On</h2>
+            <img src={canvasDataUrl} alt="AI result" className="rounded-lg shadow-md mx-auto" />
+            <button
+              onClick={() => setShowGeminiModal(false)}
+              className="mt-4 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* AI Try-On Modal */}
+      {showTryOnModal && (
+        <AiTryOnModal
+          isOpen={showTryOnModal}
+          onClose={() => setShowTryOnModal(false)}
+          onSubmit={handleTryOnSubmit}
+          // 👇 preview ảnh sản phẩm từ canvas
+          previewImageUrl={(window as any).Konva?.stages?.[0]?.toDataURL?.({ pixelRatio: 1 })}
         />
       )}
 
