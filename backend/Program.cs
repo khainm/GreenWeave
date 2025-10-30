@@ -433,11 +433,15 @@ builder.Services.AddCors(options =>
             else
             {
                 // Production: Only allow production domain
-                policyBuilder.WithOrigins("https://greenweave.vn",
-                  "https://www.greenweave.vn")
-                       .AllowAnyHeader()
-                       .AllowAnyMethod()
-                       .AllowCredentials();
+                policyBuilder.WithOrigins(
+                    "https://greenweave.vn",
+                    "https://www.greenweave.vn",
+                    "http://greenweave.vn",
+                    "http://www.greenweave.vn"
+                )
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials();
             }
         });
 });
