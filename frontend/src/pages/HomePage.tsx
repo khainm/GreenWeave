@@ -21,7 +21,7 @@ const HomePage: React.FC = () => {
       <SustainabilityIntro />
       {/* <ScrollToTopButton /> */}
       <GreenChoiceSection />
-      <FeaturedProducts />
+      {/* <FeaturedProducts /> */}
       <AboutStorySection />
       <CallToActionSection />
       <Footer />

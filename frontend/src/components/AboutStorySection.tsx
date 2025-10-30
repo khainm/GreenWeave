@@ -1,11 +1,14 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AboutStorySection: React.FC = () => {
+  const navigate = useNavigate(); // ✅ phải khởi tạo hook trước khi dùng
+
   return (
     <section className="w-full bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          {/* Left: content */}
+          {/* LEFT CONTENT */}
           <div>
             <h3 className="text-center lg:text-left text-3xl md:text-4xl font-semibold text-gray-900">
               Câu Chuyện GreenWeave
@@ -32,15 +35,18 @@ const AboutStorySection: React.FC = () => {
             </ul>
 
             <div className="mt-8 flex justify-center lg:justify-start">
-              <button className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors">
+              <button
+                onClick={() => navigate('/about')} // ✅ chuyển trang bằng React Router
+                className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors shadow-md hover:shadow-lg"
+              >
                 Tìm Hiểu Thêm
               </button>
             </div>
           </div>
 
-          {/* Right: image */}
+          {/* RIGHT IMAGE */}
           <div className="flex justify-center lg:justify-end">
-            <div className="rounded-2xl overflow-hidden shadow-sm">
+            <div className="rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300">
               <img
                 className="w-full max-w-xl object-cover"
                 src="https://res.cloudinary.com/djatlz4as/image/upload/v1758028301/IMG_4173_fvemza.jpg"
@@ -55,5 +61,3 @@ const AboutStorySection: React.FC = () => {
 };
 
 export default AboutStorySection;
-
-

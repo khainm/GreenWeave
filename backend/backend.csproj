@@ -13,6 +13,8 @@
   <ItemGroup>
     <PackageReference Include="CloudinaryDotNet" Version="1.27.7" />
     <PackageReference Include="DinkToPdf" Version="1.0.8" />
+    <PackageReference Include="Google.Apis" Version="1.72.0" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.72.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.8" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.8" />
@@ -21,9 +23,13 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="payOS" Version="1.0.9" />
+    <PackageReference Include="Replicate" Version="0.1.6" />
     <PackageReference Include="SendGrid" Version="9.29.3" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.11" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="9.0.4" />
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
+    <PackageReference Include="System.Text.Json" Version="8.0.6" />
+    <PackageReference Include="Google.Cloud.AIPlatform.V1" Version="3.53.0" />
   </ItemGroup>
   <ItemGroup>
     <None Remove="publish\Microsoft.Win32.SystemEvents.dll" />
@@ -73,6 +79,31 @@
     <None Remove="publish\Swashbuckle.AspNetCore.Swagger.dll" />
     <None Remove="publish\System.Drawing.Common.dll" />
     <None Remove="publish\Microsoft.Bcl.AsyncInterfaces.dll" />
+    <None Remove="publish\createdump" />
+    <None Remove="publish\Microsoft.Extensions.WebEncoders.dll" />
+    <None Remove="publish\libSystem.Native.so" />
+    <None Remove="publish\Microsoft.Net.Http.Headers.dll" />
+    <None Remove="publish\Microsoft.Extensions.Logging.dll" />
+    <None Remove="publish\Microsoft.Extensions.Options.ConfigurationExtensions.dll" />
+    <None Remove="publish\System.Security.Cryptography.Xml.dll" />
+    <None Remove="publish\System.Security.Cryptography.Pkcs.dll" />
+    <None Remove="publish\Microsoft.Extensions.Primitives.dll" />
+    <None Remove="publish\libhostfxr.so" />
+    <None Remove="publish\Microsoft.Extensions.Options.dll" />
+    <None Remove="publish\libSystem.IO.Compression.Native.so" />
+    <None Remove="publish\System.Threading.RateLimiting.dll" />
+    <None Remove="publish\libcoreclr.so" />
+    <None Remove="publish\libclrgc.so" />
+    <None Remove="publish\System.IO.Pipelines.dll" />
+    <None Remove="publish\Microsoft.JSInterop.dll" />
+    <None Remove="publish\Microsoft.Extensions.Options.DataAnnotations.dll" />
+    <None Remove="publish\System.Diagnostics.EventLog.dll" />
+    <None Remove="publish\DinkToPdf.dll" />
+    <None Remove="publish\libSystem.Globalization.Native.so" />
+    <None Remove="publish\libSystem.Net.Security.Native.so" />
+    <None Remove="publish\wwwroot\favicon.ico" />
+    <None Remove="publish\wwwroot\.gitkeep" />
+    <None Remove="publish\wwwroot\lib\libwkhtmltox.dylib" />
   </ItemGroup>
   <ItemGroup>
     <Content Remove="publish\backend.runtimeconfig.json" />

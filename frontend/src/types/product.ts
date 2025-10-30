@@ -19,6 +19,11 @@ export interface ProductSticker {
   sortOrder: number
 }
 
+export interface ProductVariant {
+  colorName: string
+  colorHex: string
+}
+
 export interface Product {
   id: number
   name: string
@@ -41,6 +46,10 @@ export interface Product {
   images: ProductImage[]
   colors: ProductColor[]
   stickers?: ProductSticker[]
+  // New fields
+  isFeatured?: boolean
+  salePrice?: number
+  variants?: ProductVariant[]
 }
 
 export interface CreateProductRequest {

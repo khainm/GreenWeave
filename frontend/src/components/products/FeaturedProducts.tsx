@@ -1,31 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import FeaturedProductCard from './FeaturedProductCard';
-
-interface Product {
-  id: number;
-  name: string;
-  sku: string;
-  price: number;
-  salePrice?: number;
-  stock: number;
-  category: string;
-  description?: string;
-  images: { id: number; imageUrl: string; displayOrder: number }[];
-  variants: { id: number; colorName: string; colorHex: string; stock: number }[];
-  isActive: boolean;
-  isFeatured: boolean;
-}
-
-interface FeaturedProductProps {
-  image: string;
-  title: string;
-  price: string;
-  colors: { name: string; hex: string }[];
-  badge?: string;
-}
+import ProductService from '../../services/productService';
+import type { Product } from '../../types/product';
 
 const FeaturedProducts: React.FC = () => {
-  const [products, setProducts] = useState<FeaturedProductProps[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,92 +15,12 @@ const FeaturedProducts: React.FC = () => {
   const fetchFeaturedProducts = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/products?page=1&pageSize=4');
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
-      }
-
-      const result = await response.json();
-      const data: Product[] = result.data || [];
-      
-      // Transform API data to component props format
-      const transformedProducts: FeaturedProductProps[] = data.map(product => ({
-        image: product.images.length > 0 
-          ? product.images.sort((a, b) => a.displayOrder - b.displayOrder)[0].imageUrl
-          : 'https://images.unsplash.com/photo-1516478177764-9fe5bd7e9717?q=80&w=1400&auto=format&fit=crop',
-        title: product.name,
-        price: product.salePrice 
-          ? `${product.salePrice.toLocaleString('vi-VN')}₫`
-          : `${product.price.toLocaleString('vi-VN')}₫`,
-        colors: product.variants && product.variants.length > 0 
-          ? product.variants.map(variant => ({
-              name: variant.colorName,
-              hex: variant.colorHex
-            }))
-          : [
-              { name: 'Vàng', hex: '#ffd700' },
-              { name: 'Xanh Bích', hex: '#40e0d0' },
-              { name: 'Đỏ', hex: '#dc2626' },
-              { name: 'Xanh Đen', hex: '#1e3a8a' },
-            ],
-        badge: product.salePrice ? `GIẢM GIÁ ${Math.round((1 - product.salePrice/product.price) * 100)}%` : undefined
-      }));
-
-      setProducts(transformedProducts);
+      const allProducts = await ProductService.getAllProducts();
+      const featuredProducts = allProducts.filter(product => product.isFeatured).slice(0, 4);
+      setProducts(featuredProducts);
     } catch (err) {
       console.error('Error fetching featured products:', err);
       setError('Không thể tải sản phẩm nổi bật');
-      
-      // Fallback to sample data if API fails
-      setProducts([
-        {
-          image: 'https://images.unsplash.com/photo-1516478177764-9fe5bd7e9717?q=80&w=1400&auto=format&fit=crop',
-          title: 'Túi Tote Cơ Bản',
-          price: '159,000₫',
-          colors: [
-            { name: 'Xanh Lá', hex: '#0ea66c' },
-            { name: 'Kem', hex: '#ede9d5' },
-            { name: 'Nâu', hex: '#7c3f1d' },
-            { name: 'Đen', hex: '#0a0a0a' },
-          ],
-        },
-        {
-          image: 'https://images.unsplash.com/photo-1520975624745-4f7a4f35e979?q=80&w=1400&auto=format&fit=crop',
-          title: 'Túi Tote Premium',
-          price: '299,000₫',
-          colors: [
-            { name: 'Trắng', hex: '#ffffff' },
-            { name: 'Kem', hex: '#ede9d5' },
-            { name: 'Nâu', hex: '#7c3f1d' },
-            { name: 'Đen', hex: '#0a0a0a' },
-          ],
-          badge: 'BÁN CHẠY',
-        },
-        {
-          image: 'https://images.unsplash.com/photo-1491555103944-7c647fd857e6?q=80&w=1400&auto=format&fit=crop',
-          title: 'Túi Tote Deluxe',
-          price: '479,000₫',
-          colors: [
-            { name: 'Vàng', hex: '#ffd700' },
-            { name: 'Xanh Bích', hex: '#40e0d0' },
-            { name: 'Đỏ', hex: '#dc2626' },
-            { name: 'Xanh Đen', hex: '#1e3a8a' },
-          ],
-        },
-        {
-          image: 'https://images.unsplash.com/photo-1511988617509-a57c8a288659?q=80&w=1400&auto=format&fit=crop',
-          title: 'Túi Tote Đặc Biệt',
-          price: '259,000₫',
-          colors: [
-            { name: 'Vàng', hex: '#ffd700' },
-            { name: 'Xanh Bích', hex: '#40e0d0' },
-            { name: 'Đỏ', hex: '#dc2626' },
-            { name: 'Xanh Đen', hex: '#1e3a8a' },
-          ],
-          badge: 'MỚI',
-        },
-      ]);
     } finally {
       setLoading(false);
     }
@@ -132,9 +31,8 @@ const FeaturedProducts: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-6 flex flex-col items-center">
           <h3 className="text-2xl md:text-3xl font-semibold text-gray-900 text-center">Sản phẩm nổi bật</h3>
-          {/* <a href="#" className="mt-2 text-green-700 hover:text-green-800 font-medium">Xem tất cả</a> */}
         </div>
-        
+
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[...Array(4)].map((_, idx) => (
@@ -158,7 +56,7 @@ const FeaturedProducts: React.FC = () => {
               </svg>
             </div>
             <p className="text-gray-600 mb-4">{error}</p>
-            <button 
+            <button
               onClick={fetchFeaturedProducts}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors"
             >
@@ -167,8 +65,15 @@ const FeaturedProducts: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((p, idx) => (
-              <FeaturedProductCard key={idx} {...p} />
+            {products.map(product => (
+              <FeaturedProductCard
+                key={product.id}
+                image={product.images.length > 0 ? product.images[0].imageUrl : ''}
+                title={product.name}
+                price={product.price ? `${(product.salePrice || product.price).toLocaleString('vi-VN')}₫` : 'Liên hệ'}
+                colors={product.variants?.map(variant => ({ name: variant.colorName, hex: variant.colorHex })) || []}
+                badge={product.salePrice && product.price ? `GIẢM GIÁ ${Math.round((1 - product.salePrice / product.price) * 100)}%` : undefined}
+              />
             ))}
           </div>
         )}

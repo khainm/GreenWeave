@@ -52,6 +52,18 @@
               "target": "Package",
               "version": "[1.0.8, )"
             },
+            "Google.Apis": {
+              "target": "Package",
+              "version": "[1.72.0, )"
+            },
+            "Google.Apis.Auth": {
+              "target": "Package",
+              "version": "[1.72.0, )"
+            },
+            "Google.Cloud.AIPlatform.V1": {
+              "target": "Package",
+              "version": "[3.53.0, )"
+            },
             "Microsoft.AspNetCore.Authentication.JwtBearer": {
               "target": "Package",
               "version": "[8.0.8, )"
@@ -70,9 +82,17 @@
               "target": "Package",
               "version": "[8.0.8, )"
             },
+            "Replicate": {
+              "target": "Package",
+              "version": "[0.1.6, )"
+            },
             "SendGrid": {
               "target": "Package",
               "version": "[9.29.3, )"
+            },
+            "SixLabors.ImageSharp": {
+              "target": "Package",
+              "version": "[3.1.11, )"
             },
             "Swashbuckle.AspNetCore": {
               "target": "Package",
@@ -81,6 +101,10 @@
             "System.IdentityModel.Tokens.Jwt": {
               "target": "Package",
               "version": "[8.0.2, )"
+            },
+            "System.Text.Json": {
+              "target": "Package",
+              "version": "[8.0.6, )"
             },
             "payOS": {
               "target": "Package",
@@ -98,20 +122,6 @@
           ],
           "assetTargetFallback": true,
           "warn": true,
-          "downloadDependencies": [
-            {
-              "name": "Microsoft.AspNetCore.App.Runtime.linux-x64",
-              "version": "[8.0.20, 8.0.20]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Host.linux-x64",
-              "version": "[8.0.20, 8.0.20]"
-            },
-            {
-              "name": "Microsoft.NETCore.App.Runtime.linux-x64",
-              "version": "[8.0.20, 8.0.20]"
-            }
-          ],
           "frameworkReferences": {
             "Microsoft.AspNetCore.App": {
               "privateAssets": "none"
@@ -121,11 +131,6 @@
             }
           },
           "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/8.0.414/PortableRuntimeIdentifierGraph.json"
-        }
-      },
-      "runtimes": {
-        "linux-x64": {
-          "#import": []
         }
       }
     }

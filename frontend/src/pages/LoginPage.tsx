@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon } from '@heroicons/react/24/outline';
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  EnvelopeIcon,
+  LockClosedIcon,
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 import ResendVerificationEmail from '../components/ResendVerificationEmail';
 
@@ -8,7 +14,7 @@ const LoginPage: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    rememberMe: false
+    rememberMe: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
@@ -20,42 +26,32 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if already authenticated
+  // Redirect after login
   useEffect(() => {
     if (isAuthenticated && user) {
-      // Check if user is admin and redirect accordingly
       const isAdmin = user.roles?.includes('Admin') || false;
-      
       if (isAdmin) {
-        // Redirect admin users to admin dashboard
         navigate('/admin', { replace: true });
       } else {
-        // Redirect regular users to their intended destination or home
         const from = (location.state as any)?.from?.pathname || '/';
         navigate(from, { replace: true });
       }
     }
   }, [isAuthenticated, user, navigate, location]);
 
-  // Check for message from email verification
+  // Message from verification page
   useEffect(() => {
     const state = location.state as any;
-    if (state?.message) {
-      setMessage(state.message);
-    }
+    if (state?.message) setMessage(state.message);
   }, [location.state]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : value,
     }));
-    
-    // Clear errors when user starts typing
-    if (errors.length > 0) {
-      setErrors([]);
-    }
+    if (errors.length > 0) setErrors([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -65,255 +61,175 @@ const LoginPage: React.FC = () => {
 
     try {
       const response = await login(formData.email, formData.password, formData.rememberMe);
-      
       if (response.success) {
-        // Check if user is admin and redirect accordingly
         const isAdmin = response.user?.roles?.includes('Admin') || false;
-        
-        if (isAdmin) {
-          // Redirect admin users to admin dashboard
-          navigate('/admin', { replace: true });
-        } else {
-          // Redirect regular users to their intended destination or home
-          const from = (location.state as any)?.from?.pathname || '/';
-          navigate(from, { replace: true });
-        }
+        navigate(isAdmin ? '/admin' : '/', { replace: true });
       } else {
         setErrors(response.errors || [response.message]);
-        
-        // Show resend verification option if error is about email verification
-        const isEmailVerificationError = response.message?.includes('Email chưa được xác thực') || 
-                                        response.errors?.some(error => error.includes('xác thực')) || false;
+        const isEmailVerificationError =
+          response.message?.includes('xác thực') ||
+          response.errors?.some(e => e.includes('xác thực')) ||
+          false;
         setShowResendVerification(isEmailVerificationError);
       }
     } catch (error: any) {
-      console.error('Login page error:', error);
-      
-      // Extract specific error details
-      let errorMessages: string[] = ['Có lỗi xảy ra khi đăng nhập'];
-      
-      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
-        errorMessages = error.response.data.errors;
-      } else if (error.response?.data?.message) {
-        errorMessages = [error.response.data.message];
-      } else if (error.message) {
-        errorMessages = [error.message];
-      }
-      
-      setErrors(errorMessages);
+      console.error('Login error:', error);
+      setErrors(['Đã xảy ra lỗi khi đăng nhập.']);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="flex justify-center">
-            <img 
-              src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png" 
-              alt="GreenWeave" 
-              className="h-32 w-auto"
-            />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+
+      {/* 🌄 Full background image */}
+      <div className="absolute inset-0">
+        <img
+          src="https://res.cloudinary.com/djatlz4as/image/upload/v1761800899/BackgroundRegister_z2i3pn.jpg"
+          alt="Background"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      </div>
+
+      {/* 🔙 Back to Home Button */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-6 left-6 flex items-center gap-2 text-gray-800 bg-white/70 backdrop-blur-md px-4 py-2 rounded-full shadow-md hover:bg-white/90 hover:shadow-lg transition-all duration-200 z-20"
+      >
+        <ArrowLeftIcon className="w-5 h-5" />
+        <span className="text-sm font-medium">Quay lại Trang chủ</span>
+      </button>
+
+      {/* 🧊 Glass Form */}
+      <div className="relative z-10 flex flex-col md:flex-row items-center justify-center w-full max-w-6xl px-6 md:px-10">
+
+        {/* LEFT FORM */}
+        <div className="w-full md:w-1/2 bg-white/70 backdrop-blur-2xl border border-white/40 rounded-3xl shadow-2xl p-8 sm:p-10 space-y-8 transition-all duration-300">
+          <div className="text-center">
+            <h2 className="text-4xl font-extrabold text-green-700 drop-shadow-sm">Chào mừng trở lại!</h2>
+            <p className="mt-1 text-gray-600">
+              Đăng nhập để tiếp tục cùng <span className="font-semibold text-green-600">Greenweave</span>
+            </p>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Đăng nhập
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Chào mừng bạn quay trở lại với GreenWeave
-          </p>
-        </div>
 
-        {/* Form */}
-        <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
+          {/* Message */}
+          {message && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+              {message}
+            </div>
+          )}
+
+          {/* Errors */}
+          {errors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <ul className="list-disc list-inside text-sm text-red-700 space-y-1">
+                {errors.map((error, i) => (
+                  <li key={i}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {showResendVerification && (
+            <ResendVerificationEmail
+              email={formData.email}
+              onSuccess={(msg) => {
+                setMessage(msg);
+                setShowResendVerification(false);
+              }}
+              onError={(err) => setErrors([err])}
+            />
+          )}
+
+          {/* FORM */}
           <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Success Message */}
-            {message && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">
-                      Thông báo
-                    </h3>
-                    <div className="mt-2 text-sm text-green-700">
-                      <p>{message}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Error Messages */}
-            {errors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">
-                      Đăng nhập thất bại
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700">
-                      <ul className="list-disc list-inside space-y-1">
-                        {errors.map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Resend Verification Email Component */}
-            {showResendVerification && (
-              <ResendVerificationEmail 
-                email={formData.email}
-                onSuccess={(message) => {
-                  setMessage(message);
-                  setShowResendVerification(false);
-                }}
-                onError={(error) => {
-                  setErrors([error]);
-                }}
-              />
-            )}
-
-            {/* Email Field */}
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <EnvelopeIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="email"
-                  name="email"
                   type="email"
-                  autoComplete="email"
-                  required
+                  name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  required
                   placeholder="Nhập email của bạn"
+                  className="w-full pl-10 pr-3 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mật khẩu
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mật khẩu *</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <LockClosedIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="password"
-                  name="password"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  required
+                  name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  required
                   placeholder="Nhập mật khẩu"
+                  className="w-full pl-10 pr-12 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
+                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
             {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center space-x-2 text-gray-700">
                 <input
-                  id="rememberMe"
-                  name="rememberMe"
                   type="checkbox"
+                  name="rememberMe"
                   checked={formData.rememberMe}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                 />
-                <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
-                  Ghi nhớ đăng nhập
-                </label>
-              </div>
-              <div className="text-sm">
-                <Link to="/forgot-password" className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200">
-                  Quên mật khẩu?
-                </Link>
-              </div>
+                <span>Lưu mật khẩu</span>
+              </label>
+              <Link to="/forgot-password" className="text-green-600 hover:text-green-500 font-medium">
+                Quên mật khẩu?
+              </Link>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
+              className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Đang đăng nhập...
-                </div>
-              ) : (
-                'Đăng nhập'
-              )}
+              {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
             </button>
-          </form>
 
-          {/* Sign Up Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Chưa có tài khoản?{' '}
-              <Link 
-                to="/register" 
-                className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200"
-              >
+            {/* Register link */}
+            <p className="text-center text-sm text-gray-700">
+              Bạn chưa có tài khoản?{' '}
+              <Link to="/register" className="font-medium text-green-600 hover:text-green-500">
                 Đăng ký ngay
               </Link>
             </p>
-          </div>
+          </form>
         </div>
 
-        {/* Additional Info */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            Bằng việc đăng nhập, bạn đồng ý với{' '}
-            <Link to="/terms" className="text-green-600 hover:text-green-500">
-              Điều khoản sử dụng
-            </Link>{' '}
-            và{' '}
-            <Link to="/privacy" className="text-green-600 hover:text-green-500">
-              Chính sách bảo mật
-            </Link>
-          </p>
+        {/* RIGHT SIDE - LOGO */}
+        <div className="hidden md:flex w-1/2 items-center justify-center relative">
+          <div className="absolute w-80 h-80 bg-white/40 blur-3xl rounded-full animate-pulse" />
+          <img
+            src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png"
+            alt="Greenweave"
+            className="relative w-72 opacity-95 drop-shadow-xl"
+          />
         </div>
       </div>
     </div>

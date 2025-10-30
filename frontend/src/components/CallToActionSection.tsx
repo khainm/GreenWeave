@@ -1,6 +1,7 @@
 import React from 'react';
-
+import { useNavigate } from 'react-router-dom';
 const CallToActionSection: React.FC = () => {
+  const navigate = useNavigate(); 
   return (
     <section className="w-full" style={{ backgroundColor: '#0a4b3e' }}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -13,6 +14,7 @@ const CallToActionSection: React.FC = () => {
             Tham gia cộng đồng thời trang bền vững và nhận ưu đãi đặc biệt
           </p>
           <button 
+           onClick={() => navigate('/products')}
             className="px-8 py-4 rounded-xl text-white font-semibold text-lg transition-colors"
             style={{ backgroundColor: '#4caf50' }}
             onMouseEnter={(e) => (e.target as HTMLButtonElement).style.backgroundColor = '#45a049'}

@@ -16,6 +16,9 @@ using backend.DTOs;
 using Net.payOS;
 using DinkToPdf;
 using DinkToPdf.Contracts;
+using backend.Controllers;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,7 +45,6 @@ if (!string.IsNullOrEmpty(payosChecksumKey))
 {
     builder.Configuration["PayOS:ChecksumKey"] = payosChecksumKey;
 }
-
 
 
 // Configure URLs for production (bind to all interfaces)
@@ -303,6 +305,10 @@ builder.Services.AddScoped<ICloudinaryService, CloudinaryService>();
 //builder.Services.AddScoped<IGeminiPreviewService, GeminiPreviewService>();
 //builder.Services.AddHttpClient<GeminiPreviewService>(); // For HTTP calls to Gemini API
 builder.Services.AddHttpClient<AiEditController>();
+
+
+
+
 
 builder.Services.AddScoped<ICategoryRepository, CategoryRepository>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();

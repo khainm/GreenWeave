@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { EyeIcon, EyeSlashIcon, EnvelopeIcon, LockClosedIcon, UserIcon, PhoneIcon, CalendarIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import {
+  EyeIcon,
+  EyeSlashIcon,
+  EnvelopeIcon,
+  LockClosedIcon,
+  UserIcon,
+  PhoneIcon,
+  CalendarIcon,
+  MapPinIcon,
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline';
 import { useAuth } from '../contexts/AuthContext';
 
 const RegisterPage: React.FC = () => {
@@ -11,7 +21,7 @@ const RegisterPage: React.FC = () => {
     fullName: '',
     phoneNumber: '',
     dateOfBirth: '',
-    address: ''
+    address: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -24,7 +34,6 @@ const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       const from = (location.state as any)?.from?.pathname || '/';
@@ -36,477 +45,248 @@ const RegisterPage: React.FC = () => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
-    
-    // Clear errors when user starts typing
-    if (errors.length > 0) {
-      setErrors([]);
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: string[] = [];
-
-    if (!formData.email) {
-      newErrors.push('Email là bắt buộc');
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.push('Email không hợp lệ');
-    }
-
-    if (!formData.password) {
-      newErrors.push('Mật khẩu là bắt buộc');
-    } else if (formData.password.length < 6) {
-      newErrors.push('Mật khẩu phải có ít nhất 6 ký tự');
-    }
-
-    if (!formData.confirmPassword) {
-      newErrors.push('Xác nhận mật khẩu là bắt buộc');
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.push('Mật khẩu xác nhận không khớp');
-    }
-
-    if (!formData.fullName) {
-      newErrors.push('Họ tên là bắt buộc');
-    }
-
-    if (formData.phoneNumber && !/^[0-9+\-\s()]+$/.test(formData.phoneNumber)) {
-      newErrors.push('Số điện thoại không hợp lệ');
-    }
-
-    setErrors(newErrors);
-    return newErrors.length === 0;
+    if (errors.length > 0) setErrors([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
     setIsLoading(true);
     setErrors([]);
 
     try {
       const response = await register(formData);
-      
       if (response.success) {
-        // Lưu email để có thể resend verification sau này
         localStorage.setItem('pending_verification_email', formData.email);
-        
-        // Hiển thị popup thông báo xác thực email
         setShowSuccessModal(true);
-        setMessage('Đăng ký thành công! Email xác thực đã được gửi đến hộp thư của bạn. Vui lòng kiểm tra email và click vào link xác thực để kích hoạt tài khoản.');
-        setErrors([]);
+        setMessage(
+          'Đăng ký thành công! Email xác thực đã được gửi đến hộp thư của bạn. Vui lòng kiểm tra email và click vào link xác thực để kích hoạt tài khoản.'
+        );
       } else {
         setErrors(response.errors || [response.message]);
       }
     } catch (error: any) {
-      console.error('Register page error:', error);
-      
-      // Extract specific error details
-      let errorMessages: string[] = ['Có lỗi xảy ra khi đăng ký'];
-      
-      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
-        errorMessages = error.response.data.errors;
-      } else if (error.response?.data?.message) {
-        errorMessages = [error.response.data.message];
-      } else if (error.message) {
-        errorMessages = [error.message];
-      }
-      
-      setErrors(errorMessages);
+      setErrors(['Đã xảy ra lỗi khi đăng ký']);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="flex justify-center">
-            <img 
-              src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png" 
-              alt="GreenWeave" 
-              className="h-32 w-auto"
-            />
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden">
+
+      {/* 🌄 FULL BACKGROUND IMAGE */}
+      <div className="absolute inset-0">
+        <img
+          src="https://res.cloudinary.com/djatlz4as/image/upload/v1761800899/BackgroundRegister_z2i3pn.jpg"
+          alt="Background"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
+      </div>
+
+      {/* 🔙 Back to Home Button */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-6 left-6 flex items-center gap-2 text-gray-800 bg-white/70 backdrop-blur-md px-4 py-2 rounded-full shadow-md hover:bg-white/90 hover:shadow-lg transition-all duration-200 z-20"
+      >
+        <ArrowLeftIcon className="w-5 h-5" />
+        <span className="text-sm font-medium">Quay lại Trang chủ</span>
+      </button>
+
+      {/* 💡 Centered Content */}
+      <div className="relative z-10 flex flex-col md:flex-row items-center justify-center w-full max-w-6xl px-6 md:px-10">
+
+        {/* LEFT FORM */}
+        <div className="w-full md:w-1/2 bg-white/70 backdrop-blur-2xl border border-white/40 rounded-3xl shadow-2xl p-8 sm:p-10 space-y-8 transition-all duration-300">
+          <div className="text-center">
+            <h2 className="text-4xl font-extrabold text-green-700 drop-shadow-sm">Tạo tài khoản</h2>
+            <p className="mt-1 text-gray-600">
+              Bắt đầu hành trình cùng{' '}
+              <span className="font-semibold text-green-600">Greenweave</span>!
+            </p>
           </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Đăng ký tài khoản
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Tạo tài khoản để trải nghiệm dịch vụ tốt nhất
-          </p>
-        </div>
 
-        {/* Form */}
-        <div className="bg-white py-8 px-6 shadow-xl rounded-2xl border border-gray-100">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Success Message */}
-            {message && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-green-800">
-                      Đăng ký thành công!
-                    </h3>
-                    <div className="mt-2 text-sm text-green-700">
-                      <p>{message}</p>
-                      <p className="mt-2">
-                        <Link to="/login" className="font-medium text-green-800 hover:text-green-900">
-                          Đăng nhập ngay →
-                        </Link>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Error Messages */}
-            {errors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-red-800">
-                      Đăng ký thất bại
-                    </h3>
-                    <div className="mt-2 text-sm text-red-700">
-                      <ul className="list-disc list-inside space-y-1">
-                        {errors.map((error, index) => (
-                          <li key={index}>{error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Full Name Field */}
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {/* Full Name */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-2">
-                Họ và tên *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Họ và tên *</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <UserIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <UserIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="fullName"
-                  name="fullName"
                   type="text"
-                  autoComplete="name"
-                  required
+                  name="fullName"
                   value={formData.fullName}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  required
                   placeholder="Nhập họ và tên"
+                  className="w-full pl-10 pr-3 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
               </div>
             </div>
 
-            {/* Email Field */}
+            {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <EnvelopeIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="email"
-                  name="email"
                   type="email"
-                  autoComplete="email"
-                  required
+                  name="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  required
                   placeholder="Nhập email của bạn"
+                  className="w-full pl-10 pr-3 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
               </div>
             </div>
 
-            {/* Phone Number Field */}
+            {/* Phone */}
             <div>
-              <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                Số điện thoại
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <PhoneIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <PhoneIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="phoneNumber"
-                  name="phoneNumber"
                   type="tel"
-                  autoComplete="tel"
+                  name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
                   placeholder="Nhập số điện thoại"
+                  className="w-full pl-10 pr-3 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
               </div>
             </div>
 
-            {/* Date of Birth Field */}
+            {/* Date of Birth */}
             <div>
-              <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700 mb-2">
-                Ngày sinh
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Ngày sinh</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <CalendarIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <CalendarIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="dateOfBirth"
-                  name="dateOfBirth"
                   type="date"
+                  name="dateOfBirth"
                   value={formData.dateOfBirth}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  className="w-full pl-10 pr-3 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 text-gray-900"
                 />
               </div>
             </div>
 
-            {/* Address Field */}
+            {/* Address */}
             <div>
-              <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-2">
-                Địa chỉ
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Địa chỉ</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MapPinIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <MapPinIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="address"
-                  name="address"
                   type="text"
-                  autoComplete="address-line1"
+                  name="address"
                   value={formData.address}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
                   placeholder="Nhập địa chỉ"
+                  className="w-full pl-10 pr-3 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mật khẩu *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Mật khẩu *</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <LockClosedIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="password"
-                  name="password"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  required
+                  name="password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  required
                   placeholder="Nhập mật khẩu"
+                  className="w-full pl-10 pr-12 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                 >
-                  {showPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
+                  {showPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            {/* Confirm Password Field */}
+            {/* Confirm Password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Xác nhận mật khẩu *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Xác nhận mật khẩu *</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <LockClosedIcon className="h-5 w-5 text-gray-400" />
-                </div>
+                <LockClosedIcon className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <input
-                  id="confirmPassword"
-                  name="confirmPassword"
                   type={showConfirmPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  required
+                  name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200"
+                  required
                   placeholder="Nhập lại mật khẩu"
+                  className="w-full pl-10 pr-12 py-3 bg-white/80 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 placeholder-gray-500 text-gray-900"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
                 >
-                  {showConfirmPassword ? (
-                    <EyeSlashIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <EyeIcon className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
+                  {showConfirmPassword ? <EyeSlashIcon className="h-5 w-5" /> : <EyeIcon className="h-5 w-5" />}
                 </button>
               </div>
             </div>
 
-            {/* Terms and Conditions */}
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  id="terms"
-                  name="terms"
-                  type="checkbox"
-                  required
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-              </div>
-              <div className="ml-3 text-sm">
-                <label htmlFor="terms" className="text-gray-700">
-                  Tôi đồng ý với{' '}
-                  <Link to="/terms" className="text-green-600 hover:text-green-500 font-medium">
-                    Điều khoản sử dụng
-                  </Link>{' '}
-                  và{' '}
-                  <Link to="/privacy" className="text-green-600 hover:text-green-500 font-medium">
-                    Chính sách bảo mật
-                  </Link>
-                </label>
-              </div>
+            {/* Terms */}
+            <div className="flex items-start space-x-2">
+              <input
+                id="terms"
+                type="checkbox"
+                required
+                className="h-4 w-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
+              />
+              <label htmlFor="terms" className="text-sm text-gray-700">
+                Tôi đồng ý với{' '}
+                <Link to="/terms" className="text-green-600 font-medium hover:text-green-500">
+                  Điều khoản sử dụng
+                </Link>{' '}
+                và{' '}
+                <Link to="/privacy" className="text-green-600 font-medium hover:text-green-500">
+                  Chính sách bảo mật
+                </Link>
+              </label>
             </div>
 
-            {/* Submit Button */}
+            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02]"
+              className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Đang tạo tài khoản...
-                </div>
-              ) : (
-                'Tạo tài khoản'
-              )}
+              {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
             </button>
-          </form>
 
-          {/* Sign In Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
+            {/* Login link */}
+            <p className="text-center text-sm text-gray-700">
               Đã có tài khoản?{' '}
-              <Link 
-                to="/login" 
-                className="font-medium text-green-600 hover:text-green-500 transition-colors duration-200"
-              >
-                Đăng nhập ngay
+              <Link to="/login" className="font-medium text-green-600 hover:text-green-500">
+                Đăng nhập
               </Link>
             </p>
-          </div>
+          </form>
         </div>
 
-        {/* Additional Info */}
-        <div className="text-center">
-          <p className="text-xs text-gray-500">
-            Bằng việc đăng ký, bạn sẽ nhận được mã khách hàng riêng để sử dụng các dịch vụ của GreenWeave
-          </p>
+        {/* RIGHT SIDE - LOGO */}
+        <div className="hidden md:flex w-1/2 items-center justify-center relative">
+          <div className="absolute w-80 h-80 bg-white/40 blur-3xl rounded-full animate-pulse" />
+          <img
+            src="https://res.cloudinary.com/djatlz4as/image/upload/v1758045314/logo-no-background_eol8gb.png"
+            alt="Greenweave"
+            className="relative w-72 opacity-95 drop-shadow-xl"
+          />
         </div>
       </div>
-
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Đăng ký thành công!
-              </h3>
-              
-              <p className="text-gray-600 mb-6">
-                Email xác thực đã được gửi đến <strong>{formData.email}</strong>. 
-                Vui lòng kiểm tra hộp thư và click vào link xác thực để kích hoạt tài khoản.
-              </p>
-              
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-start">
-                  <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">Lưu ý quan trọng:</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>Kiểm tra cả hộp thư spam/junk</li>
-                      <li>Link xác thực có hiệu lực trong 48 giờ</li>
-                      <li>Bạn cần xác thực email trước khi đăng nhập</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="flex flex-col space-y-3">
-                <Link
-                  to="/login"
-                  className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-center"
-                >
-                  Đi đến trang đăng nhập
-                </Link>
-                
-                <button
-                  onClick={() => {
-                    setShowSuccessModal(false);
-                    setFormData({
-                      email: '',
-                      password: '',
-                      confirmPassword: '',
-                      fullName: '',
-                      phoneNumber: '',
-                      dateOfBirth: '',
-                      address: ''
-                    });
-                  }}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
