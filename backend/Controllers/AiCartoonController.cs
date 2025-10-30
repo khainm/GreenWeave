@@ -24,14 +24,24 @@ public class AiCartoonController : ControllerBase
         var credentialContent = Environment.GetEnvironmentVariable("GOOGLE_CREDENTIAL_CONTENT");
         if (string.IsNullOrEmpty(credentialContent))
         {
-            throw new InvalidOperationException("GOOGLE_CREDENTIAL_CONTENT is not set.");
+            _logger.LogError("❌ GOOGLE_CREDENTIAL_CONTENT environment variable is not set!");
+            credentialPath = string.Empty; // Set empty path to handle gracefully
+            return;
         }
 
-        // Fully qualified System.IO.File to avoid ambiguity
-        var tempFilePath = Path.Combine(Path.GetTempPath(), "google-credentials.json");
-        System.IO.File.WriteAllText(tempFilePath, credentialContent);
-
-        credentialPath = tempFilePath;
+        try
+        {
+            // Fully qualified System.IO.File to avoid ambiguity
+            var tempFilePath = Path.Combine(Path.GetTempPath(), "google-credentials.json");
+            System.IO.File.WriteAllText(tempFilePath, credentialContent);
+            credentialPath = tempFilePath;
+            _logger.LogInformation("✅ Google credentials loaded successfully");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Failed to write Google credentials to temp file");
+            credentialPath = string.Empty;
+        }
     }
 
     // ✅ Lấy access token từ service account
@@ -52,6 +62,16 @@ public class AiCartoonController : ControllerBase
     {
         try
         {
+            // Check if credentials are available
+            if (string.IsNullOrEmpty(credentialPath))
+            {
+                _logger.LogError("❌ Google credentials not configured");
+                return StatusCode(503, new { 
+                    error = "AI service is temporarily unavailable", 
+                    details = "Google credentials not configured on server" 
+                });
+            }
+
             if (image == null)
                 return BadRequest(new { error = "Missing input image" });
 
