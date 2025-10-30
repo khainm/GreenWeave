@@ -178,7 +178,7 @@ const CustomProductDesigner: React.FC = () => {
         "Make this product into a cute anime-style cartoon. Soft pastel colors, clean lines, and a cute background."
       );
 
-      const res = await fetch("http://localhost:7146/api/aicartoon/cartoon-preview", { method: "POST", body: formData });
+      const res = await fetch("http://api.greenweave.vn/api/aicartoon/cartoon-preview", { method: "POST", body: formData });
       if (!res.ok) throw new Error("AI Cartoon generation failed");
       const data = await res.json();
       setCanvasDataUrl(`data:image/png;base64,${data.imageBase64}`);
@@ -229,7 +229,7 @@ formData.append("prompt",
   "The final image should look like a real fashion photo taken in studio lighting."
 );
 
-      const resp = await fetch("http://localhost:7146/api/aiedit/multi-image-edit", { method: "POST", body: formData });
+      const resp = await fetch("http://api.greenweave.vn/api/aiedit/multi-image-edit", { method: "POST", body: formData });
       const json = await resp.json();
       if (!resp.ok) {
         console.error("Backend error:", json);
