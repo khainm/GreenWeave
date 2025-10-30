@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.DataProtection;
 using System.Text;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using backend.Data;
 using backend.Models;
 using backend.Services;
@@ -138,6 +140,18 @@ builder.Services.AddControllers()
         // Configure property naming policy to match frontend (camelCase)
         options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
     });
+
+// Allow larger multipart form uploads (e.g. canvas images). Default limits can be small and cause 413 errors.
+// Increase MultipartBodyLengthLimit and Kestrel MaxRequestBodySize to 50 MB.
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 50 * 1024 * 1024; // 50 MB
+});
+
+builder.WebHost.ConfigureKestrel(serverOptions =>
+{
+    serverOptions.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
+});
 
 // Add Swagger/OpenAPI services
 builder.Services.AddEndpointsApiExplorer();

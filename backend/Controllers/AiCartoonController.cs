@@ -58,6 +58,7 @@ public class AiCartoonController : ControllerBase
 
     // 🎨 Cartoon Preview - 1 ảnh đầu vào
     [HttpPost("cartoon-preview")]
+    [DisableRequestSizeLimit]
     public async Task<IActionResult> CartoonPreview([FromForm] IFormFile image)
     {
         try
