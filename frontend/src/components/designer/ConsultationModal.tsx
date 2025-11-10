@@ -9,10 +9,11 @@ import type { ContactInfo, ContactFormErrors } from './types';
 interface ConsultationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (contactInfo: ContactInfo) => Promise<void>;
+  onSubmit: (contactInfo: ContactInfo, selectedImageUrl?: string) => Promise<void>; // ✨ Thêm selectedImageUrl
   isSubmitting: boolean;
   productPreviewUrl?: string;
   productName: string;
+  aiGeneratedImages?: Array<{ id: string; url: string; createdAt: string; type?: string }>;
 }
 
 const CONTACT_METHODS = [
@@ -28,6 +29,7 @@ const ConsultationModal: React.FC<ConsultationModalProps> = ({
   isSubmitting,
   productName,
   productPreviewUrl,
+  aiGeneratedImages = [], // ✨ Nhận AI gallery
 }) => {
   const [formData, setFormData] = useState<ContactInfo>({
     preferredContact: 'phone',
@@ -39,6 +41,7 @@ const ConsultationModal: React.FC<ConsultationModalProps> = ({
   });
   const [errors, setErrors] = useState<ContactFormErrors>({});
   const [isVisible, setIsVisible] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string>(productPreviewUrl || ''); // ✨ Ảnh được chọn
 
   useEffect(() => {
     if (isOpen) setIsVisible(true);
@@ -64,7 +67,7 @@ const ConsultationModal: React.FC<ConsultationModalProps> = ({
       e.preventDefault();
       if (!validateForm()) return;
       try {
-        await onSubmit(formData);
+        await onSubmit(formData, selectedImageUrl); // ✨ Truyền selectedImageUrl
         setFormData({ preferredContact: 'phone', customerName: '', phone: '', zalo: '', facebook: '', notes: '' });
         setErrors({});
         onClose();
@@ -72,7 +75,7 @@ const ConsultationModal: React.FC<ConsultationModalProps> = ({
         console.error('Consultation submission failed:', err);
       }
     },
-    [formData, validateForm, onSubmit, onClose]
+    [formData, validateForm, onSubmit, onClose, selectedImageUrl] // ✨ Thêm dependency
   );
 
   const handleInputChange = useCallback(
@@ -133,7 +136,84 @@ const ConsultationModal: React.FC<ConsultationModalProps> = ({
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-900 mb-1">Sản phẩm được chọn</h3>
                 <p className="text-gray-800 font-medium">{productName}</p>
-                {productPreviewUrl && (
+                
+                {/* ✨ AI Generated Gallery */}
+                {aiGeneratedImages.filter(img => img.type === 'cartoon').length > 0 && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600 mb-2">Chọn ảnh sản phẩm từ tủ đồ AI:</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      {/* Canvas hiện tại */}
+                      {productPreviewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedImageUrl(productPreviewUrl)}
+                          className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                            selectedImageUrl === productPreviewUrl
+                              ? 'border-green-500 ring-2 ring-green-300'
+                              : 'border-gray-200 hover:border-green-300'
+                          }`}
+                        >
+                          <img
+                            src={productPreviewUrl}
+                            alt="Canvas hiện tại"
+                            className="w-full h-24 object-cover"
+                          />
+                          {selectedImageUrl === productPreviewUrl && (
+                            <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-1">
+                              <CheckCircleIcon className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-1 py-0.5 text-center">
+                            Canvas
+                          </div>
+                        </button>
+                      )}
+                      
+                      {/* AI Generated Images - CHỈ HIỂN THỊ ẢNH CÓ TYPE='CARTOON' */}
+                      {aiGeneratedImages.filter(img => img.type === 'cartoon').map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => setSelectedImageUrl(img.url)}
+                          className={`relative rounded-lg overflow-hidden border-2 transition-all ${
+                            selectedImageUrl === img.url
+                              ? 'border-green-500 ring-2 ring-green-300'
+                              : 'border-gray-200 hover:border-green-300'
+                          }`}
+                        >
+                          <img
+                            src={img.url}
+                            alt={`AI ${img.id}`}
+                            className="w-full h-24 object-cover"
+                          />
+                          {selectedImageUrl === img.url && (
+                            <div className="absolute top-1 right-1 bg-green-500 text-white rounded-full p-1">
+                              <CheckCircleIcon className="w-4 h-4" />
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-xs px-1 py-0.5 text-center">
+                            AI {img.id}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    
+                    {/* Preview ảnh đã chọn */}
+                    {selectedImageUrl && (
+                      <div className="mt-3">
+                        <p className="text-sm text-gray-600 mb-2">Ảnh sẽ gửi cho Admin:</p>
+                        <img
+                          src={selectedImageUrl}
+                          alt="Selected"
+                          className="rounded-lg border border-green-200 shadow-sm w-full object-cover max-h-48"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Fallback: hiển thị ảnh đơn nếu không có gallery */}
+                {aiGeneratedImages.length === 0 && productPreviewUrl && (
                   <img
                     src={productPreviewUrl}
                     alt={productName}

@@ -15,7 +15,7 @@ import AiGeneratedGallery from "../components/designer/AiGeneratedGallery";
 
 
 import {
-  CubeIcon, ArchiveBoxIcon, ShoppingCartIcon, ChatBubbleBottomCenterTextIcon,
+  CubeIcon, ArchiveBoxIcon, ChatBubbleBottomCenterTextIcon,
   ArrowUturnLeftIcon, ArrowUturnRightIcon, ArrowUpTrayIcon, Squares2X2Icon,
   BoltIcon, CheckCircleIcon, ChartBarIcon, CogIcon, EyeIcon,
   ViewColumnsIcon, SparklesIcon, PaintBrushIcon
@@ -44,6 +44,7 @@ const CustomProductDesigner: React.FC = () => {
   const [showGeminiModal, setShowGeminiModal] = useState(false);
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>(""); // result image
   const [geminiHealthy, setGeminiHealthy] = useState<boolean>(true);
+  const [aiImageType, setAiImageType] = useState<"cartoon" | "tryon" | null>(null); // 🎨 Phân biệt loại ảnh AI
 
   // UX
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -178,10 +179,12 @@ const CustomProductDesigner: React.FC = () => {
         "Make this product into a cute anime-style cartoon. Soft pastel colors, clean lines, and a cute background."
       );
 
-      const res = await fetch("https://api.greenweave.vn/api/aicartoon/cartoon-preview", { method: "POST", body: formData });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const res = await fetch(`${API_BASE_URL}/api/aicartoon/cartoon-preview`, { method: "POST", body: formData });
       if (!res.ok) throw new Error("AI Cartoon generation failed");
       const data = await res.json();
       setCanvasDataUrl(`data:image/png;base64,${data.imageBase64}`);
+      setAiImageType("cartoon"); // 🎨 Đánh dấu đây là ảnh cartoon
       setShowGeminiModal(true);
     } catch (err) {
       alert("AI Cartoon Preview failed. Please try again.");
@@ -229,7 +232,8 @@ formData.append("prompt",
   "The final image should look like a real fashion photo taken in studio lighting."
 );
 
-      const resp = await fetch("https://api.greenweave.vn/api/aiedit/multi-image-edit", { method: "POST", body: formData });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
+      const resp = await fetch(`${API_BASE_URL}/api/aiedit/multi-image-edit`, { method: "POST", body: formData });
       const json = await resp.json();
       if (!resp.ok) {
         console.error("Backend error:", json);
@@ -245,6 +249,7 @@ formData.append("prompt",
 
       // 3) hiển thị kết quả
       setCanvasDataUrl("data:image/png;base64," + json.imageBase64);
+      setAiImageType("tryon"); // 🧥 Đánh dấu đây là ảnh try-on
       setShowGeminiModal(true);
     } catch (e) {
       console.error(e);
@@ -285,7 +290,7 @@ formData.append("prompt",
 //   }
 // }, [canvasDataUrl]);
 useEffect(() => {
-  if (canvasDataUrl && canvasDataUrl.startsWith("data:image")) {
+  if (canvasDataUrl && canvasDataUrl.startsWith("data:image") && aiImageType) {
     try {
       const img = new Image();
       img.src = canvasDataUrl;
@@ -303,28 +308,18 @@ useEffect(() => {
           id: Date.now().toString(),
           url: compressedBase64,
           createdAt: new Date().toISOString(),
+          type: aiImageType, // 🎨 Lưu loại ảnh (cartoon hoặc tryon)
         };
         const updated = [newItem, ...existing].slice(0, 15);
         localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
-        console.log("💾 Saved AI item to localStorage:", newItem);
+        console.log(`💾 Saved AI ${aiImageType} to localStorage:`, newItem);
+        setAiImageType(null); // Reset để tránh lưu lại nhiều lần
       };
     } catch (error) {
       console.error("❌ Error saving AI image:", error);
     }
   }
-}, [canvasDataUrl]);
-
-
-  // Add to cart demo
-  const handleAddToCart = useCallback(() => {
-    if (!selectedProduct || !design) return showSuccessToast("⚠️ Select product & make a design first");
-    if (!design.elements?.length) return showSuccessToast("⚠️ Add some elements to your design");
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      showSuccessToast("🛒 Added to cart successfully!");
-    }, 900);
-  }, [selectedProduct, design, showSuccessToast]);
+}, [canvasDataUrl, aiImageType]);
 
   // Upload image to canvas
   const handleImageUpload = useCallback(async (file: File) => {
@@ -346,22 +341,73 @@ useEffect(() => {
   // Consultation (demo)
   const [showConsultationModal, setShowConsultationModal] = useState(false);
   const [isSubmittingConsultation, setIsSubmittingConsultation] = useState(false);
-  const handleConsultationSubmit = useCallback(async (contactInfo: ContactInfo) => {
+  const handleConsultationSubmit = useCallback(async (contactInfo: ContactInfo, selectedImageUrl?: string) => {
     if (!selectedProduct || !design) return;
     try {
       setIsSubmittingConsultation(true);
-      const previewUrl = "";
+      
+      // 📸 Capture canvas image for preview
+      let previewUrl = "";
+      try {
+        // ✨ Ưu tiên ảnh đã chọn từ gallery
+        if (selectedImageUrl && selectedImageUrl.startsWith('data:image')) {
+          // Convert base64 to blob and upload
+          const response = await fetch(selectedImageUrl);
+          const blob = await response.blob();
+          const file = new File([blob], `consultation-selected-${Date.now()}.png`, { type: 'image/png' });
+          
+          const uploadResponse = await CustomProductService.uploadImage(file);
+          if (uploadResponse?.url) {
+            previewUrl = uploadResponse.url;
+            console.log('✅ Selected AI image uploaded:', previewUrl);
+          }
+        } else if (selectedImageUrl && selectedImageUrl.startsWith('http')) {
+          // Nếu là URL đã upload rồi, dùng luôn
+          previewUrl = selectedImageUrl;
+          console.log('✅ Using existing uploaded image URL');
+        } else {
+          // Fallback: Capture từ canvas
+          const stage = (window as any).Konva?.stages?.[0];
+          if (stage) {
+            const dataUrl = stage.toDataURL({ pixelRatio: 2 });
+            
+            const response = await fetch(dataUrl);
+            const blob = await response.blob();
+            const file = new File([blob], `consultation-preview-${Date.now()}.png`, { type: 'image/png' });
+            
+            const uploadResponse = await CustomProductService.uploadImage(file);
+            if (uploadResponse?.url) {
+              previewUrl = uploadResponse.url;
+              console.log('✅ Canvas preview image uploaded:', previewUrl);
+            }
+          } else if (canvasDataUrl) {
+            previewUrl = canvasDataUrl;
+            console.log('✅ Using AI-generated canvas image as preview');
+          }
+        }
+      } catch (uploadError) {
+        console.error('⚠️ Failed to capture/upload preview image:', uploadError);
+        // Continue without preview image
+      }
+      
       await CustomProductService.saveCustomDesign(design, previewUrl);
       await CustomProductService.createConsultationRequest({
-        designId: "demo", contactInfo, productId: selectedProduct.id,
-        productName: selectedProduct.name, designPreview: previewUrl
+        designId: "demo", 
+        contactInfo, 
+        productId: selectedProduct.id,
+        productName: selectedProduct.name, 
+        designPreview: previewUrl
       });
+      
       setShowConsultationModal(false);
-      alert("We will contact you soon.");
+      alert("✅ Yêu cầu tư vấn đã được gửi! Chúng tôi sẽ liên hệ với bạn sớm nhất.");
+    } catch (error) {
+      console.error('❌ Consultation submission failed:', error);
+      alert("❌ Có lỗi xảy ra. Vui lòng thử lại!");
     } finally {
       setIsSubmittingConsultation(false);
     }
-  }, [selectedProduct, design]);
+  }, [selectedProduct, design, canvasDataUrl]);
    // Delete selected element
 const handleDeleteElement = useCallback(() => {
   if (!design || !canvasState.selectedElementIds.length) return;
@@ -372,7 +418,8 @@ const handleDeleteElement = useCallback(() => {
     ...design,
     elements: remaining,
     metadata: {
-      ...design.metadata,
+      version: design.metadata?.version || '1.0',
+      createdAt: design.metadata?.createdAt || new Date(),
       updatedAt: new Date(),
       totalElements: remaining.length,
     },
@@ -619,20 +666,20 @@ const handleDeleteElement = useCallback(() => {
                   </button>
 
                   <button
-                    onClick={handleAddToCart}
-                    disabled={!selectedProduct || !design || !design.elements.length || isLoading}
+                    onClick={() => setShowConsultationModal(true)}
+                    disabled={!selectedProduct || !design || isSubmittingConsultation}
                     className="px-4 sm:px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
                   >
-                    {isLoading ? (
+                    {isSubmittingConsultation ? (
                       <>
                         <BoltIcon className="w-4 h-4 animate-pulse" />
-                        <span>Processing...</span>
+                        <span>Đang gửi...</span>
                       </>
                     ) : (
                       <>
-                        <ShoppingCartIcon className="w-4 h-4" />
-                        <span className="hidden sm:inline">Tư vấn đặt hàng </span>
-                        <span className="sm:hidden">Tư vấn đặt hàng</span>
+                        <ChatBubbleBottomCenterTextIcon className="w-4 h-4" />
+                        <span className="hidden sm:inline">Tư vấn đặt hàng</span>
+                        <span className="sm:hidden">Tư vấn</span>
                       </>
                     )}
                   </button>
@@ -676,7 +723,14 @@ const handleDeleteElement = useCallback(() => {
     onSubmit={handleConsultationSubmit}
     isSubmitting={isSubmittingConsultation}
     productName={selectedProduct?.name || ""}
-    productPreviewUrl={canvasDataUrl} // ✅ ảnh AI generate
+    productPreviewUrl={
+      (window as any).Konva?.stages?.[0]?.toDataURL?.({ pixelRatio: 1 }) || 
+      canvasDataUrl || 
+      undefined
+    }
+    aiGeneratedImages={
+      JSON.parse(localStorage.getItem("aiGeneratedItems") || "[]")
+    }
   />
 )}
 
@@ -842,11 +896,13 @@ const handleDeleteElement = useCallback(() => {
               <ArchiveBoxIcon className="w-5 h-5" />
             </button>
           ) : null}
-          {selectedProduct && design?.elements.length ? (
-            <button onClick={handleAddToCart} disabled={isLoading}
+          {selectedProduct && design ? (
+            <button 
+              onClick={() => setShowConsultationModal(true)} 
+              disabled={isSubmittingConsultation}
               className="w-14 h-14 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center disabled:opacity-50"
-              title="Tư Vấn đặt hàng">
-              {isLoading ? <BoltIcon className="w-6 h-6 animate-pulse" /> : <ShoppingCartIcon className="w-6 h-6" />}
+              title="Tư vấn đặt hàng">
+              {isSubmittingConsultation ? <BoltIcon className="w-6 h-6 animate-pulse" /> : <ChatBubbleBottomCenterTextIcon className="w-6 h-6" />}
             </button>
           ) : null}
         </div>

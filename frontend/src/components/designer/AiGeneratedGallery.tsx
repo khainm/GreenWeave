@@ -10,6 +10,7 @@ interface SavedItem {
   id: string;
   url: string;
   createdAt: string;
+  type?: string; // ✨ Thêm để phân biệt cartoon vs tryon
 }
 
 const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ onSelect, isOpen }) => {

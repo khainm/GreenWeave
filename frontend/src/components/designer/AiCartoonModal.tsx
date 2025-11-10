@@ -27,6 +27,7 @@ const AiCartoonModal: React.FC<AiCartoonModalProps> = ({
         id: Date.now().toString(),
         url: previewImageUrl,
         createdAt: new Date().toISOString(),
+        type: "cartoon", // 🎨 Đánh dấu là ảnh sản phẩm cartoon (không có người)
       };
       const updatedItems = [newItem, ...existingItems].slice(0, 20); // Limit to 20 items
       localStorage.setItem("aiGeneratedItems", JSON.stringify(updatedItems));
