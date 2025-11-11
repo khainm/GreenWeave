@@ -30,6 +30,7 @@ import BlogPage from './pages/BlogPage'
 import BlogDetailPage from './pages/BlogDetailPage'
 import AdminBlogPage from './pages/admin/AdminBlogPage'
 import AdminBlogFormPage from './pages/admin/AdminBlogFormPage'
+import AdminConsultationPage from './pages/admin/AdminConsultationPage'
 import ProductDetail from './pages/ProductDetail'
 import CartPage from './pages/CartPage'
 import CheckoutPage from './pages/CheckoutPage'
@@ -215,6 +216,11 @@ function App() {
             <Route path="/admin/blog/edit/:id" element={
               <ProtectedRoute requireStaff={true}>
                 <AdminBlogFormPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/consultations" element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminConsultationPage />
               </ProtectedRoute>
             } />
             <Route path="/payment-result" element={<PaymentResultPage />} />

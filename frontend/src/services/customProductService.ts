@@ -13,7 +13,7 @@ import type {
 
 export class CustomProductService {
   private static readonly BASE_PATH = '/api/customdesigns';
-  private static readonly CONSULTATION_PATH = '/api/consultation-request';
+  private static readonly CONSULTATION_PATH = '/api/consultationrequests'; // ✅ Sửa endpoint đúng với backend
 
   // 🛍️ Get customizable products with enhanced error handling
   static async getCustomizableProducts(): Promise<ProductResponseDto[]> {
@@ -113,6 +113,51 @@ export class CustomProductService {
     }
   }
 
+  // 📤 Upload base64 image to Cloudinary
+  static async uploadBase64Image(
+    base64Data: string,
+    fileName?: string,
+    category?: string
+  ): Promise<{ success: boolean; url: string; message?: string }> {
+    try {
+      console.log('📤 [CustomProductService] Uploading base64 image to Cloudinary...');
+      console.log('📤 [CustomProductService] Base64 size:', base64Data.length, 'chars');
+      
+      // Validate base64 data
+      if (!base64Data || base64Data.length === 0) {
+        throw new Error('Invalid base64 data');
+      }
+      
+      // Check if data URI format
+      if (!base64Data.startsWith('data:image/')) {
+        throw new Error('Invalid base64 format. Must start with data:image/');
+      }
+      
+      const payload = {
+        base64Data: base64Data,
+        fileName: fileName || `design-${Date.now()}.png`,
+        type: 'design',
+        category: category || 'custom-design'
+      };
+
+      console.log('📤 [CustomProductService] Sending to /api/upload/base64...');
+      const response = await apiClient.post<{ success: boolean; url: string; message?: string }>(
+        '/api/upload/base64',
+        payload
+      );
+      
+      if (!response?.success || !response?.url) {
+        throw new Error(response?.message || 'Upload failed');
+      }
+      
+      console.log('✅ [CustomProductService] Base64 upload successful:', response.url);
+      return response;
+    } catch (error) {
+      console.error('❌ [CustomProductService] Base64 upload failed:', error);
+      throw error;
+    }
+  }
+
   // 💾 Save custom design to backend
   static async saveCustomDesign(design: CustomDesign, previewUrl?: string): Promise<string> {
     try {
@@ -134,12 +179,16 @@ export class CustomProductService {
         request
       );
       
-      if (!response?.designId) {
+      // Handle both { designId: "..." } and { data: { designId: "..." } } formats
+      const designId = response?.designId || (response as any)?.data?.designId;
+      
+      if (!designId) {
+        console.error('❌ [CustomProductService] Invalid response format:', response);
         throw new Error('Invalid response from server');
       }
       
-      console.log('💾 [CustomProductService] Design saved:', response.designId);
-      return response.designId;
+      console.log('💾 [CustomProductService] Design saved:', designId);
+      return designId;
     } catch (error) {
       console.error('❌ [CustomProductService] Save failed:', error);
       throw error;
@@ -185,20 +234,53 @@ export class CustomProductService {
         hasDesign: !!request.designId
       });
       
-      // Validate contact info
-      this.validateContactInfo(request.contactInfo);
+      console.log('🔍 [CustomProductService] Raw request data:', {
+        contactInfo: request.contactInfo,
+        productId: request.productId,
+        productName: request.productName
+      });
       
-      const response = await apiClient.post<{ requestId: string }>(
+      // Validate contact info
+      try {
+        this.validateContactInfo(request.contactInfo);
+        console.log('✅ [CustomProductService] Contact info validation passed');
+      } catch (validationError) {
+        console.error('❌ [CustomProductService] Validation failed:', validationError);
+        throw validationError;
+      }
+      
+      // Transform to match backend DTO (flatten contactInfo)
+      const dto = {
+        designId: request.designId,
+        productId: Number(request.productId), // ✅ Ensure it's a number
+        productName: request.productName || 'Custom Product',
+        designPreview: request.designPreview,
+        customerName: request.contactInfo.customerName?.trim() || '',
+        preferredContact: request.contactInfo.preferredContact,
+        phone: request.contactInfo.phone?.trim() || null,
+        zalo: request.contactInfo.zalo?.trim() || null,
+        facebook: request.contactInfo.facebook?.trim() || null,
+        email: request.contactInfo.email?.trim() || null,
+        notes: request.contactInfo.notes?.trim() || null
+      };
+      
+      console.log('📤 [CustomProductService] Sending DTO to backend:', JSON.stringify(dto, null, 2));
+      console.log('📤 [CustomProductService] API endpoint:', this.CONSULTATION_PATH);
+      
+      const response = await apiClient.post<{ data: { requestId: string } }>(
         this.CONSULTATION_PATH,
-        request
+        dto
       );
       
-      if (!response?.requestId) {
+      // Backend returns { success: true, data: { requestId: "..." } }
+      const requestId = response?.data?.requestId || (response as any)?.requestId;
+      
+      if (!requestId) {
         throw new Error('Failed to create consultation request');
       }
       
-      console.log('📞 [CustomProductService] Consultation request created:', response.requestId);
-      return response.requestId;
+      console.log('📞 [CustomProductService] Consultation request created:', requestId);
+      return requestId;
     } catch (error) {
       console.error('❌ [CustomProductService] Consultation request failed:', error);
       throw error;

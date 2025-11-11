@@ -34,7 +34,31 @@ namespace backend.Controllers
         {
             try
             {
+                _logger.LogInformation("📞 [ConsultationController] Received consultation request from {CustomerName}", dto.CustomerName);
+                _logger.LogInformation("📞 Request details - ProductId: {ProductId}, Contact: {PreferredContact}", 
+                    dto.ProductId, dto.PreferredContact);
+                
+                // Validate ModelState
+                if (!ModelState.IsValid)
+                {
+                    var errors = ModelState.Values
+                        .SelectMany(v => v.Errors)
+                        .Select(e => e.ErrorMessage)
+                        .ToList();
+                    
+                    _logger.LogWarning("⚠️ [ConsultationController] Validation failed: {Errors}", string.Join(", ", errors));
+                    
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "Validation failed",
+                        errors = errors
+                    });
+                }
+
                 var requestId = await _consultationService.CreateRequestAsync(dto);
+                
+                _logger.LogInformation("✅ [ConsultationController] Consultation request created: {RequestId}", requestId);
 
                 return Ok(new
                 {
@@ -45,11 +69,12 @@ namespace backend.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating consultation request");
+                _logger.LogError(ex, "❌ [ConsultationController] Error creating consultation request");
                 return StatusCode(500, new
                 {
                     success = false,
-                    message = "Failed to submit consultation request"
+                    message = "Failed to submit consultation request",
+                    error = ex.Message
                 });
             }
         }

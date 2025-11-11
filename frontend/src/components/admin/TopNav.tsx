@@ -339,6 +339,7 @@ const TopNav: React.FC = () => {
                               <div className="text-xl font-semibold mb-6">Khách hàng</div>
                               <ul className="space-y-6 text-gray-800">
                                 <li><Link to="/admin/customers" className="hover:text-green-600 transition-colors" onClick={() => setIsCustomersOpen(false)}>Danh sách khách hàng</Link></li>
+                                <li><Link to="/admin/consultations" className="hover:text-green-600 transition-colors" onClick={() => setIsCustomersOpen(false)}>📞 Yêu cầu tư vấn</Link></li>
                                 <li><button className="hover:text-green-600 transition-colors">Thêm khách hàng mới</button></li>
                                 <li><button className="hover:text-green-600 transition-colors">Phân loại khách hàng</button></li>
                                 <li><button className="hover:text-green-600 transition-colors">Lịch sử mua hàng</button></li>

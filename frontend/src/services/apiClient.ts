@@ -100,6 +100,18 @@ class ApiClient {
           message: error.message
         });
         
+        // 🔍 Log detailed error for 400 Bad Request
+        if (error.response?.status === 400) {
+          console.error('⚠️ [ApiClient] 400 Bad Request - Full error details:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            requestData: error.config?.data,
+            responseData: error.response?.data,
+            errors: error.response?.data?.errors,
+            message: error.response?.data?.message
+          });
+        }
+        
         // Handle 401 Unauthorized - clear auth data and redirect to login
         if (error.response?.status === 401) {
           console.log('🔐 [ApiClient] 401 Unauthorized - clearing auth data');

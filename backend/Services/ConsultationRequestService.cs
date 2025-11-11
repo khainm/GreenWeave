@@ -34,6 +34,13 @@ namespace backend.Services
         {
             try
             {
+                _logger.LogInformation("📞 [ConsultationService] Creating request for customer: {CustomerName}", dto.CustomerName);
+                _logger.LogInformation("📞 ProductId: {ProductId}, ProductName: {ProductName}", dto.ProductId, dto.ProductName);
+                _logger.LogInformation("📞 Contact: {PreferredContact} - Phone: {Phone}, Zalo: {Zalo}, Facebook: {Facebook}", 
+                    dto.PreferredContact, dto.Phone, dto.Zalo, dto.Facebook);
+                _logger.LogInformation("🖼️ [ConsultationService] DesignPreview URL: {DesignPreview}", 
+                    string.IsNullOrEmpty(dto.DesignPreview) ? "NULL/EMPTY!" : dto.DesignPreview);
+                
                 var request = new ConsultationRequest
                 {
                     DesignId = dto.DesignId,
@@ -52,9 +59,13 @@ namespace backend.Services
                 };
 
                 _context.ConsultationRequests.Add(request);
+                
+                _logger.LogInformation("💾 [ConsultationService] Saving to database...");
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Consultation request created: {RequestId}", request.Id);
+                _logger.LogInformation("✅ [ConsultationService] Consultation request created successfully: {RequestId}", request.Id);
+                _logger.LogInformation("✅ [ConsultationService] Saved with DesignPreview: {DesignPreview}", 
+                    string.IsNullOrEmpty(request.DesignPreview) ? "NULL/EMPTY!" : request.DesignPreview);
 
                 // Send email notification to admin (optional)
                 if (_emailService != null)
@@ -65,7 +76,7 @@ namespace backend.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogWarning(ex, "Failed to send email notification for consultation request {RequestId}", request.Id);
+                        _logger.LogWarning(ex, "⚠️ Failed to send email notification for consultation request {RequestId}", request.Id);
                         // Don't fail the request creation if email fails
                     }
                 }
@@ -74,7 +85,8 @@ namespace backend.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error creating consultation request");
+                _logger.LogError(ex, "❌ [ConsultationService] Error creating consultation request - Message: {Message}", ex.Message);
+                _logger.LogError("❌ Stack trace: {StackTrace}", ex.StackTrace);
                 throw;
             }
         }

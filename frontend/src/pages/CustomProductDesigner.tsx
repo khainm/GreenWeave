@@ -349,56 +349,103 @@ useEffect(() => {
       // 📸 Capture canvas image for preview
       let previewUrl = "";
       try {
-        // ✨ Ưu tiên ảnh đã chọn từ gallery
+        console.log('🖼️ [Consultation] Processing image for preview...');
+        console.log('🖼️ [Consultation] selectedImageUrl:', selectedImageUrl?.substring(0, 100));
+        
+        // ✨ Upload base64 to Cloudinary
         if (selectedImageUrl && selectedImageUrl.startsWith('data:image')) {
-          // Convert base64 to blob and upload
-          const response = await fetch(selectedImageUrl);
-          const blob = await response.blob();
-          const file = new File([blob], `consultation-selected-${Date.now()}.png`, { type: 'image/png' });
+          console.log('📤 [Consultation] Uploading base64 to Cloudinary...');
           
-          const uploadResponse = await CustomProductService.uploadImage(file);
-          if (uploadResponse?.url) {
-            previewUrl = uploadResponse.url;
-            console.log('✅ Selected AI image uploaded:', previewUrl);
+          try {
+            const uploadResponse = await CustomProductService.uploadBase64Image(
+              selectedImageUrl,
+              `consultation-${Date.now()}.png`,
+              'custom-design'
+            );
+            
+            if (uploadResponse?.url) {
+              previewUrl = uploadResponse.url;
+              console.log('✅ [Consultation] Image uploaded to Cloudinary:', previewUrl);
+            } else {
+              console.warn('⚠️ [Consultation] Upload response missing URL, using base64 fallback');
+              previewUrl = selectedImageUrl; // Fallback to base64
+            }
+          } catch (uploadError) {
+            console.error('❌ [Consultation] Cloudinary upload failed, using base64 fallback:', uploadError);
+            previewUrl = selectedImageUrl; // Fallback to base64
           }
         } else if (selectedImageUrl && selectedImageUrl.startsWith('http')) {
           // Nếu là URL đã upload rồi, dùng luôn
           previewUrl = selectedImageUrl;
-          console.log('✅ Using existing uploaded image URL');
+          console.log('✅ [Consultation] Using existing uploaded image URL:', previewUrl);
         } else {
+          console.log('🖼️ [Consultation] Falling back to canvas capture...');
           // Fallback: Capture từ canvas
           const stage = (window as any).Konva?.stages?.[0];
           if (stage) {
+            console.log('📸 [Consultation] Capturing canvas...');
             const dataUrl = stage.toDataURL({ pixelRatio: 2 });
             
-            const response = await fetch(dataUrl);
-            const blob = await response.blob();
-            const file = new File([blob], `consultation-preview-${Date.now()}.png`, { type: 'image/png' });
-            
-            const uploadResponse = await CustomProductService.uploadImage(file);
-            if (uploadResponse?.url) {
-              previewUrl = uploadResponse.url;
-              console.log('✅ Canvas preview image uploaded:', previewUrl);
+            try {
+              const uploadResponse = await CustomProductService.uploadBase64Image(
+                dataUrl,
+                `consultation-canvas-${Date.now()}.png`,
+                'custom-design'
+              );
+              
+              if (uploadResponse?.url) {
+                previewUrl = uploadResponse.url;
+                console.log('✅ [Consultation] Canvas uploaded to Cloudinary:', previewUrl);
+              } else {
+                previewUrl = dataUrl; // Fallback
+              }
+            } catch (uploadError) {
+              console.error('❌ [Consultation] Canvas upload failed:', uploadError);
+              previewUrl = dataUrl; // Fallback
             }
           } else if (canvasDataUrl) {
             previewUrl = canvasDataUrl;
-            console.log('✅ Using AI-generated canvas image as preview');
+            console.log('✅ [Consultation] Using AI-generated canvas image as preview');
+          } else {
+            console.warn('⚠️ [Consultation] No image source available!');
           }
         }
-      } catch (uploadError) {
-        console.error('⚠️ Failed to capture/upload preview image:', uploadError);
+        
+        console.log('🎯 [Consultation] Final previewUrl:', previewUrl?.substring(0, 100));
+      } catch (error) {
+        console.error('❌ [Consultation] Failed to process image:', error);
         // Continue without preview image
       }
       
-      await CustomProductService.saveCustomDesign(design, previewUrl);
+      // Save design first to get designId
+      let savedDesignId: string | undefined;
+      try {
+        console.log('💾 [Consultation] Saving design first...');
+        savedDesignId = await CustomProductService.saveCustomDesign(design, previewUrl);
+        console.log('✅ [Consultation] Design saved with ID:', savedDesignId);
+      } catch (designError) {
+        console.error('⚠️ [Consultation] Failed to save design:', designError);
+        // Continue without design ID
+      }
+      
+      // Create consultation request (designId is optional)
+      console.log('📞 [Consultation] Creating consultation request with data:', {
+        designId: savedDesignId,
+        productId: selectedProduct.id,
+        productName: selectedProduct.name,
+        designPreview: previewUrl || 'EMPTY!',
+        customerName: contactInfo.customerName
+      });
+      
       await CustomProductService.createConsultationRequest({
-        designId: "demo", 
+        designId: savedDesignId, // Will be undefined if save failed
         contactInfo, 
         productId: selectedProduct.id,
         productName: selectedProduct.name, 
         designPreview: previewUrl
       });
       
+      console.log('✅ [Consultation] Consultation request sent successfully!');
       setShowConsultationModal(false);
       alert("✅ Yêu cầu tư vấn đã được gửi! Chúng tôi sẽ liên hệ với bạn sớm nhất.");
     } catch (error) {
@@ -510,39 +557,64 @@ const handleDeleteElement = useCallback(() => {
   }, [design, showSuccessToast]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-teal-50">
       <Header />
 
       {/* top bar mobile */}
-      <div className="sm:hidden bg-white border-b border-gray-200 px-4 py-2">
-        <div className="flex items-center justify-between text-sm text-gray-600">
+      <div className="sm:hidden bg-white/80 backdrop-blur-md border-b border-emerald-100 px-4 py-3 sticky top-0 z-30">
+        <div className="flex items-center justify-between text-sm">
           <div className="flex items-center space-x-2">
-            <ViewColumnsIcon className="w-4 h-4" />
-            <span>Design Studio</span>
+            <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
+              <ViewColumnsIcon className="w-4 h-4 text-white" />
+            </div>
+            <span className="font-semibold text-gray-800">Design Studio</span>
           </div>
           {selectedProduct && (
-            <div className="flex items-center space-x-2">
-              <EyeIcon className="w-4 h-4" />
-              <span className="truncate max-w-[120px]">{selectedProduct.name}</span>
+            <div className="flex items-center space-x-2 bg-emerald-50 px-3 py-1.5 rounded-lg">
+              <EyeIcon className="w-4 h-4 text-emerald-600" />
+              <span className="truncate max-w-[120px] text-gray-700 font-medium">{selectedProduct.name}</span>
             </div>
           )}
         </div>
       </div>
 
-      {/* hero */}
-      <div className="bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                <SparklesIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+      {/* hero - More modern and vibrant */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white">
+        {/* Animated background pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute -top-24 -left-24 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-white rounded-full blur-3xl animate-pulse delay-1000"></div>
+        </div>
+        
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+            <div className="flex items-start space-x-4">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-white/20 rounded-3xl flex items-center justify-center backdrop-blur-lg border border-white/30 shadow-xl transform hover:scale-105 transition-transform">
+                <SparklesIcon className="w-7 h-7 sm:w-10 sm:h-10 text-white animate-pulse" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-1 sm:mb-2 flex items-center">
-                  <span>Custom Design Studio</span>
-                  <CogIcon className="ml-2 w-6 h-6 sm:w-8 sm:h-8" />
+                <h1 className="text-2xl sm:text-4xl font-bold mb-2 flex items-center gap-2">
+                  <span className="bg-gradient-to-r from-white to-emerald-100 bg-clip-text text-transparent">
+                    Custom Design Studio
+                  </span>
+                  <CogIcon className="w-6 h-6 sm:w-8 sm:h-8 text-white/80 animate-spin-slow" />
                 </h1>
-                <p className="text-green-100 text-sm sm:text-lg">Tạo thiết kế độc đáo cho sản phẩm của bạn</p>
+                <p className="text-emerald-50 text-sm sm:text-lg font-medium flex items-center gap-2">
+                  <PaintBrushIcon className="w-5 h-5" />
+                  Tạo thiết kế độc đáo, thể hiện phong cách riêng của bạn
+                </p>
+              </div>
+            </div>
+            
+            {/* Stats or features badges */}
+            <div className="flex gap-3 sm:gap-4">
+              <div className="bg-white/20 backdrop-blur-md rounded-xl px-4 py-3 border border-white/30">
+                <div className="text-2xl font-bold">AI</div>
+                <div className="text-xs text-emerald-100">Powered</div>
+              </div>
+              <div className="bg-white/20 backdrop-blur-md rounded-xl px-4 py-3 border border-white/30">
+                <div className="text-2xl font-bold">∞</div>
+                <div className="text-xs text-emerald-100">Unlimited</div>
               </div>
             </div>
           </div>
@@ -550,55 +622,66 @@ const handleDeleteElement = useCallback(() => {
       </div>
 
       {/* workspace */}
-      <div className="max-w-[1800px] mx-auto px-2 sm:px-4 lg:px-6 py-0">
-        <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr_320px] lg:grid-cols-[280px_1fr_280px] gap-0 sm:gap-2 lg:gap-3 min-h-[calc(100vh-160px)]">
-          {/* left */}
-          <div className="order-1 xl:order-1 bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200 p-3 sm:p-4">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
-                <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center mr-3">
-                  <CubeIcon className="w-4 h-4 text-white" />
+      <div className="max-w-[1900px] mx-auto px-3 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr_340px] lg:grid-cols-[300px_1fr_300px] gap-4 lg:gap-6 min-h-[calc(100vh-200px)]">
+          {/* left - Product selector with enhanced styling */}
+          <div className="order-1 xl:order-1 bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-emerald-100 overflow-hidden transform hover:shadow-emerald-200/50 transition-all duration-300">
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-500 p-4 sm:p-5">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-lg">
+                  <CubeIcon className="w-5 h-5 text-white" />
                 </div>
-                <span className="hidden sm:inline">Chọn sản phẩm</span>
-                <span className="sm:hidden">Products</span>
+                <div>
+                  <div className="hidden sm:inline">Chọn sản phẩm</div>
+                  <div className="sm:hidden">Products</div>
+                  <div className="text-xs text-emerald-100 font-normal">Bắt đầu thiết kế của bạn</div>
+                </div>
               </h2>
             </div>
-            <div className="h-[300px] sm:h-[400px] lg:h-[calc(100vh-320px)] overflow-y-auto">
+            <div className="h-[300px] sm:h-[400px] lg:h-[calc(100vh-340px)] overflow-y-auto custom-scrollbar">
               <ProductSelector selectedProduct={selectedProduct} onProductSelect={handleProductSelect} />
             </div>
           </div>
 
-          {/* center */}
-          <div className="order-3 xl:order-2 space-y-4">
+          {/* center - Canvas area with modern design */}
+          <div className="order-3 xl:order-2 space-y-5">
             {selectedProduct && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-lg flex items-center justify-center">
-                      <span className="text-white font-bold text-xs sm:text-sm">{selectedProduct.name.charAt(0)}</span>
+              <div className="bg-gradient-to-br from-white to-emerald-50/30 backdrop-blur-sm rounded-2xl shadow-xl border border-emerald-100 p-4 sm:p-5 transform hover:shadow-2xl transition-all duration-300">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-emerald-400 via-teal-400 to-cyan-400 rounded-2xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform">
+                      <span className="text-white font-bold text-lg sm:text-xl">{selectedProduct.name.charAt(0)}</span>
                     </div>
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-gray-900 text-sm sm:text-base truncate">{selectedProduct.name}</h3>
-                      <p className="text-xs sm:text-sm text-gray-500">{selectedColorCode ? `Color: ${selectedColorCode}` : "Default color"}</p>
+                      <h3 className="font-bold text-gray-900 text-base sm:text-lg truncate flex items-center gap-2">
+                        {selectedProduct.name}
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
+                          Active
+                        </span>
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 flex items-center gap-1">
+                        <div className="w-3 h-3 rounded-full border-2 border-gray-300" style={{backgroundColor: selectedColorCode}}></div>
+                        {selectedColorCode ? `Color: ${selectedColorCode}` : "Default color"}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     {(isAutoSaving || saveStatus === "saving") && (
-                      <div className="flex items-center gap-2 text-blue-600">
-                        <div className="w-3 h-3 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
-                        <span className="text-xs sm:text-sm font-medium">Saving...</span>
+                      <div className="flex items-center gap-2 bg-blue-50 px-3 py-2 rounded-xl border border-blue-200">
+                        <div className="w-4 h-4 border-2 border-blue-600/30 border-t-blue-600 rounded-full animate-spin"></div>
+                        <span className="text-xs sm:text-sm font-semibold text-blue-700">Saving...</span>
                       </div>
                     )}
                     {saveStatus === "saved" && (
-                      <div className="flex items-center gap-2 text-green-600">
-                        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                        <span className="text-xs sm:text-sm font-medium">Saved</span>
+                      <div className="flex items-center gap-2 bg-emerald-50 px-3 py-2 rounded-xl border border-emerald-200 animate-pulse">
+                        <CheckCircleIcon className="w-4 h-4 text-emerald-600" />
+                        <span className="text-xs sm:text-sm font-semibold text-emerald-700">Saved</span>
                       </div>
                     )}
                     {saveStatus === "error" && (
-                      <div className="flex items-center gap-2 text-red-600">
-                        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                        <span className="text-xs sm:text-sm font-medium">Save failed</span>
+                      <div className="flex items-center gap-2 bg-red-50 px-3 py-2 rounded-xl border border-red-200">
+                        <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                        <span className="text-xs sm:text-sm font-semibold text-red-700">Save failed</span>
                       </div>
                     )}
                   </div>
@@ -606,8 +689,19 @@ const handleDeleteElement = useCallback(() => {
               </div>
             )}
 
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-              <div className="h-[400px] sm:h-[500px] lg:h-[600px]">
+            <div className="bg-white rounded-3xl shadow-2xl border-2 border-emerald-100 overflow-hidden transform hover:shadow-emerald-200/50 transition-all duration-300">
+              <div className="h-[400px] sm:h-[500px] lg:h-[600px] relative">
+                {!selectedProduct && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-50 z-10">
+                    <div className="text-center p-8">
+                      <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
+                        <CubeIcon className="w-10 h-10 text-white" />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">Bắt đầu thiết kế</h3>
+                      <p className="text-gray-600">Chọn một sản phẩm từ danh sách bên trái để bắt đầu</p>
+                    </div>
+                  </div>
+                )}
                 <CanvasArea
                   selectedProduct={selectedProduct}
                   selectedColorCode={selectedColorCode}
@@ -618,31 +712,32 @@ const handleDeleteElement = useCallback(() => {
               </div>
             </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-emerald-100 p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center bg-gray-50 rounded-lg p-1">
+                  <div className="flex items-center bg-gradient-to-br from-gray-50 to-emerald-50 rounded-xl p-1.5 shadow-inner border border-emerald-100">
                     <button onClick={handleUndo} disabled={canvasState.historyIndex <= 0}
-                      className="px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 rounded-md hover:bg-white hover:shadow-sm disabled:opacity-40">
-                      <ArrowUturnLeftIcon className="w-4 h-4" /> <span className="hidden sm:inline">Undo</span>
+                      className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold text-gray-700 rounded-lg hover:bg-white hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2">
+                      <ArrowUturnLeftIcon className="w-4 h-4" /> 
+                      <span className="hidden sm:inline">Undo</span>
                     </button>
                     <button onClick={handleRedo} disabled={canvasState.historyIndex >= canvasState.history.length - 1}
-                      className="px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 rounded-md hover:bg-white hover:shadow-sm disabled:opacity-40">
-                      <span className="hidden sm:inline">Redo</span> <ArrowUturnRightIcon className="w-4 h-4" />
+                      className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold text-gray-700 rounded-lg hover:bg-white hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2">
+                      <span className="hidden sm:inline">Redo</span> 
+                      <ArrowUturnRightIcon className="w-4 h-4" />
                     </button>
                     <button
-  onClick={handleDeleteElement}
-  disabled={!canvasState.selectedElementIds.length}
-  className="px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium text-red-600 rounded-md hover:bg-red-50 hover:shadow-sm disabled:opacity-40 flex items-center gap-1"
->
-  🗑️ <span className="hidden sm:inline">Delete</span>
-</button>
-
+                      onClick={handleDeleteElement}
+                      disabled={!canvasState.selectedElementIds.length}
+                      className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-semibold text-red-600 rounded-lg hover:bg-red-50 hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 flex items-center gap-2">
+                      🗑️ <span className="hidden sm:inline">Delete</span>
+                    </button>
                   </div>
                   {design?.elements.length ? (
-                    <div className="flex items-center space-x-2 text-gray-500 text-xs sm:text-sm bg-gray-50 px-2 py-1 rounded-lg">
-                      <Squares2X2Icon className="w-4 h-4" />
-                      <span>{design.elements.length} elements</span>
+                    <div className="flex items-center space-x-2 text-gray-700 text-xs sm:text-sm bg-gradient-to-br from-emerald-50 to-teal-50 px-3 py-2 rounded-xl border border-emerald-200 shadow-sm">
+                      <Squares2X2Icon className="w-4 h-4 text-emerald-600" />
+                      <span className="font-semibold">{design.elements.length}</span>
+                      <span className="text-gray-600">elements</span>
                     </div>
                   ) : null}
                 </div>
@@ -650,34 +745,31 @@ const handleDeleteElement = useCallback(() => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
                   <button
                     onClick={() => setShowTryOnModal(true)}
-                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-medium hover:from-purple-700 hover:to-pink-700 flex items-center justify-center gap-2"
-                    title={geminiHealthy ? "Generate AI preview" : "AI service unavailable"}
-                  >
-                    <SparklesIcon className="w-4 h-4" />
+                    className="group px-4 sm:px-5 py-3 bg-gradient-to-r from-purple-600 via-pink-600 to-rose-600 text-white rounded-xl font-bold hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
+                    title={geminiHealthy ? "Generate AI preview" : "AI service unavailable"}>
+                    <SparklesIcon className="w-5 h-5 group-hover:animate-spin" />
                     <span>Phòng thay đồ AI</span>
                   </button>
 
                   <button
                     onClick={() => setShowCartoonModal(true)}
-                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-pink-500 to-rose-600 text-white rounded-lg font-medium hover:from-pink-600 hover:to-rose-700 flex items-center justify-center gap-2"
-                  >
-                    <SparklesIcon className="w-4 h-4" />
-                    <span>AI Cartoon Preview</span>
+                    className="group px-4 sm:px-5 py-3 bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500 text-white rounded-xl font-bold hover:from-pink-600 hover:via-rose-600 hover:to-orange-600 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                    <SparklesIcon className="w-5 h-5 group-hover:animate-pulse" />
+                    <span>AI Cartoon</span>
                   </button>
 
                   <button
                     onClick={() => setShowConsultationModal(true)}
                     disabled={!selectedProduct || !design || isSubmittingConsultation}
-                    className="px-4 sm:px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm hover:shadow-md"
-                  >
+                    className="group px-5 sm:px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold hover:from-emerald-700 hover:to-teal-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
                     {isSubmittingConsultation ? (
                       <>
-                        <BoltIcon className="w-4 h-4 animate-pulse" />
+                        <BoltIcon className="w-5 h-5 animate-pulse" />
                         <span>Đang gửi...</span>
                       </>
                     ) : (
                       <>
-                        <ChatBubbleBottomCenterTextIcon className="w-4 h-4" />
+                        <ChatBubbleBottomCenterTextIcon className="w-5 h-5 group-hover:animate-bounce" />
                         <span className="hidden sm:inline">Tư vấn đặt hàng</span>
                         <span className="sm:hidden">Tư vấn</span>
                       </>
@@ -688,18 +780,21 @@ const handleDeleteElement = useCallback(() => {
             </div>
           </div>
 
-          {/* right */}
-          <div className="order-2 xl:order-3 bg-white border-l border-gray-200 flex flex-col h-full">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-3 sm:p-3">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                  <PaintBrushIcon className="w-4 h-4 text-white" />
+          {/* right - Tools panel with modern styling */}
+          <div className="order-2 xl:order-3 bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-blue-100 flex flex-col h-full overflow-hidden transform hover:shadow-blue-200/50 transition-all duration-300">
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-500 p-4 sm:p-5">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-lg">
+                  <PaintBrushIcon className="w-5 h-5 text-white" />
                 </div>
-                <span className="hidden sm:inline">Design Tools</span>
-                <span className="sm:hidden">Tools</span>
+                <div>
+                  <div className="hidden sm:inline">Design Tools</div>
+                  <div className="sm:hidden">Tools</div>
+                  <div className="text-xs text-blue-100 font-normal">Tùy chỉnh thiết kế</div>
+                </div>
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               <ToolsPanel
                 selectedProduct={selectedProduct}
                 selectedColorCode={selectedColorCode}
@@ -735,52 +830,54 @@ const handleDeleteElement = useCallback(() => {
 )}
 
 
-      {/* AI result modal */}
+      {/* AI result modal - Enhanced design */}
       {showGeminiModal && (
-  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded-2xl shadow-lg text-center max-w-2xl mx-auto">
-      <h2 className="text-xl font-semibold mb-4 text-gray-800">Kết quả AI Try-On</h2>
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-50 p-4">
+    <div className="bg-gradient-to-br from-white to-emerald-50 p-6 sm:p-8 rounded-3xl shadow-2xl text-center max-w-3xl mx-auto border-2 border-emerald-200 transform transition-all">
+      <div className="flex items-center justify-center gap-3 mb-6">
+        <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl flex items-center justify-center shadow-lg">
+          <SparklesIcon className="w-6 h-6 text-white animate-pulse" />
+        </div>
+        <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+          Kết quả AI Try-On
+        </h2>
+      </div>
 
-      <img
-        src={canvasDataUrl}
-        alt="AI result"
-        className="rounded-xl shadow-md mx-auto max-h-[70vh] object-contain mb-6"
-      />
+      <div className="relative group mb-6">
+        <div className="absolute -inset-1 bg-gradient-to-r from-emerald-600 to-teal-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition"></div>
+        <img
+          src={canvasDataUrl}
+          alt="AI result"
+          className="relative rounded-2xl shadow-xl mx-auto max-h-[60vh] object-contain border-4 border-white"
+        />
+      </div>
 
       <div className="flex flex-wrap justify-center gap-3">
         <button
           onClick={() => {
             setShowGeminiModal(false);
-            setShowConsultationModal(true); // mở modal tư vấn
+            setShowConsultationModal(true);
           }}
-          className="px-5 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition"
-        >
-          🛍️ Tư vấn đặt hàng
+          className="group px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold hover:from-emerald-700 hover:to-teal-700 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2">
+          <ChatBubbleBottomCenterTextIcon className="w-5 h-5 group-hover:animate-bounce" />
+          Tư vấn đặt hàng
         </button>
 
-        
         <button
-  onClick={() => {
-    // ✅ Đóng modal kết quả
-    setShowGeminiModal(false);
-
-    // ✅ Truyền ảnh AI generation (ảnh cartoon / multi-edit)
-    const aiGeneratedImage = canvasDataUrl;
-    setCanvasDataUrl(aiGeneratedImage);
-
-    // ✅ Mở modal phòng thay đồ
-    setShowTryOnModal(true);
-  }}
-  className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
->
-  🧥 Phòng thay đồ
-</button>
-
+          onClick={() => {
+            setShowGeminiModal(false);
+            const aiGeneratedImage = canvasDataUrl;
+            setCanvasDataUrl(aiGeneratedImage);
+            setShowTryOnModal(true);
+          }}
+          className="group px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2">
+          <SparklesIcon className="w-5 h-5 group-hover:animate-spin" />
+          Phòng thay đồ
+        </button>
 
         <button
           onClick={() => setShowGeminiModal(false)}
-          className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-        >
+          className="px-6 py-3 bg-gradient-to-r from-gray-200 to-gray-300 text-gray-700 rounded-xl font-bold hover:from-gray-300 hover:to-gray-400 transition-all transform hover:scale-105 shadow-lg">
           Đóng
         </button>
       </div>
@@ -854,74 +951,89 @@ const handleDeleteElement = useCallback(() => {
         />
       ) : null}
 
-      {/* toast */}
+      {/* toast - Enhanced notification */}
       {showSuccessMessage && (
-        <div className="fixed top-16 sm:top-20 right-4 sm:right-6 z-50">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 sm:p-4 max-w-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircleIcon className="w-4 h-4 text-green-600" />
+        <div className="fixed top-20 sm:top-24 right-4 sm:right-6 z-50 animate-slide-in-right">
+          <div className="bg-gradient-to-br from-white to-emerald-50 border-2 border-emerald-200 rounded-2xl shadow-2xl p-4 sm:p-5 max-w-sm backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg">
+                <CheckCircleIcon className="w-6 h-6 text-white" />
               </div>
-              <p className="text-gray-900 font-medium text-sm sm:text-base">{showSuccessMessage}</p>
+              <div>
+                <p className="text-gray-900 font-bold text-sm sm:text-base">{showSuccessMessage}</p>
+                <p className="text-xs text-gray-600">Success</p>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* upload progress */}
+      {/* upload progress - Enhanced */}
       {uploadProgress > 0 && uploadProgress < 100 && (
         <div className="fixed bottom-4 left-4 right-4 sm:bottom-6 sm:right-6 sm:left-auto z-50">
-          <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 sm:p-4 min-w-[280px] mx-auto sm:mx-0 max-w-sm">
-            <div className="flex items-center gap-2 sm:gap-3 mb-3">
-              <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                <ArrowUpTrayIcon className="w-4 h-4 text-blue-600 animate-pulse" />
+          <div className="bg-gradient-to-br from-white to-blue-50 border-2 border-blue-200 rounded-2xl shadow-2xl p-4 sm:p-5 min-w-[280px] mx-auto sm:mx-0 max-w-sm backdrop-blur-sm">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg">
+                <ArrowUpTrayIcon className="w-5 h-5 text-white animate-bounce" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-gray-900 font-medium text-sm sm:text-base">Uploading image...</p>
-                <p className="text-xs sm:text-sm text-gray-500">{uploadProgress}% complete</p>
+                <p className="text-gray-900 font-bold text-sm sm:text-base">Uploading image...</p>
+                <p className="text-xs sm:text-sm text-gray-600 font-semibold">{uploadProgress}% complete</p>
               </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
-              <div className="bg-blue-600 h-2 rounded-full transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+            <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+              <div 
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 h-3 rounded-full transition-all duration-300 shadow-lg" 
+                style={{ width: `${uploadProgress}%` }} 
+              />
             </div>
           </div>
         </div>
       )}
 
-      {/* floating FABs */}
-      <div className="fixed bottom-4 right-4 z-40 sm:hidden">
+      {/* floating FABs - Enhanced */}
+      <div className="fixed bottom-6 right-6 z-40 sm:hidden">
         <div className="flex flex-col space-y-3">
           {design?.elements.length ? (
-            <button onClick={handleSaveDesign} className="w-12 h-12 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 flex items-center justify-center" title="Quick Save">
-              <ArchiveBoxIcon className="w-5 h-5" />
+            <button 
+              onClick={handleSaveDesign} 
+              className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-2xl shadow-2xl hover:shadow-blue-500/50 flex items-center justify-center transform hover:scale-110 transition-all duration-200 border-2 border-white" 
+              title="Quick Save">
+              <ArchiveBoxIcon className="w-6 h-6" />
             </button>
           ) : null}
           {selectedProduct && design ? (
             <button 
               onClick={() => setShowConsultationModal(true)} 
               disabled={isSubmittingConsultation}
-              className="w-14 h-14 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-full shadow-lg hover:from-green-700 hover:to-emerald-700 flex items-center justify-center disabled:opacity-50"
+              className="w-16 h-16 bg-gradient-to-br from-emerald-600 to-teal-600 text-white rounded-2xl shadow-2xl hover:shadow-emerald-500/50 flex items-center justify-center disabled:opacity-50 transform hover:scale-110 transition-all duration-200 border-2 border-white"
               title="Tư vấn đặt hàng">
-              {isSubmittingConsultation ? <BoltIcon className="w-6 h-6 animate-pulse" /> : <ChatBubbleBottomCenterTextIcon className="w-6 h-6" />}
+              {isSubmittingConsultation ? 
+                <BoltIcon className="w-7 h-7 animate-spin" /> : 
+                <ChatBubbleBottomCenterTextIcon className="w-7 h-7" />
+              }
             </button>
           ) : null}
         </div>
       </div>
 
-      {/* loading overlay */}
+      {/* loading overlay - Enhanced */}
       {isLoading && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-40 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 max-w-xs sm:max-w-sm mx-4 w-full">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-md flex items-center justify-center z-40 p-4">
+          <div className="bg-gradient-to-br from-white to-emerald-50 rounded-3xl shadow-2xl p-8 sm:p-10 max-w-xs sm:max-w-sm mx-4 w-full border-2 border-emerald-200">
             <div className="text-center">
-              <div className="relative w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4">
-                <BoltIcon className="w-12 h-12 sm:w-16 sm:h-16 text-green-600 animate-pulse" />
-                <div className="absolute inset-0 border-4 border-green-600/30 border-t-green-600 rounded-full animate-spin"></div>
+              <div className="relative w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-5">
+                <div className="absolute inset-0 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-2xl animate-pulse"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <BoltIcon className="w-8 h-8 sm:w-10 sm:h-10 text-white animate-bounce" />
+                </div>
+                <div className="absolute inset-0 border-4 border-emerald-600/30 border-t-emerald-600 rounded-2xl animate-spin"></div>
               </div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-1 sm:mb-2 flex items-center justify-center gap-2">
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-2">
                 <span>Processing</span>
-                <SparklesIcon className="w-5 h-5 text-green-500 animate-bounce" />
+                <SparklesIcon className="w-6 h-6 text-emerald-500 animate-pulse" />
               </h3>
-              <p className="text-sm sm:text-base text-gray-500">Please wait while we process your request</p>
+              <p className="text-sm sm:text-base text-gray-600 font-medium">Please wait while we process your request</p>
             </div>
           </div>
         </div>

@@ -108,7 +108,7 @@ namespace backend.DTOs
         [StringLength(200)]
         public string? ProductName { get; set; }
 
-        [StringLength(500)]
+        // ✅ No length restriction for base64 images
         public string? DesignPreview { get; set; }
     }
 

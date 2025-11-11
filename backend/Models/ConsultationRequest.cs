@@ -43,7 +43,9 @@ namespace GreenWeave.Models
         [StringLength(200)]
         public string? ProductName { get; set; }
 
-        [StringLength(500)]
+        // ✅ Support base64 image strings (can be very long, ~50KB-200KB)
+        // Using MaxLength instead of StringLength to avoid validation issues
+        [MaxLength]
         public string? DesignPreview { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]
