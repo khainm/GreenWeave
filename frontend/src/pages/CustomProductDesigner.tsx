@@ -180,7 +180,7 @@ const CustomProductDesigner: React.FC = () => {
       );
 
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
-      const res = await fetch(`${API_BASE_URL}/api/aicartoon/cartoonpreview`, { method: "POST", body: formData });
+      const res = await fetch(`${API_BASE_URL}/api/aicartoon/cartoon-preview`, { method: "POST", body: formData });
       if (!res.ok) throw new Error("AI Cartoon generation failed");
       const data = await res.json();
       setCanvasDataUrl(`data:image/png;base64,${data.imageBase64}`);
