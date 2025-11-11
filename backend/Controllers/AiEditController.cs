@@ -12,35 +12,64 @@ public class AiEditController : ControllerBase
 
     // ✅ Config
     private readonly string projectId = "gen-lang-client-0171725325";
-    private readonly string location = "global"; // Gemini 2.5 Flash Image dùng global
+    private readonly string location = "global";
     private readonly string model = "gemini-2.5-flash-image-preview";
-    private readonly string serviceAccountJsonPath;
+    private readonly string? serviceAccountJsonPath;
+    private readonly bool credentialsAvailable;
 
     public AiEditController(ILogger<AiEditController> logger)
     {
         _logger = logger;
 
-        // Write the GOOGLE_CREDENTIAL_CONTENT environment variable to a file during startup
+        // ✅ Load credentials from environment variable
         var credentialContent = Environment.GetEnvironmentVariable("GOOGLE_CREDENTIAL_CONTENT");
         if (string.IsNullOrEmpty(credentialContent))
         {
-            throw new InvalidOperationException("GOOGLE_CREDENTIAL_CONTENT is not set.");
+            _logger.LogWarning("⚠️ GOOGLE_CREDENTIAL_CONTENT environment variable is not set - AI features will be disabled");
+            credentialsAvailable = false;
+            serviceAccountJsonPath = null;
+            return;
         }
 
-        // Fully qualified System.IO.File to avoid ambiguity
-        var tempFilePath = Path.Combine(Path.GetTempPath(), "google-credentials.json");
-        System.IO.File.WriteAllText(tempFilePath, credentialContent);
-
-        serviceAccountJsonPath = tempFilePath;
+        try
+        {
+            // ✅ Write credentials to temp file with unique name to avoid conflicts
+            var tempFilePath = Path.Combine(Path.GetTempPath(), $"google-credentials-edit-{Guid.NewGuid()}.json");
+            System.IO.File.WriteAllText(tempFilePath, credentialContent);
+            serviceAccountJsonPath = tempFilePath;
+            credentialsAvailable = true;
+            _logger.LogInformation("✅ [AiEdit] Google credentials loaded successfully to {Path}", tempFilePath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [AiEdit] Failed to write Google credentials to temp file");
+            credentialsAvailable = false;
+            serviceAccountJsonPath = null;
+        }
     }
 
     // ✅ Lấy access token từ service account
     private async Task<string> GetAccessTokenAsync()
     {
-        var scopes = new[] { "https://www.googleapis.com/auth/cloud-platform" };
-        var cred = GoogleCredential.FromFile(serviceAccountJsonPath).CreateScoped(scopes);
-        var token = await cred.UnderlyingCredential.GetAccessTokenForRequestAsync();
-        return token!;
+        if (!credentialsAvailable || string.IsNullOrEmpty(serviceAccountJsonPath))
+        {
+            throw new InvalidOperationException("Google credentials not configured");
+        }
+
+        try
+        {
+            var scopes = new[] { "https://www.googleapis.com/auth/cloud-platform" };
+#pragma warning disable CS0618 // Type or member is obsolete
+            var cred = GoogleCredential.FromFile(serviceAccountJsonPath).CreateScoped(scopes);
+#pragma warning restore CS0618
+            var token = await cred.UnderlyingCredential.GetAccessTokenForRequestAsync();
+            return token!;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [AiEdit] Failed to get access token");
+            throw;
+        }
     }
 
     [HttpPost("multi-image-edit")]
@@ -52,8 +81,24 @@ public class AiEditController : ControllerBase
     {
         try
         {
+            // ✅ Check if credentials are available
+            if (!credentialsAvailable || string.IsNullOrEmpty(serviceAccountJsonPath))
+            {
+                _logger.LogError("❌ [AiEdit] Google credentials not configured");
+                return StatusCode(503, new { 
+                    error = "AI service is temporarily unavailable", 
+                    details = "Google credentials not configured on server. Please contact administrator." 
+                });
+            }
+
             if (image1 == null)
+            {
+                _logger.LogWarning("⚠️ [AiEdit] No image1 provided in request");
                 return BadRequest(new { error = "Missing image1 (person)" });
+            }
+
+            _logger.LogInformation("🎨 [AiEdit] Processing multi-image edit request, image1 size: {Size} bytes, has image2: {HasImage2}", 
+                image1.Length, image2 != null);
 
             // 🧩 Chuyển ảnh -> Base64
             string img1Base64, img2Base64 = "";

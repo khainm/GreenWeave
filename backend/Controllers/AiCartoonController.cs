@@ -11,49 +11,68 @@ public class AiCartoonController : ControllerBase
     private readonly ILogger<AiCartoonController> _logger;
 
     // ⚙️ Cấu hình
-    private readonly string projectId = "gen-lang-client-0171725325"; // 👈 Thay bằng Project ID của bạn
+    private readonly string projectId = "gen-lang-client-0171725325";
     private readonly string location = "global";
     private readonly string model = "gemini-2.5-flash-image-preview";
-    private readonly string credentialPath;
+    private readonly string? credentialPath;
+    private readonly bool credentialsAvailable;
 
     public AiCartoonController(ILogger<AiCartoonController> logger)
     {
         _logger = logger;
 
-        // Write the GOOGLE_CREDENTIAL_CONTENT environment variable to a file during startup
+        // ✅ Load credentials from environment variable
         var credentialContent = Environment.GetEnvironmentVariable("GOOGLE_CREDENTIAL_CONTENT");
         if (string.IsNullOrEmpty(credentialContent))
         {
-            _logger.LogError("❌ GOOGLE_CREDENTIAL_CONTENT environment variable is not set!");
-            credentialPath = string.Empty; // Set empty path to handle gracefully
+            _logger.LogWarning("⚠️ GOOGLE_CREDENTIAL_CONTENT environment variable is not set - AI features will be disabled");
+            credentialsAvailable = false;
+            credentialPath = null;
             return;
         }
 
         try
         {
-            // Fully qualified System.IO.File to avoid ambiguity
-            var tempFilePath = Path.Combine(Path.GetTempPath(), "google-credentials.json");
+            // ✅ Write credentials to temp file
+            var tempFilePath = Path.Combine(Path.GetTempPath(), $"google-credentials-cartoon-{Guid.NewGuid()}.json");
             System.IO.File.WriteAllText(tempFilePath, credentialContent);
             credentialPath = tempFilePath;
-            _logger.LogInformation("✅ Google credentials loaded successfully");
+            credentialsAvailable = true;
+            _logger.LogInformation("✅ [AiCartoon] Google credentials loaded successfully to {Path}", tempFilePath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "❌ Failed to write Google credentials to temp file");
-            credentialPath = string.Empty;
+            _logger.LogError(ex, "❌ [AiCartoon] Failed to write Google credentials to temp file");
+            credentialsAvailable = false;
+            credentialPath = null;
         }
     }
 
     // ✅ Lấy access token từ service account
     private async Task<string> GetAccessTokenAsync()
     {
-        var credential = await GoogleCredential
-            .FromFile(credentialPath)
-            .CreateScoped("https://www.googleapis.com/auth/cloud-platform")
-            .UnderlyingCredential
-            .GetAccessTokenForRequestAsync();
+        if (!credentialsAvailable || string.IsNullOrEmpty(credentialPath))
+        {
+            throw new InvalidOperationException("Google credentials not configured");
+        }
 
-        return credential;
+        try
+        {
+#pragma warning disable CS0618 // Type or member is obsolete
+            var credential = await GoogleCredential
+                .FromFile(credentialPath)
+                .CreateScoped("https://www.googleapis.com/auth/cloud-platform")
+                .UnderlyingCredential
+                .GetAccessTokenForRequestAsync();
+#pragma warning restore CS0618
+
+            return credential;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ [AiCartoon] Failed to get access token");
+            throw;
+        }
     }
 
     // 🎨 Cartoon Preview - 1 ảnh đầu vào
@@ -63,18 +82,23 @@ public class AiCartoonController : ControllerBase
     {
         try
         {
-            // Check if credentials are available
-            if (string.IsNullOrEmpty(credentialPath))
+            // ✅ Check if credentials are available
+            if (!credentialsAvailable || string.IsNullOrEmpty(credentialPath))
             {
-                _logger.LogError("❌ Google credentials not configured");
+                _logger.LogError("❌ [AiCartoon] Google credentials not configured");
                 return StatusCode(503, new { 
                     error = "AI service is temporarily unavailable", 
-                    details = "Google credentials not configured on server" 
+                    details = "Google credentials not configured on server. Please contact administrator." 
                 });
             }
 
             if (image == null)
+            {
+                _logger.LogWarning("⚠️ [AiCartoon] No image provided in request");
                 return BadRequest(new { error = "Missing input image" });
+            }
+
+            _logger.LogInformation("🎨 [AiCartoon] Processing cartoon preview request, image size: {Size} bytes", image.Length);
 
             // 🖼️ Đọc ảnh input
             byte[] imgBytes;
