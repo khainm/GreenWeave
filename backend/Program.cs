@@ -424,7 +424,7 @@ builder.Services.AddScoped<IBlogService, BlogService>();
 // Add Dashboard services
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 
-// Add CORS for React frontend
+// Add CORS for React frontend (including SignalR support)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowSpecificOrigins",
@@ -437,12 +437,14 @@ builder.Services.AddCors(options =>
                     "http://localhost:5173",  // Vite dev server
                     "http://localhost:3000",  // Alternative React port
                     "https://localhost:5173",
-                     "https://localhost:5174",// HTTPS variant
+                    "https://localhost:5174",// HTTPS variant
                     "https://localhost:3000"  // HTTPS variant
                 )
                 .AllowAnyHeader()
                 .AllowAnyMethod()
-                .AllowCredentials();
+                .AllowCredentials()
+                // ✅ Required for SignalR
+                .SetIsOriginAllowed(_ => true); // More permissive for development
             }
             else
             {
@@ -455,15 +457,30 @@ builder.Services.AddCors(options =>
                 )
                 .AllowAnyHeader()
                 .AllowAnyMethod()
-                .AllowCredentials();
+                .AllowCredentials()
+                // ✅ Required for SignalR WebSocket and long-polling
+                .WithExposedHeaders("*"); // Expose all headers for SignalR negotiation
             }
         });
 });
 
 // Add logging
 builder.Services.AddLogging();
-// Register SignalR
-builder.Services.AddSignalR();
+
+// ✅ Register SignalR with proper CORS and transport configuration
+builder.Services.AddSignalR(options =>
+{
+    // Enable detailed errors in development
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    
+    // Configure timeouts
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
+    options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    
+    // Increase message size for large payloads
+    options.MaximumReceiveMessageSize = 1024 * 1024; // 1 MB
+});
 
 var app = builder.Build();
 
@@ -505,7 +522,7 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 app.UseRouting();
 
-// Apply CORS after routing and before auth per ASP.NET Core guidance
+// ✅ CRITICAL: Apply CORS before endpoints (required for SignalR)
 app.UseCors("AllowSpecificOrigins");
 
 // Add Authentication & Authorization middleware
@@ -533,11 +550,16 @@ app.MapGet("/", () => Results.Ok(new {
 // Only map API controllers, remove Razor Pages
 app.MapControllers();
 
+// ✅ Map SignalR hubs with CORS support
+app.MapHub<backend.Hubs.StockHub>("/hubs/stock", options =>
+{
+    // Enable long polling fallback if WebSockets fail
+    options.Transports = Microsoft.AspNetCore.Http.Connections.HttpTransportType.WebSockets | 
+                         Microsoft.AspNetCore.Http.Connections.HttpTransportType.LongPolling;
+});
+
 // Seed data
 await DataSeeder.SeedDataAsync(app.Services);
-
-// Map SignalR hubs
-app.MapHub<backend.Hubs.StockHub>("/hubs/stock");
 
 
 // Ensure all required PayOS configurations are present

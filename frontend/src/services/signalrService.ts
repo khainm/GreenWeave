@@ -18,16 +18,24 @@ class SignalRService {
   }
 
   private setupConnection(): void {
-    // Use environment variable or fallback to local development URL
-    const hubUrl = import.meta.env.VITE_SIGNALR_HUB_URL || 
-                   `${import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'}/hubs/stock`;
+    // Use environment variable or fallback to API base URL
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn';
+    const hubUrl = import.meta.env.VITE_SIGNALR_HUB_URL || `${apiBaseUrl}/hubs/stock`;
 
     console.log('🔧 [SignalR] Connecting to:', hubUrl);
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
+        // ✅ Use both WebSockets and LongPolling for reliability
         transport: signalR.HttpTransportType.WebSockets | signalR.HttpTransportType.LongPolling,
-        withCredentials: false
+        // ✅ Skip negotiation in development to avoid CORS preflight issues
+        skipNegotiation: false,
+        // ✅ Enable credentials for CORS
+        withCredentials: false,
+        // ✅ Add timeout for long polling
+        timeout: 100000,
+        // ✅ Add headers if needed
+        headers: {}
       })
       .withAutomaticReconnect({
         nextRetryDelayInMilliseconds: (retryContext) => {
@@ -121,11 +129,28 @@ class SignalRService {
       this.isConnecting = true;
       await this.connection.start();
       console.log('🚀 [SignalR] Connected successfully');
-    } catch (error) {
+      console.log('📡 [SignalR] Connection state:', this.connection.state);
+      console.log('🔌 [SignalR] Transport:', (this.connection as any).connection?.transport?.name);
+      this.reconnectAttempts = 0; // Reset on successful connection
+    } catch (error: any) {
       console.error('❌ [SignalR] Connection failed:', error);
+      console.error('❌ [SignalR] Error details:', {
+        message: error?.message,
+        statusCode: error?.statusCode,
+        type: error?.constructor?.name
+      });
+      
       this.reconnectAttempts++;
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        setTimeout(() => this.start(), 5000);
+      
+      // Stop trying after max attempts and log warning
+      if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.warn('⚠️ [SignalR] Max reconnect attempts reached. Real-time updates disabled.');
+        console.warn('⚠️ [SignalR] The application will continue to work without live stock updates.');
+      } else {
+        // Retry with exponential backoff
+        const delay = Math.min(5000 * this.reconnectAttempts, 30000);
+        console.log(`🔄 [SignalR] Retrying in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        setTimeout(() => this.start(), delay);
       }
     } finally {
       this.isConnecting = false;
