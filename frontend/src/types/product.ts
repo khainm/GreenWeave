@@ -70,5 +70,6 @@ export interface CreateProductRequest {
   colors?: string[]
   imageUrls?: string[]
   imageFiles?: File[]
+  imageColorMode?: 'per-color' | 'shared'  // Chế độ map ảnh với màu
   // Note: Backend tự động map ảnh với màu theo thứ tự upload
 }

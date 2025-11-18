@@ -36,7 +36,8 @@ const AdminEditRegularProduct: React.FC = () => {
     primaryWarehouseId: undefined,
     images: [],
     imageFiles: [],
-    hasChangedImages: false
+    hasChangedImages: false,
+    imageColorMode: 'shared'  // Mặc định: ảnh chung
   })
 
   // Load categories và warehouses
@@ -81,6 +82,18 @@ const AdminEditRegularProduct: React.FC = () => {
           }
         })
 
+        // Detect imageColorMode dựa trên dữ liệu ảnh hiện tại
+        // Nếu có ảnh (không phải primary) có colorCode → mode = 'per-color'
+        // Nếu không có ảnh nào có colorCode (trừ primary) → mode = 'shared'
+        const hasColorMappedImages = productData.images?.some(img => !img.isPrimary && img.colorCode)
+        const detectedMode: 'per-color' | 'shared' = hasColorMappedImages ? 'per-color' : 'shared'
+
+        console.log('🔍 Detected imageColorMode:', detectedMode, {
+          totalImages: productData.images?.length,
+          colorMappedImages: productData.images?.filter(img => img.colorCode).length,
+          hasColorMappedImages
+        })
+
         setForm({
           name: productData.name,
           sku: productData.sku,
@@ -96,7 +109,8 @@ const AdminEditRegularProduct: React.FC = () => {
           primaryWarehouseId: productData.primaryWarehouseId,
           images: productData.images?.sort((a, b) => a.sortOrder - b.sortOrder).map(img => img.imageUrl) || [],
           imageFiles: [],
-          hasChangedImages: false
+          hasChangedImages: false,
+          imageColorMode: detectedMode  // Auto-detect từ dữ liệu hiện tại
         })
       } catch (err) {
         console.error('Error loading product:', err)
@@ -135,7 +149,8 @@ const AdminEditRegularProduct: React.FC = () => {
         colors: form.colors,
         // Gửi cả ảnh cũ (imageUrls) và ảnh mới (imageFiles) để backend merge
         imageUrls: form.images.filter(img => img.startsWith('http')),
-        imageFiles: form.imageFiles
+        imageFiles: form.imageFiles,
+        imageColorMode: form.imageColorMode  // Gửi chế độ map ảnh lên backend
         // Backend tự động map ảnh theo thứ tự màu
       }
 

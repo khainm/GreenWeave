@@ -40,7 +40,8 @@ const AdminAddRegularProduct: React.FC = () => {
     primaryWarehouseId: undefined,
     images: [placeholderImage],
     imageFiles: [],
-    hasChangedImages: false
+    hasChangedImages: false,
+    imageColorMode: 'shared'  // Mặc định: ảnh chung cho tất cả màu
   })
 
   // Load categories và warehouses
@@ -95,7 +96,8 @@ const AdminAddRegularProduct: React.FC = () => {
         primaryWarehouseId: form.primaryWarehouseId,
         colors: form.colors,
         imageUrls: form.images.filter(img => img.startsWith('http')),
-        imageFiles: form.imageFiles
+        imageFiles: form.imageFiles,
+        imageColorMode: form.imageColorMode  // Gửi chế độ map ảnh lên backend
         // Backend tự động map ảnh theo thứ tự: ảnh đầu = ảnh chính, các ảnh sau map với màu
       }
 

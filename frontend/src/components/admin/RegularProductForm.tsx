@@ -16,6 +16,7 @@ export type RegularProductFormValues = {
   images: string[]
   imageFiles: File[]
   hasChangedImages?: boolean
+  imageColorMode: 'per-color' | 'shared'  // Chế độ map ảnh: theo màu hoặc ảnh chung
 }
 
 type RegularProductFormProps = {
@@ -276,6 +277,46 @@ const RegularProductForm: React.FC<RegularProductFormProps> = ({
       {/* Hình ảnh sản phẩm */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-3">Hình ảnh sản phẩm *</label>
+        
+        {/* Toggle chế độ map ảnh */}
+        <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border-2 border-blue-200">
+          <label className="block text-sm font-semibold text-gray-800 mb-3">
+            🎨 Chế độ ảnh sản phẩm
+          </label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setValues(prev => ({ ...prev, imageColorMode: 'shared' }))}
+              className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+                values.imageColorMode === 'shared' 
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg' 
+                  : 'bg-white text-gray-600 border-2 border-gray-300 hover:border-purple-400'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-lg">📷</span>
+                <span className="text-sm">Ảnh chung</span>
+                <span className="text-xs opacity-80">Tất cả màu dùng chung bộ ảnh</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setValues(prev => ({ ...prev, imageColorMode: 'per-color' }))}
+              className={`flex-1 px-4 py-3 rounded-lg font-medium transition-all ${
+                values.imageColorMode === 'per-color' 
+                  ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white shadow-lg' 
+                  : 'bg-white text-gray-600 border-2 border-gray-300 hover:border-green-400'
+              }`}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-lg">🎨</span>
+                <span className="text-sm">Ảnh theo màu</span>
+                <span className="text-xs opacity-80">Mỗi màu có 1 ảnh riêng</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <div
           className={`border-2 ${isDragOver ? 'border-green-500 bg-green-50' : 'border-dashed border-gray-300'} rounded-xl p-5 mb-4 text-center cursor-pointer`}
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
@@ -390,34 +431,70 @@ const RegularProductForm: React.FC<RegularProductFormProps> = ({
                 </svg>
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-blue-900 mb-2">
-                  📸 Cách upload ảnh theo màu:
-                </p>
-                <ul className="text-sm text-blue-700 space-y-1">
-                  <li className="flex items-start gap-2">
-                    <span className="font-bold">1.</span>
-                    <span><strong>Ảnh đầu tiên</strong> = Ảnh chính (hiển thị mặc định)</span>
-                  </li>
-                  {values.colors.map((color, idx) => {
-                    const colorName = popularColors.find(c => c.value === color)?.name || color
-                    return (
-                      <li key={color} className="flex items-start gap-2">
-                        <span className="font-bold">{idx + 2}.</span>
+                {values.imageColorMode === 'per-color' ? (
+                  <>
+                    <p className="text-sm font-semibold text-blue-900 mb-2">
+                      🎨 Chế độ: Ảnh theo màu
+                    </p>
+                    <ul className="text-sm text-blue-700 space-y-1">
+                      <li className="flex items-start gap-2">
+                        <span className="font-bold">1.</span>
+                        <span><strong>Ảnh đầu tiên</strong> = Ảnh chính (hiển thị mặc định)</span>
+                      </li>
+                      {values.colors.map((color, idx) => {
+                        const colorName = popularColors.find(c => c.value === color)?.name || color
+                        return (
+                          <li key={color} className="flex items-start gap-2">
+                            <span className="font-bold">{idx + 2}.</span>
+                            <span>
+                              <strong>Ảnh thứ {idx + 2}</strong> → Tự động map với màu{' '}
+                              <span 
+                                className="inline-block w-4 h-4 rounded border border-gray-300 align-middle"
+                                style={{ backgroundColor: color }}
+                              />
+                              {' '}<strong>{colorName}</strong>
+                            </span>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    <p className="text-xs text-blue-600 mt-2 italic">
+                      💡 Khách hàng chọn màu sẽ thấy ảnh tương ứng!
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-purple-900 mb-2">
+                      📷 Chế độ: Ảnh chung cho tất cả màu
+                    </p>
+                    <ul className="text-sm text-purple-700 space-y-1">
+                      <li className="flex items-start gap-2">
+                        <span className="font-bold">•</span>
+                        <span><strong>Ảnh đầu tiên</strong> = Ảnh chính (hiển thị mặc định)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-bold">•</span>
+                        <span><strong>Các ảnh tiếp theo</strong> = Ảnh góc nhìn khác (chi tiết, mặt sau, mặt bên...)</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="font-bold">•</span>
                         <span>
-                          <strong>Ảnh thứ {idx + 2}</strong> → Tự động map với màu{' '}
-                          <span 
-                            className="inline-block w-4 h-4 rounded border border-gray-300 align-middle"
-                            style={{ backgroundColor: color }}
-                          />
-                          {' '}<strong>{colorName}</strong>
+                          <strong>Tất cả màu</strong> {values.colors.map((color) => (
+                            <span 
+                              key={color}
+                              className="inline-block w-4 h-4 rounded border border-gray-300 mx-0.5 align-middle"
+                              style={{ backgroundColor: color }}
+                              title={popularColors.find(c => c.value === color)?.name || color}
+                            />
+                          ))} sẽ dùng chung bộ ảnh này
                         </span>
                       </li>
-                    )
-                  })}
-                </ul>
-                <p className="text-xs text-blue-600 mt-2 italic">
-                  💡 Khách hàng chọn màu sẽ thấy ảnh tương ứng!
-                </p>
+                    </ul>
+                    <p className="text-xs text-purple-600 mt-2 italic">
+                      💡 Phù hợp cho sản phẩm có nhiều góc chụp nhưng màu không ảnh hưởng đến hình ảnh!
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>

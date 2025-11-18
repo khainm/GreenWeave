@@ -47,6 +47,11 @@ namespace backend.DTOs
 
         // Optional mapping: color code -> image URL (nếu gửi trực tiếp)
         public Dictionary<string, string>? ColorImageMap { get; set; }
+        
+        // Image color mode: "per-color" hoặc "shared"
+        // per-color: mỗi màu có 1 ảnh riêng (ảnh 1 -> màu 1, ảnh 2 -> màu 2...)
+        // shared: tất cả màu dùng chung bộ ảnh (các ảnh là góc nhìn khác nhau)
+        public string? ImageColorMode { get; set; }
 
         // Stickers removed - using external Sticker Library instead
     }

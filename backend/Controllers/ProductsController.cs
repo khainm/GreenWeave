@@ -254,6 +254,7 @@ namespace backend.Controllers
                 Colors = request.Colors ?? new List<string>(),
                 ImageUrls = request.ImageUrls,
                 ColorImageMap = null, // mapping sẽ đi qua file upload theo chuẩn hiện tại
+                ImageColorMode = request.ImageColorMode ?? "shared" // Mặc định: ảnh chung
             };                // Bind ColorImages from form data manually
                 var colorImages = new Dictionary<string, IFormFile>();
                 if (Request.Form != null)
@@ -390,6 +391,7 @@ namespace backend.Controllers
                 PrimaryWarehouseId = request.PrimaryWarehouseId,
                 Colors = request.Colors ?? new List<string>(),
                 ImageUrls = request.ImageUrls,
+                ImageColorMode = request.ImageColorMode ?? "shared" // Mặc định: ảnh chung
             };                // Removed: Sticker file handling - use Sticker Library instead
                 var product = await _productService.UpdateProductAsync(id, updateProductDto, request.ImageFiles?.ToList(), null);
                 
@@ -407,11 +409,11 @@ namespace backend.Controllers
         }
         
         /// <summary>
-        /// Xóa sản phẩm
+        /// Xóa sản phẩm (soft delete nếu có đơn hàng, hard delete nếu chỉ có draft)
         /// </summary>
         /// <param name="id">ID của sản phẩm cần xóa</param>
         /// <returns>Kết quả xóa sản phẩm</returns>
-        /// <response code="200">Xóa sản phẩm thành công</response>
+        /// <response code="200">Xóa sản phẩm thành công hoặc đánh dấu inactive</response>
         /// <response code="404">Không tìm thấy sản phẩm</response>
         /// <response code="500">Lỗi server nội bộ</response>
         [HttpDelete("{id}")]
@@ -422,11 +424,38 @@ namespace backend.Controllers
         {
             try
             {
+                // Check if product exists before deleting
+                var product = await _productService.GetProductByIdAsync(id);
+                if (product == null)
+                    return NotFound(new { success = false, message = "Không tìm thấy sản phẩm để xóa" });
+                
                 var result = await _productService.DeleteProductAsync(id);
                 if (!result)
                     return NotFound(new { success = false, message = "Không tìm thấy sản phẩm để xóa" });
                 
-                return Ok(new { success = true, message = "Xóa sản phẩm thành công" });
+                // Check if product was soft deleted (status changed to inactive)
+                var updatedProduct = await _productService.GetProductByIdAsync(id);
+                if (updatedProduct?.Status == "inactive")
+                {
+                    // Soft delete: Product has order history
+                    return Ok(new 
+                    { 
+                        success = true, 
+                        message = "Sản phẩm có lịch sử đơn hàng nên được đánh dấu 'Ngừng bán' thay vì xóa. Dữ liệu đơn hàng được bảo toàn.",
+                        softDelete = true,
+                        productId = id,
+                        info = "Các thiết kế draft và yêu cầu tư vấn chưa thành đơn vẫn được giữ lại."
+                    });
+                }
+                
+                // Hard delete: Product had no orders, draft designs and consultation requests were removed
+                return Ok(new 
+                { 
+                    success = true, 
+                    message = "Xóa sản phẩm thành công",
+                    softDelete = false,
+                    info = "Các thiết kế nháp và yêu cầu tư vấn chưa thành đơn đã được xóa cùng sản phẩm."
+                });
             }
             catch (Exception ex)
             {
@@ -585,6 +614,14 @@ namespace backend.Controllers
         /// Gửi ảnh theo màu trực tiếp qua form-data, key dạng: ColorImages[#RRGGBB]
         /// </summary>
         public Dictionary<string, IFormFile>? ColorImages { get; set; }
+        
+        /// <summary>
+        /// Chế độ map ảnh với màu: "per-color" hoặc "shared"
+        /// per-color: mỗi màu có 1 ảnh riêng (ảnh 1 -> màu 1, ảnh 2 -> màu 2...)
+        /// shared: tất cả màu dùng chung bộ ảnh (các ảnh là góc nhìn khác nhau)
+        /// </summary>
+        /// <example>shared</example>
+        public string? ImageColorMode { get; set; }
 
         // Removed: StickerFiles, StickerUrls, Stickers - use Sticker Library instead
     }

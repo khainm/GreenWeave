@@ -125,13 +125,17 @@ namespace backend.Services
                 var images = new List<ProductImage>();
                 
                 // Upload files to Cloudinary
-                // Logic: Ảnh đầu tiên = ảnh chính, các ảnh tiếp theo tự động map với màu theo thứ tự
+                // Logic: 
+                // - Nếu imageColorMode = "per-color": Ảnh đầu tiên = ảnh chính, các ảnh tiếp theo map với màu theo thứ tự
+                // - Nếu imageColorMode = "shared": Tất cả ảnh là ảnh chung (góc nhìn khác nhau), không map với màu cụ thể
                 if (imageFiles != null && imageFiles.Any())
                 {
                     var colorsList = createProductDto.Colors ?? new List<string>();
+                    var imageColorMode = createProductDto.ImageColorMode ?? "shared"; // Mặc định: ảnh chung
                     
                     _logger.LogInformation(
-                        "🎨 Color-Image mapping started: {ImageCount} images, {ColorCount} colors", 
+                        "🎨 Image upload started: Mode={Mode}, {ImageCount} images, {ColorCount} colors", 
+                        imageColorMode,
                         imageFiles.Count, 
                         colorsList.Count
                     );
@@ -146,9 +150,10 @@ namespace backend.Services
                                 var uploadResult = await _cloudinaryService.UploadImageAsync(file, "products");
                                 if (uploadResult.StatusCode == System.Net.HttpStatusCode.OK)
                                 {
-                                    // Tự động map: ảnh 0 = primary (no color), ảnh 1+ = map với màu tương ứng
                                     string? colorCode = null;
-                                    if (i > 0 && colorsList.Count > 0)
+                                    
+                                    // CHỈ MAP MÀU NẾU MODE = "per-color"
+                                    if (imageColorMode == "per-color" && i > 0 && colorsList.Count > 0)
                                     {
                                         // Map ảnh thứ i với màu thứ (i-1)
                                         // Ví dụ: ảnh 1 → màu 0, ảnh 2 → màu 1, ...
@@ -158,6 +163,7 @@ namespace backend.Services
                                             colorCode = colorsList[colorIndex].ToLower();
                                         }
                                     }
+                                    // Nếu mode = "shared", colorCode = null cho TẤT CẢ ảnh (ảnh chung cho tất cả màu)
                                     
                                     images.Add(new ProductImage
                                     {
@@ -169,9 +175,10 @@ namespace backend.Services
                                     });
                                     
                                     _logger.LogInformation(
-                                        "📸 Uploaded image {Index}: {Type} (ColorCode: {ColorCode})", 
-                                        i, 
-                                        i == 0 ? "PRIMARY" : "COLOR_MAPPED", 
+                                        "📸 Uploaded image {Index}: Mode={Mode}, Type={Type}, ColorCode={ColorCode}", 
+                                        i,
+                                        imageColorMode,
+                                        i == 0 ? "PRIMARY" : (colorCode != null ? "COLOR_MAPPED" : "SHARED"),
                                         colorCode ?? "none"
                                     );
                                 }

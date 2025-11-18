@@ -11,6 +11,7 @@ const ProductDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [selectedColor, setSelectedColor] = useState<string>('')
+  const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null) // Track selected image by index (null = auto by color)
   const [quantity, setQuantity] = useState<number>(1)
 
   useEffect(() => {
@@ -52,13 +53,25 @@ const ProductDetail: React.FC = () => {
   const images = useMemo(() => product?.images?.slice().sort((a,b)=>a.sortOrder-b.sortOrder) || [], [product])
   const colors = useMemo(() => product?.colors?.slice().sort((a,b)=>a.sortOrder-b.sortOrder) || [], [product])
 
+  // Hiển thị ảnh dựa trên selectedImageIndex (ưu tiên) hoặc selectedColor (fallback)
   const imageUrl = useMemo(() => {
     if (!images.length) return ''
-    const colorIndex = colors.findIndex(c => c.colorCode === selectedColor)
-    if (colorIndex >= 0 && images[colorIndex]) return images[colorIndex].imageUrl
+    
+    // Nếu đã chọn ảnh cụ thể qua thumbnail, dùng index đó
+    if (selectedImageIndex !== null && selectedImageIndex >= 0 && selectedImageIndex < images.length) {
+      return images[selectedImageIndex].imageUrl
+    }
+    
+    // Fallback: Tìm ảnh theo màu đã chọn
+    if (selectedColor) {
+      const colorImage = images.find(img => img.colorCode?.toLowerCase() === selectedColor.toLowerCase())
+      if (colorImage) return colorImage.imageUrl
+    }
+    
+    // Default: Ảnh primary hoặc ảnh đầu tiên
     const primary = images.find(i => i.isPrimary)
     return (primary || images[0]).imageUrl
-  }, [images, colors, selectedColor])
+  }, [images, selectedImageIndex, selectedColor])
 
   return (
     <div className="min-h-screen bg-white">
@@ -83,9 +96,13 @@ const ProductDetail: React.FC = () => {
               </div>
               {images.length > 1 && (
                 <div className="grid grid-cols-4 gap-3 mt-4">
-                  {images.map((img) => (
-                    <button key={img.id} onClick={() => setSelectedColor(colors[images.indexOf(img)]?.colorCode || selectedColor)} className={`h-20 rounded-xl overflow-hidden border ${img.imageUrl === imageUrl ? 'border-green-500' : 'border-gray-200'}`}>
-                      <img src={img.imageUrl} className="w-full h-full object-cover" />
+                  {images.map((img, idx) => (
+                    <button 
+                      key={img.id} 
+                      onClick={() => setSelectedImageIndex(idx)} 
+                      className={`h-20 rounded-xl overflow-hidden border-2 transition-all ${selectedImageIndex === idx ? 'border-green-500 ring-2 ring-green-200' : 'border-gray-200 hover:border-gray-300'}`}
+                    >
+                      <img src={img.imageUrl} alt={`${product.name} - ảnh ${idx + 1}`} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>
@@ -113,7 +130,19 @@ const ProductDetail: React.FC = () => {
                       const ringClass = isSelected ? 'ring-2 ring-green-500 ring-offset-2' : 'ring-1 ring-gray-200'
                       const light = ['#ffffff', '#f5f5dc'].includes(c.colorCode.toLowerCase()) ? 'border border-gray-200' : ''
                       return (
-                        <button key={c.id} onClick={() => setSelectedColor(c.colorCode)} className={`w-6 h-6 rounded-full ${ringClass} ${light}`} style={{ backgroundColor: c.colorCode }} />
+                        <button 
+                          key={c.id} 
+                          onClick={() => {
+                            setSelectedColor(c.colorCode)
+                            // Find image index for this color (for "per-color" mode)
+                            const colorImageIdx = images.findIndex(img => img.colorCode?.toLowerCase() === c.colorCode.toLowerCase())
+                            if (colorImageIdx !== -1) {
+                              setSelectedImageIndex(colorImageIdx)
+                            }
+                          }} 
+                          className={`w-6 h-6 rounded-full ${ringClass} ${light}`} 
+                          style={{ backgroundColor: c.colorCode }} 
+                        />
                       )
                     })}
                   </div>

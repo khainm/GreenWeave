@@ -159,6 +159,12 @@ export class ProductService {
     if (productData.imageFiles?.length) {
       productData.imageFiles.forEach(file => formData.append('ImageFiles', file))
     }
+    
+    // Gửi chế độ map ảnh (per-color hoặc shared)
+    if (productData.imageColorMode) {
+      formData.append('ImageColorMode', productData.imageColorMode)
+    }
+    
     // Note: Backend tự động map ảnh với màu theo thứ tự upload
     // Ảnh đầu tiên = ảnh chính, các ảnh tiếp theo tương ứng với từng màu
     

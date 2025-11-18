@@ -2,6 +2,7 @@ using backend.Models;
 using backend.Data;
 using backend.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
+using GreenWeave.Models;
 
 namespace backend.Repositories
 {
@@ -212,10 +213,67 @@ namespace backend.Repositories
                 if (product == null)
                     return false;
                 
+                // Check if product is used in any orders (MUST preserve)
+                var hasOrders = await _context.OrderItems
+                    .AnyAsync(oi => oi.ProductId == id);
+                
+                if (hasOrders)
+                {
+                    // SOFT DELETE: Product has been ordered, preserve all data
+                    _logger.LogWarning("Product {Id} has order history. Performing soft delete (marking as inactive).", id);
+                    
+                    product.Status = "inactive";
+                    product.UpdatedAt = DateTime.UtcNow;
+                    await _context.SaveChangesAsync();
+                    
+                    _logger.LogInformation("Product {Id} marked as inactive (soft delete) - order data preserved", id);
+                    return true;
+                }
+                
+                // No orders exist - safe to delete draft/pending custom designs and consultation requests
+                // These are just customer drafts/inquiries that haven't been converted to orders yet
+                
+                // Delete draft CustomDesigns (customer design drafts)
+                var customDesigns = await _context.CustomDesigns
+                    .Where(cd => cd.ProductId == id)
+                    .ToListAsync();
+                
+                if (customDesigns.Any())
+                {
+                    _logger.LogInformation("Deleting {Count} draft custom design(s) for product {Id} (no orders exist)", 
+                        customDesigns.Count, id);
+                    _context.CustomDesigns.RemoveRange(customDesigns);
+                }
+                
+                // Delete pending ConsultationRequests (customer inquiries)
+                var consultationRequests = await _context.ConsultationRequests
+                    .Where(cr => cr.ProductId == id)
+                    .ToListAsync();
+                
+                if (consultationRequests.Any())
+                {
+                    _logger.LogInformation("Deleting {Count} consultation request(s) for product {Id} (no orders exist)", 
+                        consultationRequests.Count, id);
+                    _context.ConsultationRequests.RemoveRange(consultationRequests);
+                }
+                
+                // Delete related ProductWarehouseStock (inventory data)
+                var warehouseStocks = await _context.ProductWarehouseStocks
+                    .Where(pws => pws.ProductId == id)
+                    .ToListAsync();
+                
+                if (warehouseStocks.Any())
+                {
+                    _logger.LogInformation("Deleting {Count} warehouse stock record(s) for product {Id}", 
+                        warehouseStocks.Count, id);
+                    _context.ProductWarehouseStocks.RemoveRange(warehouseStocks);
+                }
+                
+                // HARD DELETE: Remove product completely (ProductImages and ProductColors cascade delete automatically)
                 _context.Products.Remove(product);
                 await _context.SaveChangesAsync();
                 
-                _logger.LogInformation("Product deleted with ID: {Id}", id);
+                _logger.LogInformation("Product {Id} permanently deleted (hard delete) - no order history found", id);
                 return true;
             }
             catch (Exception ex)
