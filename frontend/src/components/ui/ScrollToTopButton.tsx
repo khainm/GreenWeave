@@ -1,19 +1,65 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { ArrowUp } from 'lucide-react';
 
 const ScrollToTopButton: React.FC = () => {
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const toggleVisibility = () => {
+      if (window.scrollY > 300) {
+        setIsVisible(true);
+      } else {
+        setIsVisible(false);
+      }
+    };
+
+    window.addEventListener('scroll', toggleVisibility);
+    return () => window.removeEventListener('scroll', toggleVisibility);
+  }, []);
+
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  if (!isVisible) {
+    return null;
+  }
+
   return (
     <button
       onClick={scrollToTop}
-      className="fixed bottom-6 right-6 bg-green-600 text-white p-3 rounded-full shadow-lg hover:bg-green-700 transition-colors duration-200 z-50"
+      style={{
+        position: 'fixed',
+        bottom: '28px',
+        left: '28px', // Đổi sang bên trái để tránh đè lên FloatingContactButtons
+        backgroundColor: '#22C55E',
+        color: 'white',
+        border: 'none',
+        borderRadius: '50%',
+        width: '52px',
+        height: '52px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: 9998, // Thấp hơn FloatingContactButtons (9999)
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'scale(1.1) translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 6px 20px rgba(34, 197, 94, 0.4)';
+        e.currentTarget.style.backgroundColor = '#16A34A';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'scale(1) translateY(0)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)';
+        e.currentTarget.style.backgroundColor = '#22C55E';
+      }}
       aria-label="Scroll to top"
+      title="Cuộn lên đầu trang"
     >
-      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-      </svg>
+      <ArrowUp size={24} />
     </button>
   );
 };

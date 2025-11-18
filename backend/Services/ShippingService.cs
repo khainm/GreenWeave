@@ -24,6 +24,7 @@ namespace backend.Services
         private readonly ILogger<ShippingService> _logger;
         private readonly ApplicationDbContext _dbContext;
         private readonly IWarehouseService _warehouseService;
+        private readonly IEmailNotificationService _emailNotificationService;
 
         public ShippingService(
             IOrderRepository orderRepository,
@@ -34,7 +35,8 @@ namespace backend.Services
             IOptions<ShippingConfiguration> shippingConfig,
             ILogger<ShippingService> logger,
             ApplicationDbContext dbContext,
-            IWarehouseService warehouseService)
+            IWarehouseService warehouseService,
+            IEmailNotificationService emailNotificationService)
         {
             _orderRepository = orderRepository;
             _shippingRequestRepository = shippingRequestRepository;
@@ -45,6 +47,7 @@ namespace backend.Services
             _logger = logger;
             _dbContext = dbContext;
             _warehouseService = warehouseService;
+            _emailNotificationService = emailNotificationService;
         }
         
 
@@ -920,6 +923,51 @@ namespace backend.Services
                             order.ShippingHistory = JsonSerializer.Serialize(history);
 
                             await _orderRepository.UpdateAsync(order);
+                            
+                            // 📧 Send email notifications based on shipping status
+                            try
+                            {
+                                var statusCode = int.Parse(webhookInfo.Status);
+                                
+                                // Send "Order Shipping" email when order is picked up or in transit
+                                // ViettelPost status codes: 100 (Picked), 102 (In Transit), 103 (Out for delivery)
+                                if (statusCode >= 100 && statusCode < 200 && statusCode != 104) // Exclude 104 (Return initiated)
+                                {
+                                    if (order.Customer != null && !string.IsNullOrEmpty(order.Customer.Email))
+                                    {
+                                        _logger.LogInformation("📧 Sending shipping email for order {OrderNumber}, status {Status}", 
+                                            order.OrderNumber, statusCode);
+                                        await _emailNotificationService.SendOrderShippingEmailAsync(
+                                            order.Customer.Email,
+                                            order.Customer.FullName ?? "Khách hàng",
+                                            order.OrderNumber,
+                                            webhookInfo.TrackingCode,
+                                            order.ShippingProvider.ToString()
+                                        );
+                                    }
+                                }
+                                // Send "Order Delivered" email when successfully delivered
+                                // ViettelPost status codes: 500 (Delivered successfully)
+                                else if (statusCode == 500)
+                                {
+                                    if (order.Customer != null && !string.IsNullOrEmpty(order.Customer.Email))
+                                    {
+                                        _logger.LogInformation("📧 Sending delivered email for order {OrderNumber}", order.OrderNumber);
+                                        await _emailNotificationService.SendOrderDeliveredEmailAsync(
+                                            order.Customer.Email,
+                                            order.Customer.FullName ?? "Khách hàng",
+                                            order.OrderNumber,
+                                            order.Total
+                                        );
+                                    }
+                                }
+                            }
+                            catch (Exception emailEx)
+                            {
+                                // Don't fail webhook processing if email fails
+                                _logger.LogWarning(emailEx, "⚠️ Failed to send shipping status email for order {OrderNumber}, but webhook processed successfully", 
+                                    order.OrderNumber);
+                            }
                         }
 
                         isSuccess = true;

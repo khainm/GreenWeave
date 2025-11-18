@@ -90,6 +90,12 @@ namespace backend.Models
         // Shipping fields
         public ShippingProvider ShippingProvider { get; set; } = ShippingProvider.ViettelPost;
         
+        /// <summary>
+        /// Shipping service ID (e.g., "VCN", "VTK", "VN12", "VN24" for ViettelPost)
+        /// </summary>
+        [StringLength(50)]
+        public string? ShippingServiceId { get; set; }
+        
         [StringLength(100)]
         public string? ShippingCode { get; set; }
         

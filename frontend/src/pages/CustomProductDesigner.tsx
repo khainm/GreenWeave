@@ -199,12 +199,7 @@ const CustomProductDesigner: React.FC = () => {
       setIsLoading(true);
       setUploadProgress(0);
 
-      // 1) lấy ảnh sản phẩm từ Konva
-      // const stage = (window as any).Konva?.stages?.[0];
-      // if (!stage) throw new Error("Canvas not found.");
-      // const dataUrl = stage.toDataURL({ pixelRatio: 2 });
-      // const productBlob = await (await fetch(dataUrl)).blob();
-      // 1) Ưu tiên ảnh AI generation (nếu có), fallback về ảnh canvas
+     
 let productBlob: Blob;
 if (productPreviewUrl && productPreviewUrl.startsWith("data:image")) {
   productBlob = await (await fetch(productPreviewUrl)).blob();
@@ -268,27 +263,7 @@ formData.append("prompt",
     })();
   }, []);
 
-  // Lưu ảnh AI-generated vào localStorage để dùng lại
-// useEffect(() => {
-//   if (canvasDataUrl && canvasDataUrl.startsWith("data:image")) {
-//     try {
-//       const existing = JSON.parse(localStorage.getItem("aiGeneratedItems") || "[]");
-//       const newItem = {
-//         id: Date.now().toString(),
-//         url: canvasDataUrl, // Store only the URL, avoid large base64 strings
-//         createdAt: new Date().toISOString(),
-//       };
-//       const updated = [newItem, ...existing].slice(0, 20); // Limit to 20 items
-//       localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
-//     } catch (error) {
-//       if (error instanceof DOMException && error.name === "QuotaExceededError") {
-//         console.error("LocalStorage quota exceeded. Consider clearing some items.");
-//       } else {
-//         console.error("An error occurred while saving to localStorage:", error);
-//       }
-//     }
-//   }
-// }, [canvasDataUrl]);
+  
 useEffect(() => {
   if (canvasDataUrl && canvasDataUrl.startsWith("data:image") && aiImageType) {
     try {
@@ -708,6 +683,13 @@ const handleDeleteElement = useCallback(() => {
                   design={design}
                   onDesignChange={handleDesignChange}
                   onTextElementSelect={(id) => setSelectedTextElementId(id)}
+                  onElementSelect={(id) => {
+                    // ✨ Đồng bộ selectedElementIds với canvas selection
+                    setCanvasState(prev => ({
+                      ...prev,
+                      selectedElementIds: id ? [id] : []
+                    }));
+                  }}
                 />
               </div>
             </div>
@@ -889,16 +871,7 @@ const handleDeleteElement = useCallback(() => {
 
 
 
-      {/* AI Try-On modal */}
-      {/* {showTryOnModal && (
-        <AiTryOnModal
-          isOpen={showTryOnModal}
-          onClose={() => setShowTryOnModal(false)}
-          onSubmit={handleAiTryOn}
-          previewImageUrl={(window as any).Konva?.stages?.[0]?.toDataURL?.({ pixelRatio: 1 })}
-          productPreviewUrl={canvasDataUrl} // ✅ ảnh AI generate
-        />
-      )} */}
+    
 
       {showTryOnModal && (
   <AiTryOnModal

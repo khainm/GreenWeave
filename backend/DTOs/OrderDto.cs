@@ -37,6 +37,7 @@ namespace backend.DTOs
         
         // Shipping fields
         public string ShippingProvider { get; set; } = string.Empty;
+        public string? ShippingServiceId { get; set; }
         public string? ShippingCode { get; set; }
         public string ShippingStatus { get; set; } = string.Empty;
         public List<ShippingHistoryEvent>? ShippingHistory { get; set; }

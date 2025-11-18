@@ -201,6 +201,85 @@ const AdminOrdersPage: React.FC = () => {
             </div>
           )}
 
+          {/* Auto-processing Info Banner */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-lg p-5 shadow-sm">
+            <div className="flex items-start gap-4">
+              {/* Icon */}
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="flex-1">
+                <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-center gap-2">
+                  ⚡ Hệ Thống Xử Lý Đơn Hàng Tự Động
+                  <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-semibold">ACTIVE</span>
+                </h3>
+                
+                <div className="grid md:grid-cols-2 gap-4 text-xs">
+                  {/* COD Orders */}
+                  <div className="bg-white rounded-lg p-3 border border-green-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                      <span className="font-semibold text-gray-800">Đơn COD (Ship COD)</span>
+                    </div>
+                    <ul className="space-y-1 text-gray-600 ml-4">
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-green-600 mt-0.5">✓</span>
+                        <span>Tự động xác nhận ngay khi tạo đơn</span>
+                      </li>
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-green-600 mt-0.5">✓</span>
+                        <span>Tự động tạo vận đơn ViettelPost</span>
+                      </li>
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-green-600 mt-0.5">✓</span>
+                        <span>Gửi email xác nhận + tracking code</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* PayOS Orders */}
+                  <div className="bg-white rounded-lg p-3 border border-blue-100">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                      <span className="font-semibold text-gray-800">Đơn PayOS (Chuyển khoản)</span>
+                    </div>
+                    <ul className="space-y-1 text-gray-600 ml-4">
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-blue-600 mt-0.5">✓</span>
+                        <span>Tự động xác nhận sau khi webhook nhận tiền</span>
+                      </li>
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-blue-600 mt-0.5">✓</span>
+                        <span>Tự động tạo vận đơn ViettelPost</span>
+                      </li>
+                      <li className="flex items-start gap-1.5">
+                        <span className="text-blue-600 mt-0.5">✓</span>
+                        <span>Gửi email xác nhận + tracking code</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2 text-xs">
+                  <span className="inline-flex items-center px-2 py-1 bg-yellow-100 text-yellow-800 rounded">
+                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd"/>
+                    </svg>
+                    Admin chỉ cần can thiệp khi có exception
+                  </span>
+                  <span className="text-gray-500">|</span>
+                  <span className="text-gray-600">Tất cả thao tác được log và có thể audit</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Filters */}
           {showFilters && (
             <div className="bg-white p-6 rounded-lg shadow border">

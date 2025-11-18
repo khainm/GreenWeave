@@ -136,6 +136,8 @@ export interface CreateOrderRequest {
   discount?: number
   notes?: string
   paymentMethod?: PaymentMethod
+  shippingProvider?: string // ViettelPost, etc.
+  shippingServiceId?: string // VCN, VTK, VHT, etc.
 }
 
 export interface OrderStats {

@@ -224,6 +224,34 @@ export class ShippingService {
   }
 
   /**
+   * List all ViettelPost inventories/warehouses
+   */
+  static async listInventory(): Promise<any[]> {
+    try {
+      console.log('📦 [ShippingService] Calling listInventory...');
+      const response = await apiClient.get<{
+        success: boolean;
+        data?: any[];
+        message?: string;
+        error?: string;
+      }>('/api/shipping/inventory');
+      
+      console.log('📦 [ShippingService] List inventory response:', response);
+      
+      if (response?.success && response?.data) {
+        console.log('✅ [ShippingService] List inventory successful!', response.data);
+        return response.data;
+      } else {
+        console.error('❌ [ShippingService] List inventory failed:', response);
+        return [];
+      }
+    } catch (error: any) {
+      console.error('❌ [ShippingService] Error listing inventory:', error);
+      return [];
+    }
+  }
+
+  /**
    * Register new inventory/warehouse with ViettelPost
    */
   static async registerInventory(request: {

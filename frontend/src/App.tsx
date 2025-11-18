@@ -47,6 +47,8 @@ import AddressPage from './pages/AddressPage'
 import PaymentResultPage from './pages/PaymentResultPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentCancelPage from './pages/PaymentCancelPage';
+import FloatingContactButtons from './components/chat/FloatingContactButtons';
+import ScrollToTopButton from './components/ui/ScrollToTopButton';
 import './App.css'
 
 function App() {
@@ -227,6 +229,12 @@ function App() {
             <Route path="/payment/success" element={<PaymentSuccessPage />} />
             <Route path="/payment/cancel" element={<PaymentCancelPage />} />
           </Routes>
+          
+          {/* Floating contact buttons - hiển thị trên mọi trang */}
+          <FloatingContactButtons />
+          
+          {/* Scroll to top button - hiển thị trên mọi trang */}
+          <ScrollToTopButton />
           </div>
         </Router>
       </AuthProvider>

@@ -361,6 +361,7 @@ var context = new backend.CustomAssemblyLoadContext();
 context.LoadUnmanagedLibrary(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot/lib", "libwkhtmltox.dylib"));
 builder.Services.AddSingleton(typeof(IConverter), new SynchronizedConverter(new PdfTools()));
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<IEmailNotificationService, EmailNotificationService>(); // ✅ Email notification service
 builder.Services.AddScoped<IViettelPostPrintService, ViettelPostPrintService>();
 builder.Services.AddScoped<IViettelPostAuthService, ViettelPostAuthService>();
 

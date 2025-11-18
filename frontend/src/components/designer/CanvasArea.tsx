@@ -10,6 +10,7 @@ interface CanvasAreaProps {
   design: CustomDesign | null;
   onDesignChange: (design: CustomDesign) => void;
   onTextElementSelect?: (elementId: string | null) => void;
+  onElementSelect?: (elementId: string | null) => void; // ✨ Thêm callback để expose selected element
 }
 
 // Component để hiển thị ảnh trong Konva
@@ -411,16 +412,23 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   design,
   onDesignChange,
   onTextElementSelect,
+  onElementSelect, // ✨ Nhận callback
 }) => {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const stageRef = useRef<any>(null);
   const canvasWidth = 600;
-  const canvasHeight = 400;
+  const canvasHeight = 600;
 
   // Notify parent when text element is selected
   const handleElementSelect = (elementId: string | null, elementType?: string) => {
     console.log('🎯 handleElementSelect called:', { elementId, elementType, hasCallback: !!onTextElementSelect });
     setSelectedElementId(elementId);
+    
+    // ✨ Notify parent về element được chọn (bất kể loại gì)
+    if (onElementSelect) {
+      onElementSelect(elementId);
+    }
+    
     if (elementType === 'text' && onTextElementSelect) {
       console.log('✅ Calling onTextElementSelect with:', elementId);
       onTextElementSelect(elementId);
@@ -527,6 +535,9 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     if (e.target === e.target.getStage()) {
       console.log('👉 Deselecting element');
       setSelectedElementId(null);
+      if (onElementSelect) {
+        onElementSelect(null);
+      }
       if (onTextElementSelect) {
         onTextElementSelect(null);
       }
@@ -552,21 +563,30 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   // Expose methods to parent
   useEffect(() => {
-    if (window.customDesigner) {
-      window.customDesigner.addImage = (src: string) => {
-        addElement({
-          type: 'image',
-          x: canvasWidth / 2 - 50,
-          y: canvasHeight / 2 - 50,
-          width: 100,
-          height: 100,
-          rotation: 0,
-          src,
-        });
+    if (!window.customDesigner) {
+      window.customDesigner = {
+        addImage: () => {},
+        exportImage: () => {}
       };
-
-      window.customDesigner.exportImage = exportAsImage;
     }
+    
+    window.customDesigner.addImage = (src: string) => {
+      addElement({
+        type: 'image',
+        x: canvasWidth / 2 - 50,
+        y: canvasHeight / 2 - 50,
+        width: 100,
+        height: 100,
+        rotation: 0,
+        scaleX: 1,
+        scaleY: 1,
+        zIndex: Date.now(),
+        createdAt: new Date(),
+        src,
+      });
+    };
+
+    window.customDesigner.exportImage = exportAsImage;
   }, [selectedProduct, design]);
 
   if (!selectedProduct) {
@@ -652,7 +672,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 // Declare global interface for methods
 declare global {
   interface Window {
-    customDesigner: {
+    customDesigner?: {
       addImage: (src: string) => void;
       exportImage: () => void;
     };

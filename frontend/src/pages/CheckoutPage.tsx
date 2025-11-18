@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Package } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Header from '../components/layout/Header';
 import ShippingProviderSelector from '../components/shipping/ShippingProviderSelector';
@@ -10,16 +11,22 @@ import type {
   CartItem,
   PaymentMethod
 } from '../types';
+import type { Product } from '../types/product';
 import OrderService from '../services/orderService';
 import { userAddressService } from '../services/userAddressService';
 import { CartService, getOrCreateCartId } from '../services/cartService';
+import ProductService from '../services/productService';
+
+interface CartItemWithProduct extends CartItem {
+  product?: Product;
+}
 
 const CheckoutPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   
   // State management
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItemWithProduct[]>([]);
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string>('');
   const [selectedShippingOption, setSelectedShippingOption] = useState<ShippingOption | null>(null);
@@ -75,7 +82,41 @@ const CheckoutPage: React.FC = () => {
         userAddressService.getAddresses()
       ]);
       
-      setCartItems(cartData.items || []);
+      // Get selected item IDs from localStorage
+      const selectedItemIdsJson = localStorage.getItem('checkout_selected_items');
+      const selectedItemIds: number[] = selectedItemIdsJson ? JSON.parse(selectedItemIdsJson) : [];
+      
+      // Fetch product details for each cart item
+      if (cartData.items) {
+        const itemsWithProducts = await Promise.all(
+          cartData.items.map(async (item) => {
+            try {
+              const product = await ProductService.getProductById(item.productId);
+              return { ...item, product };
+            } catch (err) {
+              console.error(`Failed to fetch product ${item.productId}:`, err);
+              return { ...item, product: undefined };
+            }
+          })
+        );
+        
+        // Filter to only show selected items if there are any selected
+        // Otherwise show all items (backward compatibility)
+        if (selectedItemIds.length > 0) {
+          const filteredItems = itemsWithProducts.filter(item => 
+            selectedItemIds.includes(item.id)
+          );
+          setCartItems(filteredItems);
+        } else {
+          setCartItems(itemsWithProducts);
+        }
+        
+        // Clear the localStorage after reading
+        localStorage.removeItem('checkout_selected_items');
+      } else {
+        setCartItems([]);
+      }
+      
       // addressData is UserAddressResponse, need to extract addresses
       if (addressData.success && addressData.addresses) {
         setAddresses(addressData.addresses);
@@ -529,10 +570,17 @@ const CheckoutPage: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900">Thanh toán khi nhận hàng (COD)</h3>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Tự động</span>
                     </div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-gray-600 mb-2">
                       Bạn sẽ thanh toán bằng tiền mặt khi nhận hàng. ViettelPost sẽ thu hộ và chuyển tiền về tài khoản của chúng tôi.
                     </p>
+                    <div className="flex items-start gap-2 text-xs text-green-700 bg-green-50 p-2 rounded">
+                      <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      </svg>
+                      <span>Đơn hàng sẽ <strong>tự động xác nhận</strong> và <strong>tạo vận đơn</strong> ngay lập tức</span>
+                    </div>
                   </div>
                   
                   {/* Custom radio indicator */}
@@ -571,10 +619,17 @@ const CheckoutPage: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900">Thanh toán qua PayOS</h3>
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Tự động</span>
                     </div>
-                    <p className="text-sm text-gray-600">
-                      Thanh toán trực tuyến qua cổng PayOS. Sau khi thanh toán thành công, đơn hàng sẽ được xác nhận tự động nếu cấu hình cho phép.
+                    <p className="text-sm text-gray-600 mb-2">
+                      Thanh toán trực tuyến qua cổng PayOS (Quét QR, chuyển khoản ngân hàng).
                     </p>
+                    <div className="flex items-start gap-2 text-xs text-green-700 bg-green-50 p-2 rounded">
+                      <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
+                      </svg>
+                      <span>Sau thanh toán thành công, đơn hàng <strong>tự động xác nhận</strong> và <strong>tạo vận đơn</strong></span>
+                    </div>
                   </div>
 
                   {/* Custom radio indicator */}
@@ -616,24 +671,44 @@ const CheckoutPage: React.FC = () => {
             
             {/* Cart Items */}
             <div className="space-y-3 mb-4">
-              {cartItems.map((item) => (
-                <div key={`${item.productId}-${item.colorCode || 'default'}`} className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
-                    <span className="text-xs text-gray-500">IMG</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-medium text-gray-900 truncate">
-                      Product #{item.productId}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      SL: {item.quantity} × {item.unitPrice.toLocaleString('vi-VN')}đ
+              {cartItems.map((item) => {
+                const product = item.product;
+                
+                // Get product image matching color or primary
+                const productImage = product?.images?.find(img => {
+                  if (item.colorCode && img.colorCode) {
+                    return img.colorCode.toLowerCase() === item.colorCode.toLowerCase();
+                  }
+                  return img.isPrimary;
+                }) || product?.images?.[0];
+                
+                return (
+                  <div key={`${item.productId}-${item.colorCode || 'default'}`} className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {productImage?.imageUrl ? (
+                        <img 
+                          src={productImage.imageUrl} 
+                          alt={product?.name || 'Sản phẩm'} 
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <Package size={20} className="text-gray-400" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-sm font-medium text-gray-900 truncate">
+                        {product?.name || `Product #${item.productId}`}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        SL: {item.quantity} × {item.unitPrice.toLocaleString('vi-VN')}đ
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ
                     </p>
                   </div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {(item.quantity * item.unitPrice).toLocaleString('vi-VN')}đ
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <hr className="my-4" />

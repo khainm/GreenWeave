@@ -64,9 +64,36 @@ const PaymentSuccessPage: React.FC = () => {
             Thanh toán thành công!
           </h1>
           
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-4">
             Cảm ơn bạn đã đặt hàng. Đơn hàng của bạn đang được xử lý.
           </p>
+
+          {/* Auto-processing notice */}
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 text-left">
+            <div className="flex items-start gap-3">
+              <CheckCircleIcon className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="text-sm">
+                <p className="font-semibold text-green-800 mb-2">Đơn hàng đã được xử lý tự động:</p>
+                <ul className="space-y-1.5 text-green-700">
+                  <li className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                    Xác nhận đơn hàng
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                    Tạo vận đơn ViettelPost
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-green-600 rounded-full"></span>
+                    Gửi email thông báo
+                  </li>
+                </ul>
+                <p className="mt-3 text-xs text-green-600 bg-green-100 px-2 py-1 rounded inline-block">
+                  💌 Kiểm tra email để nhận mã tracking theo dõi đơn hàng
+                </p>
+              </div>
+            </div>
+          </div>
 
           {orderNumber && (
             <div className="bg-gray-50 rounded-lg p-4 mb-6">
@@ -83,7 +110,7 @@ const PaymentSuccessPage: React.FC = () => {
 
           <div className="space-y-3">
             <button
-              onClick={() => navigate('/my-orders')}
+              onClick={() => navigate('/orders')}
               className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors"
             >
               Xem đơn hàng của tôi

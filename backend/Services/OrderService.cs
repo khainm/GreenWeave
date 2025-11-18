@@ -15,6 +15,7 @@ namespace backend.Services
         private readonly IInvoiceService _invoiceService;
         private readonly IShippingService _shippingService;
         private readonly IEmailService _emailService;
+        private readonly IEmailNotificationService _emailNotificationService;
         private readonly IWarehouseSelectionService _warehouseSelectionService;
         private readonly IProductWarehouseStockRepository _productWarehouseStockRepository;
     private readonly ILogger<OrderService> _logger;
@@ -29,6 +30,7 @@ namespace backend.Services
             IInvoiceService invoiceService,
             IShippingService shippingService,
             IEmailService emailService,
+            IEmailNotificationService emailNotificationService,
             IWarehouseSelectionService warehouseSelectionService,
             IProductWarehouseStockRepository productWarehouseStockRepository,
             ILogger<OrderService> logger,
@@ -42,6 +44,7 @@ namespace backend.Services
             _invoiceService = invoiceService;
             _shippingService = shippingService;
             _emailService = emailService;
+            _emailNotificationService = emailNotificationService;
             _warehouseSelectionService = warehouseSelectionService;
             _productWarehouseStockRepository = productWarehouseStockRepository;
             _logger = logger;
@@ -142,19 +145,17 @@ namespace backend.Services
                     ShippingFee = createOrderDto.ShippingFee,
                     Discount = createOrderDto.Discount,
                     Total = total,
-                    Status = OrderStatus.Pending,
                     PaymentMethod = createOrderDto.PaymentMethod,
                     PaymentStatus = createOrderDto.PaymentMethod == PaymentMethod.BankTransfer 
-                        ? PaymentStatus.Pending 
-                        : PaymentStatus.Pending, // COD cũng là pending cho đến khi giao hàng
+                        ? PaymentStatus.Pending : PaymentStatus.Pending,
+                    ShippingProvider = createOrderDto.ShippingProvider,
+                    ShippingServiceId = createOrderDto.ShippingServiceId, // ✅ Lưu service ID
                     FulfillmentWarehouseId = selectedWarehouse.WarehouseId,
                     FulfillmentWarehouseName = selectedWarehouse.WarehouseName,
                     Notes = createOrderDto.Notes,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
-                };
-
-                // Create order items
+                };                // Create order items
                 foreach (var itemDto in createOrderDto.Items)
                 {
                     var product = await _productRepository.GetByIdAsync(itemDto.ProductId);
@@ -180,33 +181,120 @@ namespace backend.Services
                 // Reserve stock for the order
                 await ReserveStockForOrderAsync(createdOrder.Id, createOrderDto.Items, selectedWarehouse.WarehouseId);
 
-                // 🔥 Send immediate order creation confirmation email
-                try
+                // 🔥 AUTO-CONFIRM ORDER FOR COD (Cash On Delivery)
+                // Nếu là COD, tự động confirm luôn, không cần admin thao tác
+                var paymentMethodName = createOrderDto.PaymentMethod.ToString();
+                var shouldAutoConfirm = _orderSettings.AutoConfirmOnCreate && 
+                                       _orderSettings.AutoConfirmCreateMethods != null &&
+                                       _orderSettings.AutoConfirmCreateMethods.Contains(paymentMethodName);
+                
+                if (shouldAutoConfirm)
                 {
-                    // Load customer info with the order
-                    var orderWithCustomer = await _orderRepository.GetByIdAsync(createdOrder.Id);
-                    if (orderWithCustomer?.Customer != null && 
-                        !string.IsNullOrEmpty(orderWithCustomer.Customer.Email) &&
-                        !string.IsNullOrEmpty(orderWithCustomer.Customer.FullName))
+                    _logger.LogInformation("🚀 AUTO-CONFIRMING COD order: {OrderNumber}", createdOrder.OrderNumber);
+                    
+                    try
                     {
-                        await _emailService.SendOrderCreatedEmailAsync(
-                            orderWithCustomer.Customer.Email,
-                            orderWithCustomer.Customer.FullName,
-                            createdOrder.OrderNumber,
-                            createdOrder.Total,
-                            createOrderDto.PaymentMethod.ToString()
-                        );
-                        _logger.LogInformation("✅ Order creation confirmation email sent for order: {OrderNumber}", createdOrder.OrderNumber);
+                        // Update order status to Confirmed
+                        createdOrder.Status = OrderStatus.Confirmed;
+                        createdOrder.ConfirmedAt = DateTime.UtcNow;
+                        createdOrder.UpdatedAt = DateTime.UtcNow;
+                        await _orderRepository.UpdateAsync(createdOrder);
+                        
+                        // 1. Reduce actual stock (not just reserve)
+                        await ReduceStockForConfirmedOrderAsync(createdOrder.Id);
+                        
+                        // 2. Auto-create shipment
+                        try
+                        {
+                            _logger.LogInformation("🚀 Auto-creating shipment for COD order: {OrderId}", createdOrder.Id);
+                            
+                            var serviceId = createdOrder.ShippingServiceId ?? "VCN";
+                            var shipmentResult = await _shippingService.CreateShipmentAsync(new CreateShipmentRequest
+                            {
+                                OrderId = createdOrder.Id,
+                                Provider = createdOrder.ShippingProvider,
+                                ServiceId = serviceId,
+                                Note = createdOrder.Notes
+                            });
+                            
+                            if (shipmentResult.IsSuccess)
+                            {
+                                _logger.LogInformation("✅ Shipment created for COD order: {OrderId}, Tracking: {TrackingCode}", 
+                                    createdOrder.Id, shipmentResult.TrackingCode);
+                                
+                                // 3. Send confirmed email with tracking
+                                try
+                                {
+                                    var orderWithTracking = await _orderRepository.GetByIdAsync(createdOrder.Id);
+                                    if (orderWithTracking?.Customer != null && !string.IsNullOrEmpty(orderWithTracking.Customer.Email))
+                                    {
+                                        await _emailNotificationService.SendOrderConfirmedEmailAsync(
+                                            orderWithTracking.Customer.Email,
+                                            orderWithTracking.Customer.FullName ?? "Khách hàng",
+                                            orderWithTracking.OrderNumber,
+                                            orderWithTracking.Total,
+                                            shipmentResult.TrackingCode
+                                        );
+                                        _logger.LogInformation("✅ Confirmed email sent for COD order: {OrderNumber}", createdOrder.OrderNumber);
+                                    }
+                                }
+                                catch (Exception emailEx)
+                                {
+                                    _logger.LogError(emailEx, "❌ Failed to send confirmed email for COD order: {OrderNumber}", createdOrder.OrderNumber);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Failed to create shipment for COD order: {OrderId}, Error: {Error}", 
+                                    createdOrder.Id, shipmentResult.ErrorMessage);
+                            }
+                        }
+                        catch (Exception shipEx)
+                        {
+                            _logger.LogError(shipEx, "❌ Exception while creating shipment for COD order: {OrderId}", createdOrder.Id);
+                        }
+                        
+                        // 4. Create invoice
+                        try
+                        {
+                            await _invoiceService.ProcessOrderConfirmationAsync(createdOrder.Id);
+                            _logger.LogInformation("✅ Invoice created for COD order: {OrderId}", createdOrder.Id);
+                        }
+                        catch (Exception invEx)
+                        {
+                            _logger.LogError(invEx, "❌ Failed to create invoice for COD order: {OrderId}", createdOrder.Id);
+                        }
                     }
-                    else
+                    catch (Exception autoConfirmEx)
                     {
-                        _logger.LogWarning("⚠️ Could not load customer info or missing email/name for order: {OrderNumber}", createdOrder.OrderNumber);
+                        _logger.LogError(autoConfirmEx, "❌ Failed to auto-confirm COD order: {OrderNumber}", createdOrder.OrderNumber);
+                        // Don't throw - order is still created, just not confirmed
                     }
                 }
-                catch (Exception emailEx)
+                else
                 {
-                    _logger.LogError(emailEx, "⚠️ Failed to send order creation confirmation email for order: {OrderNumber}", createdOrder.OrderNumber);
-                    // Don't throw - email failure shouldn't affect order creation
+                    // 🔥 Send order creation email (for non-COD orders that need manual confirmation)
+                    try
+                    {
+                        var orderWithCustomer = await _orderRepository.GetByIdAsync(createdOrder.Id);
+                        if (orderWithCustomer?.Customer != null && 
+                            !string.IsNullOrEmpty(orderWithCustomer.Customer.Email) &&
+                            !string.IsNullOrEmpty(orderWithCustomer.Customer.FullName))
+                        {
+                            await _emailService.SendOrderCreatedEmailAsync(
+                                orderWithCustomer.Customer.Email,
+                                orderWithCustomer.Customer.FullName,
+                                createdOrder.OrderNumber,
+                                createdOrder.Total,
+                                paymentMethodName
+                            );
+                            _logger.LogInformation("✅ Order creation email sent for order: {OrderNumber}", createdOrder.OrderNumber);
+                        }
+                    }
+                    catch (Exception emailEx)
+                    {
+                        _logger.LogError(emailEx, "⚠️ Failed to send order creation email for order: {OrderNumber}", createdOrder.OrderNumber);
+                    }
                 }
                 
                 return MapToResponseDto(createdOrder);
@@ -398,34 +486,65 @@ namespace backend.Services
                         // 1. Reduce actual stock when order is confirmed
                         await ReduceStockForConfirmedOrderAsync(id);
                         
-                        // 2. Tạo shipment với ViettelPost
-                        if (order.ShippingRequest != null)
+                        // 2. ✅ Tự động tạo shipment với ViettelPost (KHÔNG CẦN ShippingRequest có sẵn)
+                        // ShippingRequest sẽ được tạo bởi CreateShipmentAsync
+                        string? trackingCode = null;
+                        try
                         {
-                            _logger.LogInformation("Creating shipment for order: {OrderId}", id);
+                            _logger.LogInformation("🚀 Auto-creating shipment for order: {OrderId}", id);
+                            
+                            // Lấy serviceId từ order (đã lưu từ checkout)
+                            var serviceId = order.ShippingServiceId ?? "VCN"; // Default to VCN if not specified
+                            
                             var shipmentResult = await _shippingService.CreateShipmentAsync(new CreateShipmentRequest
                             {
                                 OrderId = id,
                                 Provider = order.ShippingProvider,
-                                ServiceId = order.ShippingRequest.ServiceId,
+                                ServiceId = serviceId,
                                 Note = order.Notes
                             });
                             
                             if (shipmentResult.IsSuccess)
                             {
-                                _logger.LogInformation("Shipment created successfully for order: {OrderId}, Tracking: {TrackingCode}", 
-                                    id, shipmentResult.TrackingCode);
+                                trackingCode = shipmentResult.TrackingCode;
+                                _logger.LogInformation("✅ Shipment created successfully for order: {OrderId}, Tracking: {TrackingCode}", 
+                                    id, trackingCode);
                             }
                             else
                             {
-                                _logger.LogWarning("Failed to create shipment for order: {OrderId}, Error: {Error}", 
+                                _logger.LogWarning("⚠️ Failed to create shipment for order: {OrderId}, Error: {Error}", 
                                     id, shipmentResult.ErrorMessage);
                             }
+                        }
+                        catch (Exception shipEx)
+                        {
+                            _logger.LogError(shipEx, "❌ Exception while creating shipment for order: {OrderId}", id);
+                            // Không throw - vẫn tiếp tục xử lý invoice
                         }
                         
                         // 3. Tạo và gửi invoice
                         _logger.LogInformation("Creating invoice for confirmed order: {OrderId}", id);
                         await _invoiceService.ProcessOrderConfirmationAsync(id);
                         _logger.LogInformation("Invoice created and sent successfully for order: {OrderId}", id);
+                        
+                        // 4. ✅ Gửi email thông báo order đã confirmed
+                        try
+                        {
+                            _logger.LogInformation("📧 Sending order confirmed email for order: {OrderId}", id);
+                            await _emailNotificationService.SendOrderConfirmedEmailAsync(
+                                order.Customer.Email!,
+                                order.Customer.FullName ?? "Khách hàng",
+                                order.OrderNumber,
+                                order.Total,
+                                trackingCode
+                            );
+                            _logger.LogInformation("✅ Order confirmed email sent for order: {OrderId}", id);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogError(emailEx, "❌ Failed to send order confirmed email for order: {OrderId}", id);
+                            // Không throw - email failure không ảnh hưởng đến order
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -725,8 +844,30 @@ namespace backend.Services
                 CancelledAt = order.CancelledAt,
                 CancelReason = order.CancelReason,
                 ApprovedBy = order.ApprovedBy,
-                ApprovedAt = order.ApprovedAt
+                ApprovedAt = order.ApprovedAt,
+                
+                // Shipping info
+                ShippingProvider = order.ShippingProvider.ToString(),
+                ShippingServiceId = order.ShippingServiceId,
+                ShippingCode = order.ShippingCode,
+                ShippingStatus = order.ShippingStatus.ToString(),
+                ShippingHistory = ParseShippingHistory(order.ShippingHistory)
             };
+        }
+        
+        private static List<ShippingHistoryEvent>? ParseShippingHistory(string? historyJson)
+        {
+            if (string.IsNullOrEmpty(historyJson))
+                return null;
+                
+            try
+            {
+                return JsonSerializer.Deserialize<List<ShippingHistoryEvent>>(historyJson);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         // Admin approval workflow methods
@@ -926,26 +1067,80 @@ namespace backend.Services
                 {
                     try
                     {
-                        _logger.LogInformation("Auto-confirming order {OrderNumber} after webhook payment", orderNumber);
+                        _logger.LogInformation("🚀 Auto-confirming order {OrderNumber} after webhook payment", orderNumber);
                         order.Status = OrderStatus.Confirmed;
                         order.ConfirmedAt = DateTime.UtcNow;
                         order.UpdatedAt = DateTime.UtcNow;
                         await _orderRepository.UpdateAsync(order);
 
-                        // Reduce stock and create invoice/shipments similar to existing code
+                        // 1. Reduce actual stock
                         await ReduceStockForConfirmedOrderAsync(order.Id);
+                        
+                        // 2. Auto-create shipment
+                        try
+                        {
+                            _logger.LogInformation("🚀 Auto-creating shipment for PayOS order: {OrderId}", order.Id);
+                            
+                            var serviceId = order.ShippingServiceId ?? "VCN";
+                            var shipmentResult = await _shippingService.CreateShipmentAsync(new CreateShipmentRequest
+                            {
+                                OrderId = order.Id,
+                                Provider = order.ShippingProvider,
+                                ServiceId = serviceId,
+                                Note = order.Notes
+                            });
+                            
+                            if (shipmentResult.IsSuccess)
+                            {
+                                _logger.LogInformation("✅ Shipment created for PayOS order: {OrderId}, Tracking: {TrackingCode}", 
+                                    order.Id, shipmentResult.TrackingCode);
+                                
+                                // 3. Send confirmed email with tracking
+                                try
+                                {
+                                    var orderWithTracking = await _orderRepository.GetByIdAsync(order.Id);
+                                    if (orderWithTracking?.Customer != null && !string.IsNullOrEmpty(orderWithTracking.Customer.Email))
+                                    {
+                                        await _emailNotificationService.SendOrderConfirmedEmailAsync(
+                                            orderWithTracking.Customer.Email,
+                                            orderWithTracking.Customer.FullName ?? "Khách hàng",
+                                            orderWithTracking.OrderNumber,
+                                            orderWithTracking.Total,
+                                            shipmentResult.TrackingCode
+                                        );
+                                        _logger.LogInformation("✅ Confirmed email sent for PayOS order: {OrderNumber}", order.OrderNumber);
+                                    }
+                                }
+                                catch (Exception emailEx)
+                                {
+                                    _logger.LogError(emailEx, "❌ Failed to send confirmed email for PayOS order: {OrderNumber}", order.OrderNumber);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Failed to create shipment for PayOS order: {OrderId}, Error: {Error}", 
+                                    order.Id, shipmentResult.ErrorMessage);
+                            }
+                        }
+                        catch (Exception shipEx)
+                        {
+                            _logger.LogError(shipEx, "❌ Exception while creating shipment for PayOS order: {OrderId}", order.Id);
+                        }
+                        
+                        // 4. Create invoice
                         try
                         {
                             await _invoiceService.ProcessOrderConfirmationAsync(order.Id);
+                            _logger.LogInformation("✅ Invoice created for PayOS order: {OrderId}", order.Id);
                         }
-                        catch (Exception ex)
+                        catch (Exception invEx)
                         {
-                            _logger.LogError(ex, "Failed to create invoice during auto-confirm for order {OrderNumber}", orderNumber);
+                            _logger.LogError(invEx, "❌ Failed to create invoice for PayOS order: {OrderId}", order.Id);
                         }
                     }
                     catch (Exception exAuto)
                     {
-                        _logger.LogError(exAuto, "Auto-confirm failed for order {OrderNumber}. Marking as Processing for manual review.", orderNumber);
+                        _logger.LogError(exAuto, "❌ Auto-confirm failed for order {OrderNumber}. Marking as Processing for manual review.", orderNumber);
                         order.Status = OrderStatus.Processing;
                         order.UpdatedAt = DateTime.UtcNow;
                         await _orderRepository.UpdateAsync(order);

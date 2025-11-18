@@ -8,7 +8,7 @@ import FeaturedProducts from '../components/products/FeaturedProducts';
 import AboutStorySection from '../components/AboutStorySection';
 import CallToActionSection from '../components/CallToActionSection';
 import Footer from '../components/Footer';
-import FloatingContactButtons from '../components/chat/FloatingContactButtons';
+import ScrollToTopButton from '../components/ui/ScrollToTopButton';
 
 
 const HomePage: React.FC = () => {
@@ -19,14 +19,12 @@ const HomePage: React.FC = () => {
       <Header />
       <HeroSection />
       <SustainabilityIntro />
-      {/* <ScrollToTopButton /> */}
+      <ScrollToTopButton />
       <GreenChoiceSection />
       {/* <FeaturedProducts /> */}
       <AboutStorySection />
       <CallToActionSection />
       <Footer />
-       {/* 💬 Messenger + 📞 Gọi điện */}
-      <FloatingContactButtons />
     </div>
   );
 };

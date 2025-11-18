@@ -14,6 +14,7 @@ import type {
 } from '../../types';
 import OrderService from '../../services/orderService';
 import ShippingService from '../../services/shippingService';
+import { WebhookService, type WebhookEvent } from '../../services/webhookService';
 import { 
   ArrowLeftIcon,
   CheckCircleIcon,
@@ -35,9 +36,10 @@ const AdminOrderDetailPage: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [tracking, setTracking] = useState<TrackingInfo | null>(null);
   const [shippingRequest, setShippingRequest] = useState<ShippingRequest | null>(null);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'order' | 'shipping' | 'logs'>('order');
+  const [activeTab, setActiveTab] = useState<'order' | 'shipping' | 'logs' | 'webhook'>('order');
   
   // Action states
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -70,6 +72,9 @@ const AdminOrderDetailPage: React.FC = () => {
     if (order && order.shippingCode && activeTab === 'shipping') {
       loadShippingData();
     }
+    if (order && activeTab === 'webhook') {
+      loadWebhookLogs();
+    }
   }, [order, activeTab]);
 
   const loadOrderDetails = async () => {
@@ -101,6 +106,20 @@ const AdminOrderDetailPage: React.FC = () => {
       setShippingRequest(shippingRequestData);
     } catch (err) {
       console.error('Error loading shipping data:', err);
+    }
+  };
+
+  const loadWebhookLogs = async () => {
+    if (!order) return;
+
+    try {
+      console.log(`🔍 Loading webhook logs for order ID: ${order.id}`);
+      const logs = await WebhookService.getWebhookLogsByOrderId(order.id);
+      console.log(`✅ Loaded ${logs.length} webhook logs:`, logs);
+      setWebhookLogs(logs);
+    } catch (err) {
+      console.error('❌ Error loading webhook logs:', err);
+      setWebhookLogs([]);
     }
   };
 
@@ -377,6 +396,74 @@ const AdminOrderDetailPage: React.FC = () => {
           </div>
         )}
 
+        {/* Auto-processing notice for this order */}
+        {(order.paymentMethod === 'CashOnDelivery' || order.paymentMethod === 'PayOS') && (
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                <CpuChipIcon className="w-5 h-5 text-purple-600" />
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    🤖 Đơn hàng được xử lý tự động
+                  </h3>
+                  <span className="text-xs bg-purple-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                    {order.paymentMethod === 'CashOnDelivery' ? 'COD' : 'PayOS'}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-700 space-y-1">
+                  {order.paymentMethod === 'CashOnDelivery' ? (
+                    <>
+                      <p className="flex items-center gap-1.5">
+                        <span className="text-green-600">✓</span>
+                        <span>Đã tự động xác nhận ngay khi tạo đơn ({order.confirmedAt ? new Date(order.confirmedAt).toLocaleString('vi-VN') : 'N/A'})</span>
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <span className="text-green-600">✓</span>
+                        <span>Đã tự động tạo vận đơn ViettelPost {order.shippingCode ? `(Tracking: ${order.shippingCode})` : ''}</span>
+                      </p>
+                      <p className="flex items-center gap-1.5">
+                        <span className="text-green-600">✓</span>
+                        <span>Đã gửi email xác nhận đến khách hàng</span>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="flex items-center gap-1.5">
+                        <span className={order.paymentStatus === 'Paid' ? 'text-green-600' : 'text-yellow-600'}>
+                          {order.paymentStatus === 'Paid' ? '✓' : '⏳'}
+                        </span>
+                        <span>
+                          {order.paymentStatus === 'Paid' 
+                            ? `Đã thanh toán và tự động xác nhận (${order.paidAt ? new Date(order.paidAt).toLocaleString('vi-VN') : 'N/A'})`
+                            : 'Chờ webhook PayOS xác nhận thanh toán để tự động xử lý'
+                          }
+                        </span>
+                      </p>
+                      {order.paymentStatus === 'Paid' && (
+                        <>
+                          <p className="flex items-center gap-1.5">
+                            <span className="text-green-600">✓</span>
+                            <span>Đã tự động tạo vận đơn ViettelPost {order.shippingCode ? `(Tracking: ${order.shippingCode})` : ''}</span>
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <span className="text-green-600">✓</span>
+                            <span>Đã gửi email xác nhận đến khách hàng</span>
+                          </p>
+                        </>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="mt-2 text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded inline-block">
+                  💡 Admin chỉ cần can thiệp nếu có lỗi hoặc yêu cầu đặc biệt từ khách hàng
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Status overview */}
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -462,6 +549,25 @@ const AdminOrderDetailPage: React.FC = () => {
               >
                 <CpuChipIcon className="w-4 h-4 inline mr-2" />
                 Logs & API
+              </button>
+
+              <button
+                onClick={() => setActiveTab('webhook')}
+                className={`
+                  whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors
+                  ${activeTab === 'webhook'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }
+                `}
+              >
+                <ArrowPathIcon className="w-4 h-4 inline mr-2" />
+                Webhook VTP
+                {webhookLogs.length > 0 && (
+                  <span className="ml-1 bg-purple-100 text-purple-800 rounded-full px-2 py-0.5 text-xs">
+                    {webhookLogs.length}
+                  </span>
+                )}
               </button>
             </nav>
           </div>
@@ -773,6 +879,126 @@ const AdminOrderDetailPage: React.FC = () => {
                   <p>Shipping Transaction Logs</p>
                   <p className="text-sm">Tính năng này sẽ hiển thị logs API calls với shipping providers</p>
                 </div>
+              </div>
+            )}
+
+            {/* Webhook Tab */}
+            {activeTab === 'webhook' && (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Webhook ViettelPost
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Lịch sử callback từ ViettelPost về trạng thái đơn hàng
+                    </p>
+                  </div>
+                  <button
+                    onClick={loadWebhookLogs}
+                    className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700"
+                  >
+                    <ArrowPathIcon className="w-4 h-4 inline mr-1" />
+                    Làm mới
+                  </button>
+                </div>
+
+                {webhookLogs.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <ClockIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p className="font-medium">Chưa có webhook nào</p>
+                    <p className="text-sm">ViettelPost sẽ gửi callback khi có cập nhật trạng thái đơn hàng</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {webhookLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className={`border rounded-lg p-4 ${
+                          log.isSuccess ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              {log.isSuccess ? (
+                                <CheckCircleIcon className="w-5 h-5 text-green-600" />
+                              ) : (
+                                <XCircleIcon className="w-5 h-5 text-red-600" />
+                              )}
+                              <span className="font-medium text-gray-900">
+                                {log.statusDescription}
+                              </span>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                log.orderStatus === 501 ? 'bg-green-100 text-green-800' :
+                                log.orderStatus === 508 || log.orderStatus === 200 ? 'bg-blue-100 text-blue-800' :
+                                log.orderStatus === 507 ? 'bg-orange-100 text-orange-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {log.orderStatus}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 mb-2">
+                              <div>
+                                <span className="font-medium">Thời gian:</span>
+                                <p>{new Date(log.createdAt).toLocaleString('vi-VN')}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium">Mã vận đơn:</span>
+                                <p className="font-mono text-xs">{log.orderNumber}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium">Dịch vụ:</span>
+                                <p>{log.orderService}</p>
+                              </div>
+                              <div>
+                                <span className="font-medium">Tiền COD:</span>
+                                <p className="text-green-600 font-medium">
+                                  {log.moneyCollection.toLocaleString('vi-VN')}đ
+                                </p>
+                              </div>
+                            </div>
+
+                            {log.note && (
+                              <div className="text-sm text-gray-600 mb-2">
+                                <span className="font-medium">Ghi chú:</span>
+                                <p>{log.note}</p>
+                              </div>
+                            )}
+
+                            {log.errorMessage && (
+                              <div className="text-sm text-red-600">
+                                <span className="font-medium">Lỗi:</span>
+                                <p>{log.errorMessage}</p>
+                              </div>
+                            )}
+
+                            <div className="flex items-center space-x-4 text-xs text-gray-500 mt-2">
+                              <span>💰 Tổng: {log.moneyTotal.toLocaleString('vi-VN')}đ</span>
+                              <span>⚖️ {log.productWeight}g</span>
+                              <span>🚚 {log.orderService}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {webhookLogs.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 mb-2">📋 Giải thích mã trạng thái ViettelPost:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• <strong>501:</strong> Đã giao hàng / Đã hoàn thành</li>
+                      <li>• <strong>508:</strong> Đang giao hàng (shipper đang trên đường)</li>
+                      <li>• <strong>200:</strong> Đang xử lý / Trạng thái trung gian</li>
+                      <li>• <strong>507:</strong> Giao hàng thất bại / Giao lại</li>
+                      <li>• <strong>515:</strong> Hàng đã nhập kho ViettelPost</li>
+                      <li>• <strong>550:</strong> Hàng đã chuyển hoàn</li>
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
