@@ -1,5 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { ProductService } from './productService';
+import { logger } from '../utils/logger';
 
 interface StockUpdateData {
   productId: number;
@@ -22,7 +23,7 @@ class SignalRService {
     const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn';
     const hubUrl = import.meta.env.VITE_SIGNALR_HUB_URL || `${apiBaseUrl}/hubs/stock`;
 
-    console.log('🔧 [SignalR] Connecting to:', hubUrl);
+    logger.debug('🔧 [SignalR] Connecting to:', hubUrl);
 
     this.connection = new signalR.HubConnectionBuilder()
       .withUrl(hubUrl, {
@@ -55,7 +56,7 @@ class SignalRService {
 
     // Handle stock change events
     this.connection.on('StockChanged', (data: StockUpdateData) => {
-      console.log('📦 [SignalR] Stock changed:', data);
+      logger.debug('📦 [SignalR] Stock changed:', data);
       
       // Update cached products with new stock
       ProductService.refreshProduct(data.productId, data.availableStock);
@@ -69,7 +70,7 @@ class SignalRService {
         }
       }));
       
-      console.log('📤 [SignalR] Dispatched stock:changed event for product', data.productId);
+      logger.debug('📤 [SignalR] Dispatched stock:changed event for product', data.productId);
       
       // Show notification to user
       this.showStockNotification(data);
@@ -77,16 +78,16 @@ class SignalRService {
 
     // Connection state events
     this.connection.onreconnecting(() => {
-      console.log('🔄 [SignalR] Reconnecting...');
+      logger.debug('🔄 [SignalR] Reconnecting...');
     });
 
     this.connection.onreconnected(() => {
-      console.log('✅ [SignalR] Reconnected successfully');
+      logger.debug('✅ [SignalR] Reconnected successfully');
       this.reconnectAttempts = 0;
     });
 
     this.connection.onclose((error) => {
-      console.error('❌ [SignalR] Connection closed:', error);
+      logger.error('❌ [SignalR] Connection closed:', error);
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts++;
         setTimeout(() => this.start(), 5000);
@@ -128,13 +129,13 @@ class SignalRService {
     try {
       this.isConnecting = true;
       await this.connection.start();
-      console.log('🚀 [SignalR] Connected successfully');
-      console.log('📡 [SignalR] Connection state:', this.connection.state);
-      console.log('🔌 [SignalR] Transport:', (this.connection as any).connection?.transport?.name);
+      logger.log('🚀 [SignalR] Connected successfully');
+      logger.debug('📡 [SignalR] Connection state:', this.connection.state);
+      logger.debug('🔌 [SignalR] Transport:', (this.connection as any).connection?.transport?.name);
       this.reconnectAttempts = 0; // Reset on successful connection
     } catch (error: any) {
-      console.error('❌ [SignalR] Connection failed:', error);
-      console.error('❌ [SignalR] Error details:', {
+      logger.error('❌ [SignalR] Connection failed:', error);
+      logger.error('❌ [SignalR] Error details:', {
         message: error?.message,
         statusCode: error?.statusCode,
         type: error?.constructor?.name
@@ -144,12 +145,12 @@ class SignalRService {
       
       // Stop trying after max attempts and log warning
       if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-        console.warn('⚠️ [SignalR] Max reconnect attempts reached. Real-time updates disabled.');
-        console.warn('⚠️ [SignalR] The application will continue to work without live stock updates.');
+        logger.warn('⚠️ [SignalR] Max reconnect attempts reached. Real-time updates disabled.');
+        logger.warn('⚠️ [SignalR] The application will continue to work without live stock updates.');
       } else {
         // Retry with exponential backoff
         const delay = Math.min(5000 * this.reconnectAttempts, 30000);
-        console.log(`🔄 [SignalR] Retrying in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+        logger.log(`🔄 [SignalR] Retrying in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
         setTimeout(() => this.start(), delay);
       }
     } finally {
@@ -160,7 +161,7 @@ class SignalRService {
   async stop(): Promise<void> {
     if (this.connection) {
       await this.connection.stop();
-      console.log('🛑 [SignalR] Connection stopped');
+      logger.log('🛑 [SignalR] Connection stopped');
     }
   }
 

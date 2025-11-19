@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.tsx'
 import signalRService from './services/signalrService'
 import { prefetchResources, markPerformance } from './utils/performance'
+import { logger } from './utils/logger'
 
 // 🚀 Performance: Mark app start
 markPerformance('app-start');
@@ -13,9 +14,9 @@ prefetchResources();
 
 // 🚀 Start SignalR connection for realtime stock updates
 signalRService.start().then(() => {
-  console.log('🎯 [Main] SignalR service started for realtime stock updates');
+  logger.log('🎯 [Main] SignalR service started for realtime stock updates');
 }).catch((error) => {
-  console.error('❌ [Main] Failed to start SignalR service:', error);
+  logger.error('❌ [Main] Failed to start SignalR service:', error);
 });
 
 // Cleanup on page unload

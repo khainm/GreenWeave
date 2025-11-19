@@ -1,3 +1,5 @@
+import { logger } from './logger';
+
 /**
  * 🚀 Performance hints for better caching and faster loading
  */
@@ -25,7 +27,7 @@ export const prefetchResources = () => {
     document.head.appendChild(link);
   });
 
-  console.log('🚀 [Performance] Prefetched API endpoints');
+  logger.debug('🚀 [Performance] Prefetched API endpoints');
 };
 
 // 🚀 Add performance marks for monitoring
@@ -33,7 +35,7 @@ export const markPerformance = (name: string, detail?: any) => {
   if (typeof window !== 'undefined' && 'performance' in window) {
     performance.mark(name);
     if (detail) {
-      console.log(`⚡ [Performance] ${name}:`, detail);
+      logger.debug(`⚡ [Performance] ${name}:`, detail);
     }
   }
 };
@@ -44,10 +46,10 @@ export const measurePerformance = (name: string, startMark: string, endMark: str
     try {
       performance.measure(name, startMark, endMark);
       const measure = performance.getEntriesByName(name, 'measure')[0];
-      console.log(`📊 [Performance] ${name}: ${measure.duration.toFixed(2)}ms`);
+      logger.debug(`📊 [Performance] ${name}: ${measure.duration.toFixed(2)}ms`);
       return measure.duration;
     } catch (error) {
-      console.warn(`⚠️ [Performance] Could not measure ${name}:`, error);
+      logger.warn(`⚠️ [Performance] Could not measure ${name}:`, error);
     }
   }
   return 0;

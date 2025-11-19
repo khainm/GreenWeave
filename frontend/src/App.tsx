@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useEffect } from 'react'
 import { AuthProvider } from './contexts/AuthContext'
 import { setupNavigationPreloader } from './utils/RoutePreloader'
+import { logger } from './utils/logger'
 import ProtectedRoute from './components/ProtectedRoute'
 import HomePage from './pages/HomePage'
 import AboutPage from './pages/AboutPage'
@@ -55,7 +56,7 @@ function App() {
   // 🚀 Setup navigation preloader for ultra-fast page transitions
   useEffect(() => {
     setupNavigationPreloader();
-    console.log('⚡ [App] Navigation preloader initialized');
+    logger.debug('⚡ [App] Navigation preloader initialized');
   }, []);
 
   return (
