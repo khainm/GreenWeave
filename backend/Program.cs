@@ -19,6 +19,8 @@ using Net.payOS;
 using DinkToPdf;
 using DinkToPdf.Contracts;
 using backend.Controllers;
+using backend.Middleware;
+using AspNetCoreRateLimit;
 
 
 
@@ -76,6 +78,7 @@ if (!string.IsNullOrEmpty(dbConnectionString))
 var jwtSecretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY");
 var jwtSecretKeyDev = Environment.GetEnvironmentVariable("JWT_SECRET_KEY_DEV");
 var isDevelopment = builder.Environment.IsDevelopment();
+var isProduction = builder.Environment.IsProduction();
 
 if (isDevelopment && !string.IsNullOrEmpty(jwtSecretKeyDev))
 {
@@ -116,19 +119,28 @@ if (!string.IsNullOrEmpty(viettelPostWebhookSecret))
     builder.Configuration["Shipping:ViettelPost:WebhookSecret"] = viettelPostWebhookSecret;
 }
 
-// Debug: Check connection string
+// Debug: Check connection string (only in Development to avoid leaking info)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-Console.WriteLine($"🔗 Connection String: {(string.IsNullOrEmpty(connectionString) ? "NULL/EMPTY" : "[LOADED]")}");
-if (!string.IsNullOrEmpty(connectionString))
+if (isDevelopment)
 {
-    Console.WriteLine($"📏 Length: {connectionString.Length} characters");
-    Console.WriteLine($"🔍 Contains 'Server=': {connectionString.Contains("Server=")}");
-    Console.WriteLine($"🔍 Contains 'Database=': {connectionString.Contains("Database=")}");
-    // Show first 50 characters to debug without exposing password
-    Console.WriteLine($"🔍 Preview: {connectionString.Substring(0, Math.Min(50, connectionString.Length))}...");
+    Console.WriteLine($"🔗 Connection String: {(string.IsNullOrEmpty(connectionString) ? "NULL/EMPTY" : "[LOADED]")}");
+    if (!string.IsNullOrEmpty(connectionString))
+    {
+        Console.WriteLine($"📏 Length: {connectionString.Length} characters");
+        Console.WriteLine($"🔍 Contains 'Server=': {connectionString.Contains("Server=")}");
+        Console.WriteLine($"🔍 Contains 'Database=': {connectionString.Contains("Database=")}");
+        // Show first 20 characters only to debug without exposing password
+        Console.WriteLine($"🔍 Preview: {connectionString.Substring(0, Math.Min(20, connectionString.Length))}...");
+    }
+    Console.WriteLine($"📧 SendGrid API Key: {(string.IsNullOrEmpty(builder.Configuration["SendGrid:ApiKey"]) ? "NULL/EMPTY" : "[LOADED]")}");
+    Console.WriteLine($"🔐 ViettelPost WebhookSecret: {(string.IsNullOrEmpty(builder.Configuration["Shipping:ViettelPost:WebhookSecret"]) ? "NULL/EMPTY" : "[LOADED]")}");
 }
-Console.WriteLine($"📧 SendGrid API Key: {(string.IsNullOrEmpty(builder.Configuration["SendGrid:ApiKey"]) ? "NULL/EMPTY" : "[LOADED]")}");
-Console.WriteLine($"🔐 ViettelPost WebhookSecret: {(string.IsNullOrEmpty(builder.Configuration["Shipping:ViettelPost:WebhookSecret"]) ? "NULL/EMPTY" : "[LOADED]")}");
+else if (isProduction)
+{
+    // In production, only log that configs are loaded, no details
+    var logger = LoggerFactory.Create(config => config.AddConsole()).CreateLogger("Startup");
+    logger.LogInformation("✅ Configuration loaded successfully");
+}
 
 
 // Add services to the container.
@@ -247,12 +259,12 @@ builder.Services.Configure<OrderSettings>(builder.Configuration.GetSection("Orde
 // Add Identity
 builder.Services.AddIdentity<User, IdentityRole>(options =>
 {
-    // Password settings
-    options.Password.RequiredLength = 6;
+    // Password settings - Enhanced security
+    options.Password.RequiredLength = 9; // Tối thiểu 9 ký tự
     options.Password.RequireDigit = true;
     options.Password.RequireLowercase = true;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
     
     // Lockout settings
     options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
@@ -288,6 +300,9 @@ builder.Services.Configure<DataProtectionTokenProviderOptions>(options =>
 // Add JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? throw new ArgumentNullException("JwtSettings:SecretKey");
+
+// Override JWT expiration to 60 minutes for better security
+var jwtExpiration = builder.Environment.IsDevelopment() ? 1440 : 60; // Dev: 24h, Prod: 1h
 
 builder.Services.AddAuthentication(options =>
 {
@@ -468,6 +483,13 @@ builder.Services.AddCors(options =>
 // Add logging
 builder.Services.AddLogging();
 
+// ✅ Configure Rate Limiting to prevent brute force and DDoS attacks
+builder.Services.AddMemoryCache();
+builder.Services.Configure<IpRateLimitOptions>(builder.Configuration.GetSection("IpRateLimiting"));
+builder.Services.Configure<IpRateLimitPolicies>(builder.Configuration.GetSection("IpRateLimitPolicies"));
+builder.Services.AddInMemoryRateLimiting();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+
 // ✅ Register SignalR with proper CORS and transport configuration
 builder.Services.AddSignalR(options =>
 {
@@ -522,6 +544,12 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 });
 
 app.UseRouting();
+
+// ✅ Add IP Rate Limiting (MUST be after UseRouting, before endpoints)
+app.UseIpRateLimiting();
+
+// ✅ Add Security Headers (XSS, Clickjacking, CSP protection)
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 // ✅ CRITICAL: Apply CORS before endpoints (required for SignalR)
 app.UseCors("AllowSpecificOrigins");

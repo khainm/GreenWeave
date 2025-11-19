@@ -394,6 +394,9 @@ FodyWeavers.xsd
 .env.production
 .env.example.local
 
+# ⚠️ CRITICAL: Never commit .env files with real credentials!
+# Use .env.example as template only
+
 # Database files
 *.db
 *.sqlite

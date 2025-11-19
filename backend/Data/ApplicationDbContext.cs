@@ -97,6 +97,15 @@ namespace backend.Data
                 entity.HasKey(p => p.Id);
                 entity.HasIndex(p => p.Sku).IsUnique();
                 
+                // 🚀 Performance Indexes
+                entity.HasIndex(p => p.Status); // Fast filter by status (active/inactive)
+                entity.HasIndex(p => p.Category); // Fast category filter
+                entity.HasIndex(p => p.CategoryId); // Fast FK lookup
+                entity.HasIndex(p => new { p.Status, p.Category }); // Composite for common queries
+                entity.HasIndex(p => p.CreatedAt); // Fast sorting by date
+                entity.HasIndex(p => p.UpdatedAt); // Fast updated products query
+                entity.HasIndex(p => p.PrimaryWarehouseId); // Fast warehouse products
+                
                 entity.Property(p => p.Name)
                     .IsRequired()
                     .HasMaxLength(200);
@@ -190,6 +199,10 @@ namespace backend.Data
                 entity.Property(c => c.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
                 entity.Property(c => c.UpdatedAt).HasDefaultValueSql("GETUTCDATE()");
                 
+                // 🚀 Performance Indexes
+                entity.HasIndex(c => c.UserId); // Fast user cart lookup
+                entity.HasIndex(c => c.UpdatedAt); // Fast recent cart query
+                
                 // Relationship with User
                 entity.HasOne(c => c.User)
                     .WithMany(u => u.Carts)
@@ -203,6 +216,12 @@ namespace backend.Data
                 entity.HasKey(ci => ci.Id);
                 entity.Property(ci => ci.UnitPrice).HasColumnType("decimal(18,2)");
                 entity.Property(ci => ci.CreatedAt).HasDefaultValueSql("GETUTCDATE()");
+                
+                // 🚀 Performance Indexes
+                entity.HasIndex(ci => ci.CartId); // Fast cart items lookup
+                entity.HasIndex(ci => ci.ProductId); // Fast product in cart check
+                entity.HasIndex(ci => new { ci.CartId, ci.ProductId }); // Composite for duplicate check
+                
                 entity.HasOne(ci => ci.Cart)
                     .WithMany(c => c.Items)
                     .HasForeignKey(ci => ci.CartId)
@@ -215,6 +234,13 @@ namespace backend.Data
                 entity.HasKey(o => o.Id);
                 entity.Property(o => o.OrderNumber).IsRequired().HasMaxLength(20);
                 entity.HasIndex(o => o.OrderNumber).IsUnique();
+                
+                // 🚀 Performance Indexes
+                entity.HasIndex(o => o.CustomerId); // Fast user orders lookup
+                entity.HasIndex(o => o.Status); // Fast status filter
+                entity.HasIndex(o => o.CreatedAt).IsDescending(); // Fast recent orders (DESC)
+                entity.HasIndex(o => new { o.CustomerId, o.Status }); // Composite for user order status
+                entity.HasIndex(o => new { o.Status, o.CreatedAt }).IsDescending(); // Admin dashboard
                 entity.Property(o => o.CustomerId).IsRequired();
                 entity.Property(o => o.Subtotal).HasColumnType("decimal(18,2)");
                 entity.Property(o => o.ShippingFee).HasColumnType("decimal(18,2)").HasDefaultValue(0);
@@ -254,6 +280,10 @@ namespace backend.Data
                 entity.Property(oi => oi.ProductImage).HasMaxLength(500);
                 entity.Property(oi => oi.CustomizationData).HasMaxLength(2000);
                 
+                // 🚀 Performance Indexes
+                entity.HasIndex(oi => oi.OrderId); // Fast order items lookup
+                entity.HasIndex(oi => oi.ProductId); // Fast product sales report
+                
                 // Relationship with Order
                 entity.HasOne(oi => oi.Order)
                     .WithMany(o => o.Items)
@@ -272,6 +302,11 @@ namespace backend.Data
             {
                 entity.HasKey(ua => ua.Id);
                 entity.Property(ua => ua.UserId).IsRequired();
+                
+                // 🚀 Performance Indexes
+                entity.HasIndex(ua => ua.UserId); // Fast user addresses lookup
+                entity.HasIndex(ua => new { ua.UserId, ua.IsDefault }); // Fast default address
+                entity.HasIndex(ua => new { ua.UserId, ua.IsActive }); // Fast active addresses
                 entity.Property(ua => ua.FullName).IsRequired().HasMaxLength(100);
                 entity.Property(ua => ua.PhoneNumber).IsRequired().HasMaxLength(15);
                 entity.Property(ua => ua.AddressLine).IsRequired().HasMaxLength(200);
@@ -346,6 +381,11 @@ namespace backend.Data
                 
                 // Composite unique index để tránh duplicate Product-Warehouse
                 entity.HasIndex(pws => new { pws.ProductId, pws.WarehouseId }).IsUnique();
+                
+                // 🚀 Performance Indexes
+                entity.HasIndex(pws => pws.ProductId); // Fast product stock lookup
+                entity.HasIndex(pws => pws.WarehouseId); // Fast warehouse inventory
+                entity.HasIndex(pws => pws.UpdatedAt); // Fast recent stock changes
                 
                 // Foreign key relationships
                 entity.HasOne(pws => pws.Product)
