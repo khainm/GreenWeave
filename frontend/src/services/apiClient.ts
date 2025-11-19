@@ -1,12 +1,13 @@
 import axios from 'axios'
 import type { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+import logger from '../utils/logger'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.greenweave.vn'  
 // const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7146'
 
-// Debug: Log the API base URL
-console.log('🔧 [ApiClient] API_BASE_URL:', API_BASE_URL)
-console.log('🔧 [ApiClient] VITE_API_BASE_URL from env:', import.meta.env.VITE_API_BASE_URL) 
+// Debug: Log the API base URL (development only)
+logger.log('🔧 [ApiClient] API_BASE_URL:', API_BASE_URL)
+logger.log('🔧 [ApiClient] VITE_API_BASE_URL from env:', import.meta.env.VITE_API_BASE_URL) 
 
 
 // API Response types
@@ -55,27 +56,32 @@ class ApiClient {
     // Request interceptor
     this.axiosInstance.interceptors.request.use(
       (config: InternalAxiosRequestConfig) => {
-        console.log('🌐 [ApiClient] Making request:', {
-          method: config.method?.toUpperCase(),
-          url: config.url,
-          baseURL: config.baseURL,
-          fullUrl: `${config.baseURL}${config.url}`,
-          data: config.data,
-          headers: config.headers
-        });
+        // ⚠️ SECURITY: Only log in development, never log sensitive data in production
+        if (import.meta.env.MODE === 'development') {
+          logger.log('🌐 [ApiClient] Making request:', {
+            method: config.method?.toUpperCase(),
+            url: config.url,
+            baseURL: config.baseURL,
+            fullUrl: `${config.baseURL}${config.url}`,
+            // Don't log data - may contain passwords
+            hasData: !!config.data,
+            // Don't log headers - contains auth tokens
+            hasAuthHeader: !!config.headers.Authorization
+          });
+        }
         
         // Add JWT token to requests if available
         const token = localStorage.getItem('auth_token')
         if (token) {
           config.headers.Authorization = `Bearer ${token}`
-          console.log('🔐 [ApiClient] Added auth token to request');
+          logger.debug('🔐 [ApiClient] Added auth token to request');
         }
         // Note: No auth token is normal for login/public endpoints
         
         return config
       },
       (error: any) => {
-        console.error('❌ [ApiClient] Request error:', error);
+        logger.error('❌ [ApiClient] Request error:', import.meta.env.MODE === 'development' ? error : 'Request failed');
         return Promise.reject(error)
       }
     )
@@ -83,29 +89,37 @@ class ApiClient {
     // Response interceptor
     this.axiosInstance.interceptors.response.use(
       (response: AxiosResponse) => {
-        console.log('✅ [ApiClient] Response received:', {
-          status: response.status,
-          statusText: response.statusText,
-          url: response.config.url,
-          data: response.data
-        });
+        // ⚠️ SECURITY: Only log in development
+        if (import.meta.env.MODE === 'development') {
+          logger.log('✅ [ApiClient] Response received:', {
+            status: response.status,
+            statusText: response.statusText,
+            url: response.config.url,
+            // Don't log full data - may contain sensitive info
+            hasData: !!response.data
+          });
+        }
         return response
       },
       (error: any) => {
-        console.error('❌ [ApiClient] Response error:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          url: error.config?.url,
-          data: error.response?.data,
-          message: error.message
-        });
+        // ⚠️ SECURITY: Sanitize error logs in production
+        if (import.meta.env.MODE === 'development') {
+          logger.error('❌ [ApiClient] Response error:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            url: error.config?.url,
+            data: error.response?.data,
+            message: error.message
+          });
+        } else {
+          logger.error(`API Error ${error.response?.status || 'Unknown'}`);
+        }
         
-        // 🔍 Log detailed error for 400 Bad Request
-        if (error.response?.status === 400) {
-          console.error('⚠️ [ApiClient] 400 Bad Request - Full error details:', {
+        // 🔍 Log detailed error for 400 Bad Request (development only)
+        if (error.response?.status === 400 && import.meta.env.MODE === 'development') {
+          logger.error('⚠️ [ApiClient] 400 Bad Request - Full error details:', {
             url: error.config?.url,
             method: error.config?.method,
-            requestData: error.config?.data,
             responseData: error.response?.data,
             errors: error.response?.data?.errors,
             message: error.response?.data?.message
@@ -114,12 +128,12 @@ class ApiClient {
         
         // Handle 401 Unauthorized - clear auth data and redirect to login
         if (error.response?.status === 401) {
-          console.log('🔐 [ApiClient] 401 Unauthorized - clearing auth data');
+          logger.log('🔐 [ApiClient] 401 Unauthorized - clearing auth data');
           localStorage.removeItem('auth_token')
           localStorage.removeItem('user_data')
           // Only redirect if not already on login page and not on register page
           if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-            console.log('🔄 [ApiClient] Redirecting to login page');
+            logger.log('🔄 [ApiClient] Redirecting to login page');
             window.location.href = '/login'
           }
         }
@@ -133,7 +147,7 @@ class ApiClient {
 
         // Handle specific invoice errors
         if (error.config?.url?.includes('/invoices')) {
-          console.error('🧾 [ApiClient] Invoice operation error:', apiError);
+          logger.error('🧾 [ApiClient] Invoice operation error');
           
           // Add invoice-specific error context
           const invoiceError: InvoiceError = {
@@ -147,7 +161,7 @@ class ApiClient {
 
         // Handle email verification errors
         if (error.config?.url?.includes('/emailverification/')) {
-          console.error('📧 [ApiClient] Email verification error:', apiError);
+          logger.error('📧 [ApiClient] Email verification error');
         }
         
         return Promise.reject(new ApiException(apiError.message, apiError.status, apiError))
@@ -173,18 +187,18 @@ class ApiClient {
   }
 
   async get<T>(url: string): Promise<T> {
-    console.log(`🔍 [ApiClient] GET request to: ${url}`);
+    logger.debug(`🔍 [ApiClient] GET request to: ${url}`);
     const response = await this.axiosInstance.get(url)
     const result = this.unwrapResponse<T>(response);
-    console.log(`🔍 [ApiClient] GET response from ${url}:`, result);
+    logger.debug(`🔍 [ApiClient] GET response from ${url}`);
     return result;
   }
 
   async post<T>(url: string, data?: any): Promise<T> {
-    console.log(`📤 [ApiClient] POST request to: ${url}`, data);
+    logger.debug(`📤 [ApiClient] POST request to: ${url}`);
     const response = await this.axiosInstance.post(url, data)
     const result = this.unwrapResponse<T>(response);
-    console.log(`📤 [ApiClient] POST response from ${url}:`, result);
+    logger.debug(`📤 [ApiClient] POST response from ${url}`);
     return result;
   }
 
@@ -198,10 +212,10 @@ class ApiClient {
   }
 
   async put<T>(url: string, data?: any): Promise<T> {
-    console.log(`🔄 [ApiClient] PUT request to: ${url}`, data);
+    logger.debug(`🔄 [ApiClient] PUT request to: ${url}`);
     const response = await this.axiosInstance.put(url, data)
     const result = this.unwrapResponse<T>(response);
-    console.log(`🔄 [ApiClient] PUT response from ${url}:`, result);
+    logger.debug(`🔄 [ApiClient] PUT response from ${url}`);
     return result;
   }
 
@@ -215,10 +229,10 @@ class ApiClient {
   }
 
   async delete<T>(url: string): Promise<T> {
-    console.log(`🗑️ [ApiClient] DELETE request to: ${url}`);
+    logger.debug(`🗑️ [ApiClient] DELETE request to: ${url}`);
     const response = await this.axiosInstance.delete(url)
     const result = this.unwrapResponse<T>(response);
-    console.log(`🗑️ [ApiClient] DELETE response from ${url}:`, result);
+    logger.debug(`🗑️ [ApiClient] DELETE response from ${url}`);
     return result;
   }
 }

@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import type { Blog } from '../types/blog';
 import { blogService } from '../services/blogService';
 import Header from '../components/layout/Header';
+import { sanitizeHtml } from '../utils/security';
+
 import { 
   ArrowLeftIcon,
   HeartIcon,
@@ -251,7 +253,13 @@ const BlogDetailPage: React.FC = () => {
             {/* Content */}
             <div 
               className="prose prose-lg max-w-none"
-              dangerouslySetInnerHTML={{ __html: blog.content }}
+              dangerouslySetInnerHTML={{ 
+                __html: sanitizeHtml(blog.content, { 
+                  allowLinks: true,
+                  allowedTags: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'ul', 'ol', 'li', 'a', 'img', 'blockquote'],
+                  allowedAttributes: ['href', 'target', 'src', 'alt', 'class']
+                }) 
+              }}
             />
 
             {/* Tags */}

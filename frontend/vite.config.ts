@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import sitemap from 'vite-plugin-sitemap';
+// import sitemap from 'vite-plugin-sitemap';
 
 
 // https://vite.dev/config/
@@ -9,26 +9,27 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    sitemap({
-      hostname: 'https://greenweave.vn',
-      dynamicRoutes: [
-        '/',
-        '/about',
-        '/products',
-        '/contact',
-        '/cart',
-        '/checkout',
-        '/profile',
-        '/orders',
-        '/login',
-        '/register',
-        '/terms',
-        '/privacy',
-        '/blog',
-      ],
-      changefreq: 'daily',
-      priority: 0.8,
-    }),
+    // Sitemap plugin disabled temporarily due to build error
+    // sitemap({
+    //   hostname: 'https://greenweave.vn',
+    //   dynamicRoutes: [
+    //     '/',
+    //     '/about',
+    //     '/products',
+    //     '/contact',
+    //     '/cart',
+    //     '/checkout',
+    //     '/profile',
+    //     '/orders',
+    //     '/login',
+    //     '/register',
+    //     '/terms',
+    //     '/privacy',
+    //     '/blog',
+    //   ],
+    //   changefreq: 'daily',
+    //   priority: 0.8,
+    // }),
   ],
   server: {
     proxy: {
