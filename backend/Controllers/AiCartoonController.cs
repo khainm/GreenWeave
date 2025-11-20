@@ -16,6 +16,15 @@ public class AiCartoonController : ControllerBase
     private readonly string model = "gemini-2.5-flash-image-preview";
     private readonly string? credentialPath;
     private readonly bool credentialsAvailable;
+    
+    // 🚀 Performance: Cache access token (valid for ~1 hour)
+    private static string? _cachedToken;
+    private static DateTime _tokenExpiry = DateTime.MinValue;
+    private static readonly SemaphoreSlim _tokenLock = new SemaphoreSlim(1, 1);
+    
+    // ⚙️ Retry configuration
+    private const int MaxRetries = 3;
+    private const int InitialRetryDelayMs = 1000; // 1 second
 
     public AiCartoonController(ILogger<AiCartoonController> logger)
     {
@@ -48,7 +57,7 @@ public class AiCartoonController : ControllerBase
         }
     }
 
-    // ✅ Lấy access token từ service account
+    // ✅ Lấy access token từ service account với caching
     private async Task<string> GetAccessTokenAsync()
     {
         if (!credentialsAvailable || string.IsNullOrEmpty(credentialPath))
@@ -56,9 +65,23 @@ public class AiCartoonController : ControllerBase
             throw new InvalidOperationException("Google credentials not configured");
         }
 
+        // 🚀 Return cached token if still valid (expires in 55 minutes)
+        if (_cachedToken != null && DateTime.UtcNow < _tokenExpiry)
+        {
+            _logger.LogDebug("✅ [AiCartoon] Using cached access token (expires in {Minutes} minutes)", 
+                (_tokenExpiry - DateTime.UtcNow).TotalMinutes);
+            return _cachedToken;
+        }
+
+        await _tokenLock.WaitAsync();
         try
         {
-#pragma warning disable CS0618 // Type or member is obsolete
+            // Double-check after acquiring lock
+            if (_cachedToken != null && DateTime.UtcNow < _tokenExpiry)
+                return _cachedToken;
+
+            _logger.LogInformation("🔄 [AiCartoon] Fetching new access token...");
+#pragma warning disable CS0618
             var credential = await GoogleCredential
                 .FromFile(credentialPath)
                 .CreateScoped("https://www.googleapis.com/auth/cloud-platform")
@@ -66,12 +89,20 @@ public class AiCartoonController : ControllerBase
                 .GetAccessTokenForRequestAsync();
 #pragma warning restore CS0618
 
+            _cachedToken = credential;
+            _tokenExpiry = DateTime.UtcNow.AddMinutes(55); // Google tokens valid for 1 hour, refresh at 55min
+            _logger.LogInformation("✅ [AiCartoon] New access token cached until {Expiry}", _tokenExpiry);
+            
             return credential;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ [AiCartoon] Failed to get access token");
             throw;
+        }
+        finally
+        {
+            _tokenLock.Release();
         }
     }
 
@@ -153,21 +184,83 @@ public class AiCartoonController : ControllerBase
             var json = JsonSerializer.Serialize(body);
             _logger.LogInformation("📤 Gemini cartoon request sent");
 
-            // 🚀 Gửi request
-            using var client = new HttpClient();
-            var token = await GetAccessTokenAsync();
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-
-            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            // 🚀 Gửi request với retry logic
             var url = $"https://aiplatform.googleapis.com/v1/projects/{projectId}/locations/{location}/publishers/google/models/{model}:generateContent";
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            
+            HttpResponseMessage? response = null;
+            string? jsonResponse = null;
+            
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(60) }; // 60s timeout
+                    var token = await GetAccessTokenAsync();
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            var response = await client.PostAsync(url, content);
-            var jsonResponse = await response.Content.ReadAsStringAsync();
-            _logger.LogInformation("✅ Gemini response received, length: {Length}", jsonResponse.Length);
-
+                    _logger.LogInformation("📤 [AiCartoon] Sending request to Gemini (attempt {Attempt}/{MaxRetries})...", attempt, MaxRetries);
+                    response = await client.PostAsync(url, content);
+                    jsonResponse = await response.Content.ReadAsStringAsync();
+                    
+                    if (response.IsSuccessStatusCode)
+                    {
+                        _logger.LogInformation("✅ Gemini response received, length: {Length}", jsonResponse.Length);
+                        break; // Success!
+                    }
+                    
+                    // Handle rate limiting (429) with exponential backoff
+                    if ((int)response.StatusCode == 429 && attempt < MaxRetries)
+                    {
+                        var retryDelay = InitialRetryDelayMs * (int)Math.Pow(2, attempt - 1); // 1s, 2s, 4s
+                        _logger.LogWarning("⏱️ [AiCartoon] Rate limited (429). Retrying in {Delay}ms... (attempt {Attempt}/{MaxRetries})", 
+                            retryDelay, attempt, MaxRetries);
+                        await Task.Delay(retryDelay);
+                        continue;
+                    }
+                    
+                    // Other errors
+                    _logger.LogError("❌ [AiCartoon] Gemini API error {StatusCode}: {Response}", response.StatusCode, jsonResponse);
+                    
+                    if (attempt < MaxRetries)
+                    {
+                        var retryDelay = InitialRetryDelayMs * attempt;
+                        _logger.LogInformation("🔄 Retrying in {Delay}ms...", retryDelay);
+                        await Task.Delay(retryDelay);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogError("⏰ [AiCartoon] Request timeout (60s) on attempt {Attempt}", attempt);
+                    if (attempt == MaxRetries)
+                        return StatusCode(504, new { error = "Request timeout", message = "AI processing took too long. Please try again." });
+                    await Task.Delay(InitialRetryDelayMs * attempt);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ [AiCartoon] Request failed on attempt {Attempt}", attempt);
+                    if (attempt == MaxRetries)
+                        throw;
+                    await Task.Delay(InitialRetryDelayMs * attempt);
+                }
+            }
+            
+            if (response == null || jsonResponse == null)
+                return StatusCode(500, new { error = "Failed to get response from Gemini API after retries" });
+                
             if (!response.IsSuccessStatusCode)
-                return StatusCode((int)response.StatusCode, new { error = "Gemini API Error", details = jsonResponse });
+            {
+                var errorMessage = (int)response.StatusCode == 429 
+                    ? "Too many requests. Please wait a moment and try again."
+                    : "AI service temporarily unavailable. Please try again later.";
+                    
+                return StatusCode((int)response.StatusCode, new { 
+                    error = errorMessage, 
+                    statusCode = (int)response.StatusCode,
+                    details = jsonResponse 
+                });
+            }
 
             // 📦 Parse JSON và hỗ trợ cả inline_data / inlineData + nested parts
             using var doc = JsonDocument.Parse(jsonResponse);
@@ -206,7 +299,28 @@ public class AiCartoonController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Gemini cartoon-preview failed");
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new { 
+                error = "AI processing failed", 
+                message = ex.Message,
+                suggestion = "Please try again with a smaller image or different format"
+            });
+        }
+    }
+    
+    // 🧹 Cleanup temp credential file on dispose
+    public void Dispose()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(credentialPath) && System.IO.File.Exists(credentialPath))
+            {
+                System.IO.File.Delete(credentialPath);
+                _logger.LogDebug("🧹 Cleaned up temp credential file: {Path}", credentialPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cleanup temp credential file");
         }
     }
 

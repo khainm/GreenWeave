@@ -16,6 +16,15 @@ public class AiEditController : ControllerBase
     private readonly string model = "gemini-2.5-flash-image-preview";
     private readonly string? serviceAccountJsonPath;
     private readonly bool credentialsAvailable;
+    
+    // 🚀 Performance: Cache access token (shared with AiCartoonController)
+    private static string? _cachedToken;
+    private static DateTime _tokenExpiry = DateTime.MinValue;
+    private static readonly SemaphoreSlim _tokenLock = new SemaphoreSlim(1, 1);
+    
+    // ⚙️ Retry configuration
+    private const int MaxRetries = 3;
+    private const int InitialRetryDelayMs = 1000;
 
     public AiEditController(ILogger<AiEditController> logger)
     {
@@ -48,7 +57,7 @@ public class AiEditController : ControllerBase
         }
     }
 
-    // ✅ Lấy access token từ service account
+    // ✅ Lấy access token từ service account với caching
     private async Task<string> GetAccessTokenAsync()
     {
         if (!credentialsAvailable || string.IsNullOrEmpty(serviceAccountJsonPath))
@@ -56,19 +65,42 @@ public class AiEditController : ControllerBase
             throw new InvalidOperationException("Google credentials not configured");
         }
 
+        // 🚀 Return cached token if still valid
+        if (_cachedToken != null && DateTime.UtcNow < _tokenExpiry)
+        {
+            _logger.LogDebug("✅ [AiEdit] Using cached access token (expires in {Minutes} minutes)", 
+                (_tokenExpiry - DateTime.UtcNow).TotalMinutes);
+            return _cachedToken;
+        }
+
+        await _tokenLock.WaitAsync();
         try
         {
+            // Double-check after acquiring lock
+            if (_cachedToken != null && DateTime.UtcNow < _tokenExpiry)
+                return _cachedToken;
+
+            _logger.LogInformation("🔄 [AiEdit] Fetching new access token...");
             var scopes = new[] { "https://www.googleapis.com/auth/cloud-platform" };
-#pragma warning disable CS0618 // Type or member is obsolete
+#pragma warning disable CS0618
             var cred = GoogleCredential.FromFile(serviceAccountJsonPath).CreateScoped(scopes);
 #pragma warning restore CS0618
             var token = await cred.UnderlyingCredential.GetAccessTokenForRequestAsync();
+            
+            _cachedToken = token;
+            _tokenExpiry = DateTime.UtcNow.AddMinutes(55);
+            _logger.LogInformation("✅ [AiEdit] New access token cached until {Expiry}", _tokenExpiry);
+            
             return token!;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ [AiEdit] Failed to get access token");
             throw;
+        }
+        finally
+        {
+            _tokenLock.Release();
         }
     }
 
@@ -144,22 +176,69 @@ public class AiEditController : ControllerBase
             var json = JsonSerializer.Serialize(body);
             _logger.LogInformation("📤 Gemini Request sent");
 
-            // 🚀 Gửi request tới Gemini API
-            var token = await GetAccessTokenAsync();
-            using var http = new HttpClient();
-            http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
+            // 🚀 Gửi request tới Gemini API với retry logic
             var url = $"https://aiplatform.googleapis.com/v1/projects/{projectId}/locations/{location}/publishers/google/models/{model}:generateContent";
-            var resp = await http.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
-            var respText = await resp.Content.ReadAsStringAsync();
+            HttpResponseMessage? resp = null;
+            string? respText = null;
+            
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
+            {
+                try
+                {
+                    var token = await GetAccessTokenAsync();
+                    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+                    http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            _logger.LogInformation("📥 Gemini API Response Status: {StatusCode}", resp.StatusCode);
-            _logger.LogInformation("📥 Response length: {Length} characters", respText.Length);
+                    _logger.LogInformation("📤 [AiEdit] Sending request to Gemini (attempt {Attempt}/{MaxRetries})...", attempt, MaxRetries);
+                    resp = await http.PostAsync(url, new StringContent(json, Encoding.UTF8, "application/json"));
+                    respText = await resp.Content.ReadAsStringAsync();
 
+                    _logger.LogInformation("📥 Gemini API Response Status: {StatusCode}", resp.StatusCode);
+                    _logger.LogInformation("📥 Response length: {Length} characters", respText.Length);
+
+                    if (resp.IsSuccessStatusCode)
+                        break; // Success!
+                    
+                    // Handle rate limiting
+                    if ((int)resp.StatusCode == 429 && attempt < MaxRetries)
+                    {
+                        var retryDelay = InitialRetryDelayMs * (int)Math.Pow(2, attempt - 1);
+                        _logger.LogWarning("⏱️ [AiEdit] Rate limited (429). Retrying in {Delay}ms...", retryDelay);
+                        await Task.Delay(retryDelay);
+                        continue;
+                    }
+                    
+                    _logger.LogError("Gemini API Error: {StatusCode} - {Response}", resp.StatusCode, respText);
+                    if (attempt < MaxRetries)
+                    {
+                        await Task.Delay(InitialRetryDelayMs * attempt);
+                    }
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogError("⏰ [AiEdit] Request timeout on attempt {Attempt}", attempt);
+                    if (attempt == MaxRetries)
+                        return StatusCode(504, new { error = "Request timeout", message = "AI processing took too long" });
+                    await Task.Delay(InitialRetryDelayMs * attempt);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "❌ [AiEdit] Request failed on attempt {Attempt}", attempt);
+                    if (attempt == MaxRetries)
+                        throw;
+                    await Task.Delay(InitialRetryDelayMs * attempt);
+                }
+            }
+            
+            if (resp == null || respText == null)
+                return StatusCode(500, new { error = "Failed to get response from Gemini API" });
+                
             if (!resp.IsSuccessStatusCode)
             {
-                _logger.LogError("Gemini API Error: {StatusCode} - {Response}", resp.StatusCode, respText);
-                return StatusCode((int)resp.StatusCode, new { error = "Gemini API Error", details = respText });
+                var errorMessage = (int)resp.StatusCode == 429
+                    ? "Too many requests. Please wait and try again."
+                    : "AI service temporarily unavailable";
+                return StatusCode((int)resp.StatusCode, new { error = errorMessage, details = respText });
             }
 
             // 💾 Save raw response to file for debugging
@@ -265,7 +344,28 @@ public class AiEditController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "❌ Gemini API error");
-            return StatusCode(500, new { error = ex.Message });
+            return StatusCode(500, new { 
+                error = "AI processing failed", 
+                message = ex.Message,
+                suggestion = "Please try again or contact support if the issue persists"
+            });
+        }
+    }
+    
+    // 🧹 Cleanup temp credential file
+    public void Dispose()
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(serviceAccountJsonPath) && System.IO.File.Exists(serviceAccountJsonPath))
+            {
+                System.IO.File.Delete(serviceAccountJsonPath);
+                _logger.LogDebug("🧹 Cleaned up temp credential file: {Path}", serviceAccountJsonPath);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to cleanup temp credential file");
         }
     }
 }
