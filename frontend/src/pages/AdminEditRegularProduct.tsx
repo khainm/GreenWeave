@@ -54,9 +54,9 @@ const AdminEditRegularProduct: React.FC = () => {
 
         // Load warehouses
         const warehouseResponse = await warehouseService.getAllWarehouses()
-        const warehouseOpts = warehouseResponse.warehouses?.map((w: any) => ({ 
-          label: w.name, 
-          value: w.id 
+        const warehouseOpts = warehouseResponse.warehouses?.map((w: any) => ({
+          label: w.name,
+          value: w.id
         })) || []
         setWarehouseOptions(warehouseOpts)
       } catch (err) {
@@ -73,7 +73,7 @@ const AdminEditRegularProduct: React.FC = () => {
         setError('')
         const productData: Product = await ProductService.getProductById(productId)
         setProduct(productData)
-        
+
         // Load existing color images previews from product data
         const colorImagePreviews: Record<string, string> = {}
         productData.images?.forEach((img) => {
@@ -173,27 +173,16 @@ const AdminEditRegularProduct: React.FC = () => {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <TopNav />
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Đang tải sản phẩm...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!product) {
+  // Show error state if product not found after loading
+  if (!isLoading && !product) {
     return (
       <div className="min-h-screen bg-gray-50">
         <TopNav />
         <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
             <p className="text-red-700 font-semibold">Không tìm thấy sản phẩm</p>
-            <Link 
-              to="/admin/products" 
+            <Link
+              to="/admin/products"
               className="mt-4 inline-block px-6 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700"
             >
               Quay lại danh sách
@@ -210,17 +199,21 @@ const AdminEditRegularProduct: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <Link 
-            to="/admin/products" 
+          <Link
+            to="/admin/products"
             className="p-2 rounded-xl border border-gray-300 hover:bg-gray-50 transition-colors"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+              <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
             </svg>
           </Link>
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Sửa sản phẩm thường</h1>
-            <p className="text-sm text-gray-500 mt-1">SKU: {product.sku}</p>
+            {isLoading ? (
+              <div className="h-5 w-32 bg-gray-200 rounded animate-pulse mt-1"></div>
+            ) : (
+              <p className="text-sm text-gray-500 mt-1">SKU: {product?.sku}</p>
+            )}
           </div>
         </div>
 
@@ -233,106 +226,133 @@ const AdminEditRegularProduct: React.FC = () => {
                 {error}
               </div>
             )}
-            <RegularProductForm
-              values={form}
-              setValues={setForm}
-              isSubmitting={isSaving}
-              onSubmit={handleSubmit}
-              enableSkuRegenerate={false}
-              categoryOptions={categoryOptions}
-              warehouseOptions={warehouseOptions}
-            />
-            <div className="mt-4 flex gap-3">
-              <Link 
-                to="/admin/products" 
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-              >
-                Hủy
-              </Link>
-              <button
-                type="submit"
-                form="product-form"
-                disabled={isSaving}
-                className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
-              </button>
-            </div>
+            {isLoading ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-32 bg-gray-200 rounded"></div>
+                <div className="h-10 bg-gray-200 rounded"></div>
+                <div className="h-10 bg-gray-200 rounded"></div>
+              </div>
+            ) : (
+              <>
+                <RegularProductForm
+                  values={form}
+                  setValues={setForm}
+                  isSubmitting={isSaving}
+                  onSubmit={handleSubmit}
+                  enableSkuRegenerate={false}
+                  categoryOptions={categoryOptions}
+                  warehouseOptions={warehouseOptions}
+                />
+                <div className="mt-4 flex gap-3">
+                  <Link
+                    to="/admin/products"
+                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    Hủy
+                  </Link>
+                  <button
+                    type="submit"
+                    form="product-form"
+                    disabled={isSaving}
+                    className="px-6 py-3 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Preview */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-6">Xem trước sản phẩm</h2>
-            
+
             <div className="max-w-sm mx-auto">
-              {/* Product Card Preview */}
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                {/* Image */}
-                <div className="relative h-64 bg-gray-100">
-                  <img
-                    src={form.images[0] || 'https://via.placeholder.com/300x300?text=No+Image'}
-                    alt={form.name || 'Sản phẩm'}
-                    className="w-full h-full object-cover"
-                  />
-                  {form.status === 'active' && (
-                    <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
-                      ACTIVE
-                    </div>
-                  )}
-                </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-2 text-sm">
-                    {form.name || 'Tên sản phẩm'}
-                  </h3>
-                  
-                  {form.description && (
-                    <p className="text-gray-600 text-xs mb-3 line-clamp-2">
-                      {form.description}
-                    </p>
-                  )}
-
-                  {/* Price */}
-                  <div className="mb-3">
-                    <span className="text-green-600 font-bold text-base">
-                      {form.price ? formatVnd(form.price) : '0'} đ
-                    </span>
-                    {form.originalPrice > 0 && form.originalPrice > form.price && (
-                      <span className="text-gray-400 text-sm line-through ml-2">
-                        {formatVnd(form.originalPrice)} đ
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Colors */}
-                  {form.colors.length > 0 && (
-                    <div className="flex space-x-2 mb-3">
-                      {form.colors.map((color, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setForm(prev => ({ ...prev, selectedColor: color }))}
-                          className="w-4 h-4 rounded-full border-2 transition-all"
-                          style={{ 
-                            backgroundColor: color,
-                            borderColor: form.selectedColor === color ? '#10b981' : '#e5e7eb'
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Stock info */}
-                  <div className="mt-3 text-xs text-gray-500">
-                    Còn {form.stock} sản phẩm
+              {isLoading ? (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden animate-pulse">
+                  <div className="h-64 bg-gray-200"></div>
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-full"></div>
+                    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    <div className="h-6 bg-gray-200 rounded w-1/2"></div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Product Card Preview */}
+                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Image */}
+                    <div className="relative h-64 bg-gray-100">
+                      <img
+                        src={form.images[0] || 'https://via.placeholder.com/300x300?text=No+Image'}
+                        alt={form.name || 'Sản phẩm'}
+                        className="w-full h-full object-cover"
+                      />
+                      {form.status === 'active' && (
+                        <div className="absolute top-2 right-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded">
+                          ACTIVE
+                        </div>
+                      )}
+                    </div>
 
-              {/* Preview info */}
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
-                💡 Xem trước sản phẩm sau khi cập nhật
-              </div>
+                    {/* Content */}
+                    <div className="p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2 text-sm">
+                        {form.name || 'Tên sản phẩm'}
+                      </h3>
+
+                      {form.description && (
+                        <p className="text-gray-600 text-xs mb-3 line-clamp-2">
+                          {form.description}
+                        </p>
+                      )}
+
+                      {/* Price */}
+                      <div className="mb-3">
+                        <span className="text-green-600 font-bold text-base">
+                          {form.price ? formatVnd(form.price) : '0'} đ
+                        </span>
+                        {form.originalPrice > 0 && form.originalPrice > form.price && (
+                          <span className="text-gray-400 text-sm line-through ml-2">
+                            {formatVnd(form.originalPrice)} đ
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Colors */}
+                      {form.colors.length > 0 && (
+                        <div className="flex space-x-2 mb-3">
+                          {form.colors.map((color, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setForm(prev => ({ ...prev, selectedColor: color }))}
+                              className="w-4 h-4 rounded-full border-2 transition-all"
+                              style={{
+                                backgroundColor: color,
+                                borderColor: form.selectedColor === color ? '#10b981' : '#e5e7eb'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Stock info */}
+                      <div className="mt-3 text-xs text-gray-500">
+                        Còn {form.stock} sản phẩm
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Preview info */}
+                  <div className="mt-4 p-3 bg-blue-50 rounded-lg text-sm text-blue-700">
+                    💡 Xem trước sản phẩm sau khi cập nhật
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
