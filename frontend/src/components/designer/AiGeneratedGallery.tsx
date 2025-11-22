@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { TrashIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import { TrashIcon, CheckCircleIcon, EyeIcon, XMarkIcon } from "@heroicons/react/24/outline";
 
 interface AiGeneratedGalleryProps {
   onSelect: (imageUrl: string) => void;
-  isOpen: boolean; // 👈 thêm dòng này
+  isOpen: boolean;
 }
 
 interface SavedItem {
   id: string;
   url: string;
   createdAt: string;
-  type?: string; // ✨ Thêm để phân biệt cartoon vs tryon
+  type?: string;
 }
 
 const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ onSelect, isOpen }) => {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // 🔁 Mỗi khi modal mở → reload lại dữ liệu
   useEffect(() => {
@@ -33,7 +34,7 @@ const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ onSelect, isOpe
         setItems([]);
       }
     }
-  }, [isOpen]); // 👈 dependency chính
+  }, [isOpen]);
 
   const handleDelete = (id: string) => {
     const updated = items.filter((i) => i.id !== id);
@@ -54,33 +55,77 @@ const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ onSelect, isOpe
     );
 
   return (
-    <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-      {items.map((item) => (
-        <div
-          key={item.id}
-          onClick={() => handleSelect(item)}
-          className={`relative border rounded-xl overflow-hidden group cursor-pointer ${
-            selectedId === item.id ? "ring-2 ring-pink-500" : "hover:ring-1 hover:ring-gray-300"
-          }`}
-        >
-          <img src={item.url} alt="AI generated" className="w-full h-28 object-cover" />
-          {selectedId === item.id && (
-            <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1">
-              <CheckCircleIcon className="w-5 h-5 text-pink-500" />
-            </div>
-          )}
-          <button
-            className="absolute top-2 left-2 bg-white/90 rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(item.id);
-            }}
+    <>
+      <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+        {items.map((item) => (
+          <div
+            key={item.id}
+            onClick={() => handleSelect(item)}
+            className={`relative border rounded-xl overflow-hidden group cursor-pointer transition-all ${selectedId === item.id ? "ring-2 ring-pink-500 shadow-md" : "hover:ring-1 hover:ring-gray-300 hover:shadow-sm"
+              }`}
           >
-            <TrashIcon className="w-4 h-4 text-red-500" />
-          </button>
+            <img src={item.url} alt="AI generated" className="w-full h-28 object-cover" />
+
+            {/* Selected Indicator */}
+            {selectedId === item.id && (
+              <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1 shadow-sm">
+                <CheckCircleIcon className="w-5 h-5 text-pink-500" />
+              </div>
+            )}
+
+            {/* Actions Overlay */}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+              {/* Preview Button */}
+              <button
+                className="bg-white/90 hover:bg-white text-gray-700 hover:text-blue-600 rounded-full p-2 shadow-sm transition-all transform hover:scale-110"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPreviewImage(item.url);
+                }}
+                title="Xem trước"
+              >
+                <EyeIcon className="w-5 h-5" />
+              </button>
+
+              {/* Delete Button */}
+              <button
+                className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-600 rounded-full p-2 shadow-sm transition-all transform hover:scale-110"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(item.id);
+                }}
+                title="Xóa"
+              >
+                <TrashIcon className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 🔍 Image Preview Modal */}
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center">
+            <button
+              className="absolute -top-12 right-0 text-white/80 hover:text-white transition-colors p-2"
+              onClick={() => setPreviewImage(null)}
+            >
+              <XMarkIcon className="w-8 h-8" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl animate-scale-up"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
         </div>
-      ))}
-    </div>
+      )}
+    </>
   );
 };
 
