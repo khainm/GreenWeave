@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Transformer, Group, Rect } from 'react-konva';
-import { PhotoIcon } from '@heroicons/react/24/outline';
+import { Stage, Layer, Image as KonvaImage, Text as KonvaText, Transformer, Group } from 'react-konva';
 import useImage from 'use-image';
 import type { ProductResponseDto, DesignElement, CustomDesign } from './types';
 
@@ -91,18 +90,18 @@ const calculateCurvedTextPositions = (
   const chars = text.split('');
   const charWidth = fontSize * 0.6 + letterSpacing;
   const totalWidth = chars.length * charWidth;
-  
+
   // Calculate radius based on curve amount and text width
   // Higher curve amount = smaller radius (more curve)
   const baseRadius = totalWidth / 2;
   const curveFactor = Math.abs(curveAmount) / 50; // Normalize to 0-2 range
   const radius = baseRadius / Math.max(0.3, curveFactor); // Prevent too small radius
-  
+
   const positions: { char: string; x: number; y: number; rotation: number }[] = [];
 
   chars.forEach((char, i) => {
     const xOffset = i * charWidth - totalWidth / 2 + charWidth / 2;
-    
+
     if (curveAmount === 0) {
       // Straight text
       positions.push({
@@ -115,14 +114,14 @@ const calculateCurvedTextPositions = (
       // Curved text - arc calculation
       const angle = xOffset / radius;
       const x = radius * Math.sin(angle);
-      
+
       // Fixed: Curve direction
       // Positive curveAmount (>0) = Curve UP (smile ⌃)
       // Negative curveAmount (<0) = Curve DOWN (frown ⌄)
-      const y = curveAmount > 0 
+      const y = curveAmount > 0
         ? -radius * Math.cos(angle) + radius  // Curve up: arc on top
         : -radius * Math.cos(angle) - radius; // Curve down: arc on bottom (flip)
-      
+
       positions.push({
         char,
         x,
@@ -172,11 +171,11 @@ const CanvasText: React.FC<{
 
     textarea.value = element.text || '';
     textarea.style.position = 'absolute';
-    textarea.style.top = `${stageBox.top + textPosition.y}px`;
-    textarea.style.left = `${stageBox.left + textPosition.x}px`;
-    textarea.style.width = `${textPosition.width}px`;
-    textarea.style.height = `${textPosition.height}px`;
-    textarea.style.fontSize = `${(element.fontSize || 32) * textNode.scaleX()}px`;
+    textarea.style.top = `${stageBox.top + textPosition.y} px`;
+    textarea.style.left = `${stageBox.left + textPosition.x} px`;
+    textarea.style.width = `${textPosition.width} px`;
+    textarea.style.height = `${textPosition.height} px`;
+    textarea.style.fontSize = `${(element.fontSize || 32) * textNode.scaleX()} px`;
     textarea.style.fontFamily = element.fontFamily || 'Arial';
     textarea.style.color = element.fill || '#000000';
     textarea.style.fontWeight = element.fontWeight || 'normal';
@@ -327,7 +326,7 @@ const CanvasText: React.FC<{
               fontSize={element.fontSize || 32}
               fontFamily={element.fontFamily || 'Arial'}
               fill={element.fill || '#000000'}
-              fontStyle={`${element.fontStyle === 'italic' ? 'italic ' : ''}${element.fontWeight === 'bold' ? 'bold' : 'normal'}`}
+              fontStyle={`${element.fontStyle === 'italic' ? 'italic ' : ''}${element.fontWeight === 'bold' ? 'bold' : 'normal'} `}
               rotation={charPos.rotation}
               listening={true}
               perfectDrawEnabled={false}
@@ -344,18 +343,18 @@ const CanvasText: React.FC<{
           fontSize={element.fontSize || 32}
           fontFamily={element.fontFamily || 'Arial'}
           fill={element.fill || '#000000'}
-          fontStyle={`${element.fontStyle === 'italic' ? 'italic ' : ''}${element.fontWeight === 'bold' ? 'bold' : 'normal'}`}
+          fontStyle={`${element.fontStyle === 'italic' ? 'italic ' : ''}${element.fontWeight === 'bold' ? 'bold' : 'normal'} `}
           align={element.align || 'left'}
           rotation={element.rotation || 0}
           scaleX={element.scaleX || 1}
           scaleY={element.scaleY || 1}
           letterSpacing={element.letterSpacing || 0}
           draggable
-          onClick={(e) => {
+          onClick={() => {
             console.log('📝 Straight text clicked!');
             onSelect();
           }}
-          onTap={(e) => {
+          onTap={() => {
             console.log('📱 Straight text tapped!');
             onSelect();
           }}
@@ -416,19 +415,47 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 }) => {
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const stageRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasWidth = 600;
   const canvasHeight = 600;
+  const [scale, setScale] = useState(1);
+
+  // Calculate scale to fit container
+  useEffect(() => {
+    const updateScale = () => {
+      if (containerRef.current) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const containerHeight = containerRef.current.offsetHeight;
+
+        // Calculate scale to fit both width and height
+        // Reduce padding on mobile for better space utilization
+        const isMobile = window.innerWidth < 640;
+        const paddingX = isMobile ? 16 : 32; // Less padding on mobile
+        const paddingY = isMobile ? 40 : 60; // Less padding on mobile
+
+        const scaleX = (containerWidth - paddingX) / canvasWidth;
+        const scaleY = (containerHeight - paddingY) / canvasHeight;
+        const newScale = Math.min(scaleX, scaleY, 1); // Don't scale up, only down
+
+        setScale(newScale);
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [selectedProduct]);
 
   // Notify parent when text element is selected
   const handleElementSelect = (elementId: string | null, elementType?: string) => {
     console.log('🎯 handleElementSelect called:', { elementId, elementType, hasCallback: !!onTextElementSelect });
     setSelectedElementId(elementId);
-    
+
     // ✨ Notify parent về element được chọn (bất kể loại gì)
     if (onElementSelect) {
       onElementSelect(elementId);
     }
-    
+
     if (elementType === 'text' && onTextElementSelect) {
       console.log('✅ Calling onTextElementSelect with:', elementId);
       onTextElementSelect(elementId);
@@ -441,30 +468,30 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   // Lấy ảnh sản phẩm theo màu được chọn
   const getProductImage = () => {
     if (!selectedProduct) return null;
-    
+
     // Nếu có màu được chọn, tìm ảnh theo màu đó
     if (selectedColorCode) {
       // Tìm ảnh có colorCode khớp với màu được chọn
-      const colorImage = selectedProduct.images.find(img => 
+      const colorImage = selectedProduct.images.find(img =>
         img.colorCode && img.colorCode.toLowerCase() === selectedColorCode.toLowerCase()
       );
-      
+
       if (colorImage) {
         return colorImage.imageUrl;
       }
-      
+
       // Fallback: sử dụng colorImageMap nếu có
       if (selectedProduct.colorImageMap && selectedProduct.colorImageMap[selectedColorCode.toLowerCase()]) {
         return selectedProduct.colorImageMap[selectedColorCode.toLowerCase()];
       }
     }
-    
+
     // Fallback: ảnh chính hoặc ảnh đầu tiên
     const primaryImage = selectedProduct.images?.find(img => img.isPrimary);
     if (primaryImage) {
       return primaryImage.imageUrl;
     }
-    
+
     // Cuối cùng là ảnh đầu tiên nếu có
     return selectedProduct.images?.[0]?.imageUrl || null;
   };
@@ -477,7 +504,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 
     const newElement: DesignElement = {
       ...element,
-      id: `element_${Date.now()}`,
+      id: `element_${Date.now()} `,
     };
 
     const newDesign: CustomDesign = design || {
@@ -554,7 +581,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     });
 
     const link = document.createElement('a');
-    link.download = `custom-design-${selectedProduct?.name || 'product'}.png`;
+    link.download = `custom - design - ${selectedProduct?.name || 'product'}.png`;
     link.href = dataURL;
     document.body.appendChild(link);
     link.click();
@@ -565,11 +592,11 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   useEffect(() => {
     if (!window.customDesigner) {
       window.customDesigner = {
-        addImage: () => {},
-        exportImage: () => {}
+        addImage: () => { },
+        exportImage: () => { }
       };
     }
-    
+
     window.customDesigner.addImage = (src: string) => {
       addElement({
         type: 'image',
@@ -590,70 +617,60 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   }, [selectedProduct, design]);
 
   if (!selectedProduct) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="bg-gray-200 rounded-xl w-full max-w-3xl h-[500px] flex items-center justify-center border border-gray-300">
-          <div className="text-center text-gray-500">
-            <div className="w-16 h-16 bg-gray-200 rounded-lg mx-auto mb-4 flex items-center justify-center">
-              <PhotoIcon className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium mb-2">Chọn sản phẩm để bắt đầu</h3>
-            <p className="text-sm">Chọn một sản phẩm từ danh sách để bắt đầu thiết kế</p>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
-      <div className="bg-white rounded-xl border border-gray-300 p-4">
-        <Stage
-          ref={stageRef}
-          width={canvasWidth}
-          height={canvasHeight}
-          onClick={handleStageClick}
-          onTap={handleStageClick}
-        >
-          <Layer>
-            {/* Product background image */}
-            {productImage && (
-              <KonvaImage
-                image={productImage}
-                x={0}
-                y={0}
-                width={canvasWidth}
-                height={canvasHeight}
-                listening={false}
-              />
-            )}
+    <div ref={containerRef} className="flex-1 flex items-center justify-center p-1 sm:p-6 w-full h-full">
+      <div className="bg-white rounded-xl border border-gray-300 p-1 sm:p-4 flex flex-col items-center justify-center w-full h-full">
+        <div style={{ transform: `scale(${scale})`, transformOrigin: 'center center' }}>
+          <Stage
+            ref={stageRef}
+            width={canvasWidth}
+            height={canvasHeight}
+            onClick={handleStageClick}
+            onTap={handleStageClick}
+          >
+            <Layer>
+              {/* Product background image */}
+              {productImage && (
+                <KonvaImage
+                  image={productImage}
+                  x={0}
+                  y={0}
+                  width={canvasWidth}
+                  height={canvasHeight}
+                  listening={false}
+                />
+              )}
 
-            {/* Design elements */}
-            {design?.elements.map((element) => {
-              if (element.type === 'text') {
-                return (
-                  <CanvasText
-                    key={element.id}
-                    element={element}
-                    isSelected={selectedElementId === element.id}
-                    onSelect={() => handleElementSelect(element.id, 'text')}
-                    onChange={(newAttrs) => updateElement(element.id, newAttrs)}
-                  />
-                );
-              } else {
-                return (
-                  <CanvasImage
-                    key={element.id}
-                    element={element}
-                    isSelected={selectedElementId === element.id}
-                    onSelect={() => handleElementSelect(element.id, 'image')}
-                    onChange={(newAttrs) => updateElement(element.id, newAttrs)}
-                  />
-                );
-              }
-            })}
-          </Layer>
-        </Stage>
+              {/* Design elements */}
+              {design?.elements.map((element) => {
+                if (element.type === 'text') {
+                  return (
+                    <CanvasText
+                      key={element.id}
+                      element={element}
+                      isSelected={selectedElementId === element.id}
+                      onSelect={() => handleElementSelect(element.id, 'text')}
+                      onChange={(newAttrs) => updateElement(element.id, newAttrs)}
+                    />
+                  );
+                } else {
+                  return (
+                    <CanvasImage
+                      key={element.id}
+                      element={element}
+                      isSelected={selectedElementId === element.id}
+                      onSelect={() => handleElementSelect(element.id, 'image')}
+                      onChange={(newAttrs) => updateElement(element.id, newAttrs)}
+                    />
+                  );
+                }
+              })}
+            </Layer>
+          </Stage>
+        </div>
 
         {/* Canvas info */}
         <div className="mt-2 text-center text-xs text-gray-500">

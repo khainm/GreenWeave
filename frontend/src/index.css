@@ -1,10 +1,15 @@
 @import "tailwindcss";
 
+/* ========================================
+   🎨 PREMIUM ANIMATIONS & KEYFRAMES
+   ======================================== */
+
 @keyframes fade-in {
   from {
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -16,6 +21,7 @@
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -27,9 +33,88 @@
     opacity: 0;
     transform: translateX(100px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-100px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes bounce-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+
+  70% {
+    transform: scale(0.9);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes scale-up {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.8);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
   }
 }
 
@@ -37,6 +122,7 @@
   0% {
     background-position: -200% 0;
   }
+
   100% {
     background-position: 200% 0;
   }
@@ -46,10 +132,41 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ========================================
+   🎭 ANIMATION UTILITY CLASSES
+   ======================================== */
 
 .animate-fade-in {
   animation: fade-in 0.6s ease-out;
@@ -64,14 +181,41 @@
   animation: slide-in-right 0.5s ease-out;
 }
 
+.animate-slide-in-left {
+  animation: slide-in-left 0.5s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.animate-scale-up {
+  animation: scale-up 0.4s ease-out;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s linear infinite;
+  background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%);
+  background-size: 1000px 100%;
+}
+
 .animate-glass-shimmer {
   animation: glass-shimmer 2s infinite;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.2),
-    transparent
-  );
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.2),
+      transparent);
   background-size: 200% 100%;
 }
 
@@ -79,14 +223,23 @@
   animation: spin-slow 8s linear infinite;
 }
 
-/* Custom Scrollbar Styles - Enhanced */
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+/* ========================================
+   📜 CUSTOM SCROLLBAR STYLES
+   ======================================== */
+
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(16, 185, 129, 0.3) transparent;
+  scrollbar-color: rgba(16, 185, 129, 0.4) transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
@@ -102,6 +255,7 @@
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, rgba(16, 185, 129, 0.9), rgba(20, 184, 166, 0.9));
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
 
 .scrollbar-thin {
@@ -111,6 +265,7 @@
 
 .scrollbar-thin::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-track {
@@ -127,7 +282,10 @@
   background-color: rgba(156, 163, 175, 0.8);
 }
 
-/* Glass Morphism Effects */
+/* ========================================
+   ✨ GLASS MORPHISM EFFECTS
+   ======================================== */
+
 .glass-card {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -140,4 +298,131 @@
   -webkit-backdrop-filter: blur(20px);
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-emerald {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* ========================================
+   🎨 GRADIENT UTILITIES
+   ======================================== */
+
+.gradient-emerald {
+  background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
+}
+
+.gradient-emerald-vibrant {
+  background: linear-gradient(135deg, #059669 0%, #0d9488 50%, #0891b2 100%);
+}
+
+.gradient-mesh {
+  background:
+    radial-gradient(at 0% 0%, rgba(16, 185, 129, 0.2) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(20, 184, 166, 0.2) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(6, 182, 212, 0.2) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(5, 150, 105, 0.2) 0px, transparent 50%);
+}
+
+/* ========================================
+   🎯 INTERACTIVE EFFECTS
+   ======================================== */
+
+.hover-lift {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.hover-scale {
+  transition: transform 0.2s ease-in-out;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.hover-glow {
+  transition: all 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 30px rgba(16, 185, 129, 0.4);
+}
+
+.button-press {
+  transition: all 0.1s ease;
+}
+
+.button-press:active {
+  transform: scale(0.95);
+}
+
+/* ========================================
+   📱 MOBILE OPTIMIZATIONS
+   ======================================== */
+
+@media (max-width: 640px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .mobile-touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* ========================================
+   🌟 SPECIAL EFFECTS
+   ======================================== */
+
+.text-gradient {
+  background: linear-gradient(135deg, #10b981 0%, #14b8a6 50%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.border-gradient {
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+
+.border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: linear-gradient(135deg, #10b981, #14b8a6, #06b6d4);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ========================================
+   🎪 LOADING STATES
+   ======================================== */
+
+.skeleton {
+  background: linear-gradient(90deg,
+      rgba(243, 244, 246, 1) 0%,
+      rgba(229, 231, 235, 1) 50%,
+      rgba(243, 244, 246, 1) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.pulse-ring {
+  animation: ripple 1.5s cubic-bezier(0, 0.2, 0.8, 1) infinite;
 }
