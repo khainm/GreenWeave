@@ -430,8 +430,8 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         // Calculate scale to fit both width and height
         // Reduce padding on mobile for better space utilization
         const isMobile = window.innerWidth < 640;
-        const paddingX = isMobile ? 16 : 32; // Less padding on mobile
-        const paddingY = isMobile ? 40 : 60; // Less padding on mobile
+        const paddingX = isMobile ? 4 : 32; // Minimal padding on mobile
+        const paddingY = isMobile ? 10 : 60; // Minimal padding on mobile
 
         const scaleX = (containerWidth - paddingX) / canvasWidth;
         const scaleY = (containerHeight - paddingY) / canvasHeight;

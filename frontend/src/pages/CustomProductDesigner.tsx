@@ -18,7 +18,7 @@ import {
   CubeIcon, ArchiveBoxIcon, ChatBubbleBottomCenterTextIcon,
   ArrowUturnLeftIcon, ArrowUturnRightIcon, TrashIcon, ArrowUpTrayIcon, Squares2X2Icon,
   BoltIcon, CheckCircleIcon, ChartBarIcon, CogIcon, EyeIcon,
-  ViewColumnsIcon, SparklesIcon, PaintBrushIcon
+  ViewColumnsIcon, SparklesIcon, PaintBrushIcon, ChevronDownIcon, ChevronUpIcon
 } from "@heroicons/react/24/outline";
 
 import type {
@@ -49,6 +49,7 @@ const CustomProductDesigner: React.FC = () => {
   // UX
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(true); // ✨ State for collapsible product selector
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
@@ -606,27 +607,35 @@ const CustomProductDesigner: React.FC = () => {
       <div className="max-w-[1900px] mx-auto px-3 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr_340px] lg:grid-cols-[300px_1fr_300px] gap-4 lg:gap-6 min-h-[calc(100vh-200px)]">
           {/* left - Product selector with premium styling */}
-          <div className="order-1 xl:order-1 bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl border-2 border-emerald-100 overflow-hidden hover-lift animate-scale-up">
-            <div className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 p-4 sm:p-5 relative overflow-hidden">
+          <div className="order-3 xl:order-1 bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl border-2 border-emerald-100 overflow-hidden hover-lift animate-scale-up transition-all duration-300">
+            <div
+              className="bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 p-4 sm:p-5 relative overflow-hidden cursor-pointer xl:cursor-default"
+              onClick={() => window.innerWidth < 1280 && setIsProductSelectorOpen(!isProductSelectorOpen)}
+            >
               <div className="absolute inset-0 bg-white/10 animate-shimmer"></div>
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-3 relative z-10">
-                <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-lg hover-scale mobile-touch-target">
-                  <CubeIcon className="w-5 h-5 text-white" />
+              <div className="flex items-center justify-between relative z-10">
+                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/30 shadow-lg hover-scale mobile-touch-target">
+                    <CubeIcon className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <div className="hidden sm:inline">Chọn sản phẩm</div>
+                    <div className="sm:hidden">Products</div>
+                    <div className="text-xs text-emerald-50 font-normal mt-0.5">Bắt đầu thiết kế của bạn</div>
+                  </div>
+                </h2>
+                <div className="xl:hidden text-white/80">
+                  {isProductSelectorOpen ? <ChevronDownIcon className="w-6 h-6" /> : <ChevronUpIcon className="w-6 h-6" />}
                 </div>
-                <div>
-                  <div className="hidden sm:inline">Chọn sản phẩm</div>
-                  <div className="sm:hidden">Products</div>
-                  <div className="text-xs text-emerald-50 font-normal mt-0.5">Bắt đầu thiết kế của bạn</div>
-                </div>
-              </h2>
+              </div>
             </div>
-            <div className="h-[280px] sm:h-[400px] lg:h-[calc(100vh-340px)] overflow-y-auto custom-scrollbar p-2">
+            <div className={`overflow-y-auto custom-scrollbar transition-all duration-300 ${isProductSelectorOpen ? 'h-[280px] sm:h-[400px] p-2' : 'h-0 xl:h-[calc(100vh-340px)] xl:p-2'}`}>
               <ProductSelector selectedProduct={selectedProduct} onProductSelect={handleProductSelect} />
             </div>
           </div>
 
           {/* center - Canvas area with modern design */}
-          <div className="order-3 xl:order-2 space-y-5">
+          <div className="order-1 xl:order-2 space-y-5">
             {selectedProduct && (
               <div className="glass-emerald rounded-2xl shadow-xl border-2 border-emerald-200 p-3 sm:p-5 hover-lift animate-bounce-in">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
@@ -672,7 +681,7 @@ const CustomProductDesigner: React.FC = () => {
             )}
 
             <div className="bg-white rounded-3xl shadow-2xl border-2 border-emerald-100 overflow-hidden hover-lift transition-all duration-300 animate-scale-up">
-              <div className="h-[550px] sm:h-[580px] lg:h-[600px] relative">
+              <div className="h-[45vh] min-h-[350px] sm:h-[580px] lg:h-[600px] relative">
                 {!selectedProduct && (
                   <div className="absolute inset-0 flex items-center justify-center gradient-mesh z-10">
                     <div className="text-center p-6 sm:p-8 animate-bounce-in">
@@ -742,32 +751,33 @@ const CustomProductDesigner: React.FC = () => {
                 </div>
 
                 {/* Right: AI & Actions */}
-                <div className="flex items-center gap-3 w-full xl:w-auto justify-center xl:justify-end">
+                {/* Right: AI & Actions */}
+                <div className="grid grid-cols-3 gap-2 w-full xl:w-auto xl:flex xl:items-center xl:gap-3 xl:justify-end">
                   <button
                     onClick={() => setShowTryOnModal(true)}
-                    className="flex-1 xl:flex-none group px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 min-w-[140px]"
+                    className="group px-2 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-0"
                     title={geminiHealthy ? "Thử đồ với AI" : "Dịch vụ AI đang bảo trì"}>
-                    <SparklesIcon className="w-5 h-5 group-hover:animate-spin-slow" />
-                    <span>AI Try-On</span>
+                    <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:animate-spin-slow" />
+                    <span className="text-[10px] sm:text-base whitespace-nowrap">AI Try-On</span>
                   </button>
 
                   <button
                     onClick={() => setShowCartoonModal(true)}
-                    className="flex-1 xl:flex-none group px-4 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-pink-500/30 transition-all hover:-translate-y-0.5 flex items-center justify-center gap-2 min-w-[140px]">
-                    <SparklesIcon className="w-5 h-5 group-hover:animate-pulse" />
-                    <span>AI Cartoon</span>
+                    className="group px-2 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-pink-500/30 transition-all hover:-translate-y-0.5 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-0">
+                    <SparklesIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:animate-pulse" />
+                    <span className="text-[10px] sm:text-base whitespace-nowrap">AI Cartoon</span>
                   </button>
 
                   <button
                     onClick={() => setShowConsultationModal(true)}
                     disabled={!selectedProduct || !design || isSubmittingConsultation}
-                    className="flex-1 xl:flex-none group px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-w-[140px]">
+                    className="group px-2 py-2.5 sm:px-4 sm:py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 min-w-0">
                     {isSubmittingConsultation ? (
-                      <BoltIcon className="w-5 h-5 animate-spin" />
+                      <BoltIcon className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
                     ) : (
-                      <ChatBubbleBottomCenterTextIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      <ChatBubbleBottomCenterTextIcon className="w-4 h-4 sm:w-5 sm:h-5 group-hover:animate-bounce" />
                     )}
-                    <span>Tư vấn</span>
+                    <span className="text-[10px] sm:text-base whitespace-nowrap">Tư vấn</span>
                   </button>
                 </div>
               </div>

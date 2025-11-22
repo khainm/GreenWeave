@@ -43,7 +43,7 @@ export interface ProductColorDto {
 // 🎯 Canvas design elements - Core types for Konva.js integration
 export interface DesignElement {
   id: string;
-  type: 'image' | 'text'; // Removed 'sticker' - use external Sticker Library
+  type: 'image' | 'text' | 'sticker'; // Added 'sticker' back for Giphy integration
   x: number;
   y: number;
   width?: number; // Optional for text elements
