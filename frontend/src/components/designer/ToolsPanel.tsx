@@ -9,12 +9,10 @@ import {
 } from "@heroicons/react/24/outline";
 import UploadSection from "./UploadSection";
 import ColorPicker from "./ColorPicker";
-import GiphyStickerPicker from "./GiphyStickerPicker";
 import TextEditor, { type TextConfig } from "./TextEditor";
 import ActionButtons from "./ActionButtons";
 import ExportOptions from "./ExportOptions";
 import type { ProductResponseDto } from "./types";
-import type { GiphySticker } from "../../services/giphyService";
 
 interface ToolsPanelProps {
   selectedProduct: ProductResponseDto | null;
@@ -25,6 +23,7 @@ interface ToolsPanelProps {
   onTextAdd: (textConfig: TextConfig) => void;
   onClearDesign: () => void;
   onExportPNG: () => void;
+  onOpenStickerPicker: () => void; // ✨ New prop
 }
 
 const ToolsPanel: React.FC<ToolsPanelProps> = ({
@@ -36,14 +35,9 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
   onTextAdd,
   onClearDesign,
   onExportPNG,
+  onOpenStickerPicker,
 }) => {
   const [activeTool, setActiveTool] = useState<string | null>(null);
-  const [showGiphyPicker, setShowGiphyPicker] = useState(false);
-
-  const handleGiphyStickerSelect = (sticker: GiphySticker) => {
-    onStickerSelect(sticker.url);
-    setShowGiphyPicker(false);
-  };
 
   const toggleTool = (tool: string) => {
     setActiveTool((prev) => (prev === tool ? null : tool));
@@ -102,25 +96,22 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
           <button
             key={tool.id}
             onClick={() => toggleTool(tool.id)}
-            className={`relative flex flex-col items-center justify-center rounded-xl p-2 transition-all duration-300 border group ${
-              activeTool === tool.id
-                ? "bg-gradient-to-br " + tool.gradient + " text-white shadow-lg border-transparent scale-105"
-                : "bg-white hover:bg-gray-100 border-gray-200 hover:shadow-md"
-            }`}
+            className={`relative flex flex-col items-center justify-center rounded-xl p-2 transition-all duration-300 border group ${activeTool === tool.id
+              ? "bg-gradient-to-br " + tool.gradient + " text-white shadow-lg border-transparent scale-105"
+              : "bg-white hover:bg-gray-100 border-gray-200 hover:shadow-md"
+              }`}
           >
             <div
-              className={`flex items-center justify-center w-8 h-8 rounded-lg ${
-                activeTool === tool.id
-                  ? "bg-white/20 text-white"
-                  : `${tool.color} bg-gray-50`
-              }`}
+              className={`flex items-center justify-center w-8 h-8 rounded-lg ${activeTool === tool.id
+                ? "bg-white/20 text-white"
+                : `${tool.color} bg-gray-50`
+                }`}
             >
               {tool.icon}
             </div>
             <span
-              className={`mt-1 text-[11px] font-medium ${
-                activeTool === tool.id ? "text-white" : "text-gray-700"
-              }`}
+              className={`mt-1 text-[11px] font-medium ${activeTool === tool.id ? "text-white" : "text-gray-700"
+                }`}
             >
               {tool.label}
             </span>
@@ -135,9 +126,8 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
 
       {/* 🔸 Animated Content Area */}
       <div
-        className={`flex-1 overflow-y-auto p-4 transition-all duration-300 ease-in-out ${
-          activeTool ? "opacity-100" : "opacity-0 h-0 p-0"
-        }`}
+        className={`flex-1 overflow-y-auto p-4 transition-all duration-300 ease-in-out ${activeTool ? "opacity-100" : "opacity-0 h-0 p-0"
+          }`}
       >
         {activeTool === "upload" && (
           <div className="animate-fadeIn">
@@ -167,7 +157,7 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
               🎨 Chọn sticker miễn phí từ Giphy
             </p>
             <button
-              onClick={() => setShowGiphyPicker(true)}
+              onClick={onOpenStickerPicker}
               className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-medium hover:from-purple-700 hover:to-pink-700 transition-all shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
             >
               <SparklesIcon className="w-5 h-5" />
@@ -188,14 +178,6 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({
           </div>
         )}
       </div>
-
-      {/* Giphy Picker Modal */}
-      {showGiphyPicker && (
-        <GiphyStickerPicker
-          onStickerSelect={handleGiphyStickerSelect}
-          onClose={() => setShowGiphyPicker(false)}
-        />
-      )}
     </div>
   );
 };

@@ -9,6 +9,8 @@ import ToolsPanel from "../components/designer/ToolsPanel";
 import ConsultationModal from "../components/designer/ConsultationModal";
 import AiTryOnModal from "../components/designer/AiTryOnModal";
 import AiCartoonModal from "../components/designer/AiCartoonModal";
+import GiphyStickerPicker from "../components/designer/GiphyStickerPicker";
+import type { GiphySticker } from "../services/giphyService";
 import TextEditPanel from "../components/designer/TextEditPanel";
 import { CustomProductService } from "../services/customProductService";
 import AiGeneratedGallery from "../components/designer/AiGeneratedGallery";
@@ -50,6 +52,7 @@ const CustomProductDesigner: React.FC = () => {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [isProductSelectorOpen, setIsProductSelectorOpen] = useState(true); // ✨ State for collapsible product selector
+  const [showStickerPicker, setShowStickerPicker] = useState(false); // ✨ State for sticker picker modal
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState<string | null>(null);
@@ -809,6 +812,7 @@ const CustomProductDesigner: React.FC = () => {
                 onTextAdd={handleTextAdd}
                 onClearDesign={handleClearDesign}
                 onExportPNG={handleExportPNG}
+                onOpenStickerPicker={() => setShowStickerPicker(true)} // ✨ Pass callback to open sticker picker
               />
             </div>
           </div>
@@ -1033,6 +1037,17 @@ const CustomProductDesigner: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Giphy Picker Modal - Rendered at root to avoid stacking context issues */}
+      {showStickerPicker && (
+        <GiphyStickerPicker
+          onStickerSelect={(sticker) => {
+            handleStickerSelect(sticker.url);
+            setShowStickerPicker(false);
+          }}
+          onClose={() => setShowStickerPicker(false)}
+        />
       )}
     </div>
   );
