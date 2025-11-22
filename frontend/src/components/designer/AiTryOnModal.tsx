@@ -48,8 +48,8 @@ const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl p-6 sm:p-8 relative transition-all max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl p-6 sm:p-8 relative transition-all max-h-[90vh] overflow-y-auto flex flex-col custom-scrollbar">
         {/* ❌ Close */}
         <button
           onClick={onClose}
@@ -58,39 +58,36 @@ const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
           <XMarkIcon className="w-7 h-7" />
         </button>
 
-        {/* � Header với hướng dẫn */}
-        <div className="text-center mb-6">
+        {/* ✨ Header với hướng dẫn */}
+        <div className="text-center mb-6 flex-shrink-0">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             ✨ AI Thử Đồ Ảo
           </h1>
           <p className="text-gray-600 text-sm sm:text-base">
             Xem bạn trông như thế nào khi mặc thiết kế AI của mình
           </p>
-          
+
           {/* Steps indicator */}
           <div className="flex items-center justify-center gap-2 mt-4 flex-wrap">
-            <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
-              userImage ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-            }`}>
+            <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${userImage ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+              }`}>
               <span className="mr-1">1️⃣</span> Tải ảnh của bạn
             </div>
             <span className="text-gray-400">→</span>
-            <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
-              selectedProductUrl ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-            }`}>
+            <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${selectedProductUrl ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+              }`}>
               <span className="mr-1">2️⃣</span> Chọn thiết kế
             </div>
             <span className="text-gray-400">→</span>
-            <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${
-              userImage && selectedProductUrl ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-            }`}>
+            <div className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${userImage && selectedProductUrl ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+              }`}>
               <span className="mr-1">3️⃣</span> Thử ngay
             </div>
           </div>
         </div>
 
         {/* Content area */}
-        <div className="flex-1 flex flex-col sm:flex-row gap-4 overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row gap-4">
           {/* 👩 Bước 1: Người dùng */}
           <div className="flex-1 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-4 sm:p-6 shadow-lg border-2 border-blue-200 flex flex-col">
             <div className="flex items-center justify-center gap-2 mb-4">
@@ -204,7 +201,7 @@ const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
               </>
             )}
           </button>
-          
+
           {(!userImage || !selectedProductUrl) && (
             <p className="text-sm text-gray-500 text-center">
               {!userImage && !selectedProductUrl && "👆 Vui lòng tải ảnh và chọn thiết kế"}
