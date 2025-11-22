@@ -66,39 +66,36 @@ const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ onSelect, isOpe
           >
             <img src={item.url} alt="AI generated" className="w-full h-28 object-cover" />
 
-            {/* Selected Indicator */}
+            {/* Selected Indicator (Top Right) */}
             {selectedId === item.id && (
-              <div className="absolute top-2 right-2 bg-white/90 rounded-full p-1 shadow-sm">
+              <div className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 shadow-sm z-10">
                 <CheckCircleIcon className="w-5 h-5 text-pink-500" />
               </div>
             )}
 
-            {/* Actions Overlay */}
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-              {/* Preview Button */}
-              <button
-                className="bg-white/90 hover:bg-white text-gray-700 hover:text-blue-600 rounded-full p-2 shadow-sm transition-all transform hover:scale-110"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setPreviewImage(item.url);
-                }}
-                title="Xem trước"
-              >
-                <EyeIcon className="w-5 h-5" />
-              </button>
+            {/* Delete Button (Top Left) - Always Visible */}
+            <button
+              className="absolute top-1 left-1 bg-white/80 hover:bg-white text-gray-500 hover:text-red-600 rounded-full p-1.5 shadow-sm transition-all z-20 backdrop-blur-[2px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(item.id);
+              }}
+              title="Xóa"
+            >
+              <TrashIcon className="w-4 h-4" />
+            </button>
 
-              {/* Delete Button */}
-              <button
-                className="bg-white/90 hover:bg-white text-gray-700 hover:text-red-600 rounded-full p-2 shadow-sm transition-all transform hover:scale-110"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDelete(item.id);
-                }}
-                title="Xóa"
-              >
-                <TrashIcon className="w-5 h-5" />
-              </button>
-            </div>
+            {/* Preview Button (Bottom Right) - Always Visible */}
+            <button
+              className="absolute bottom-1 right-1 bg-white/80 hover:bg-white text-gray-500 hover:text-blue-600 rounded-full p-1.5 shadow-sm transition-all z-20 backdrop-blur-[2px]"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPreviewImage(item.url);
+              }}
+              title="Xem trước"
+            >
+              <EyeIcon className="w-4 h-4" />
+            </button>
           </div>
         ))}
       </div>
