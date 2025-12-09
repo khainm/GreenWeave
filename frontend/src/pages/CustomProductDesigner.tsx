@@ -236,7 +236,6 @@ const CustomProductDesigner: React.FC = () => {
             }
             
             const sizeMB = blob.size / (1024 * 1024);
-            console.log(`🗜️ Compressed to ${sizeMB.toFixed(2)}MB with quality ${quality}`);
             
             if (sizeMB <= maxSizeMB || quality <= 0.3) {
               resolve(blob);
@@ -264,32 +263,21 @@ const CustomProductDesigner: React.FC = () => {
       setUploadProgress(0);
 
       // 🗜️ Compress user image first
-      console.log('🗜️ Original user image size:', (userImage.size / (1024 * 1024)).toFixed(2), 'MB');
       const compressedUserImage = await compressImage(userImage, 2);
-      console.log('✅ Compressed user image to:', (compressedUserImage.size / (1024 * 1024)).toFixed(2), 'MB');
 
       let productBlob: Blob;
       if (productPreviewUrl && productPreviewUrl.startsWith("data:image")) {
         const originalBlob = await (await fetch(productPreviewUrl)).blob();
-        console.log('🗜️ Original product image size:', (originalBlob.size / (1024 * 1024)).toFixed(2), 'MB');
         productBlob = await compressImage(originalBlob, 2);
-        console.log('✅ Compressed product image to:', (productBlob.size / (1024 * 1024)).toFixed(2), 'MB');
-        console.log("🧠 Using AI-generated product image for try-on");
       } else if (canvasDataUrl && canvasDataUrl.startsWith("data:image")) {
         const originalBlob = await (await fetch(canvasDataUrl)).blob();
-        console.log('🗜️ Original canvas image size:', (originalBlob.size / (1024 * 1024)).toFixed(2), 'MB');
         productBlob = await compressImage(originalBlob, 2);
-        console.log('✅ Compressed canvas image to:', (productBlob.size / (1024 * 1024)).toFixed(2), 'MB');
-        console.log("🧠 Using last AI canvas image for try-on");
       } else {
         const stage = (window as any).Konva?.stages?.[0];
         if (!stage) throw new Error("Canvas not found.");
-        const dataUrl = stage.toDataURL({ pixelRatio: 1 }); // ✅ Giảm pixelRatio từ 2 xuống 1
+        const dataUrl = stage.toDataURL({ pixelRatio: 1 });
         const originalBlob = await (await fetch(dataUrl)).blob();
-        console.log('🗜️ Original snapshot size:', (originalBlob.size / (1024 * 1024)).toFixed(2), 'MB');
         productBlob = await compressImage(originalBlob, 2);
-        console.log('✅ Compressed snapshot to:', (productBlob.size / (1024 * 1024)).toFixed(2), 'MB');
-        console.log("🧠 Fallback to current canvas snapshot for try-on");
       }
 
 
@@ -381,7 +369,6 @@ const CustomProductDesigner: React.FC = () => {
           };
           const updated = [newItem, ...existing].slice(0, 15);
           localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
-          console.log(`💾 Saved AI ${aiImageType} to localStorage:`, newItem);
           setAiGeneratedImages(updated); // ✅ Cập nhật state ngay lập tức
           setAiImageType(null); // Reset để tránh lưu lại nhiều lần
         };

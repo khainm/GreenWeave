@@ -29,11 +29,9 @@ const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({
   useEffect(() => {
     if (isOpen) {
       if (propImages && Array.isArray(propImages)) {
-        console.log("📦 Using prop images:", propImages.length);
         setItems(propImages);
       } else {
         const stored = localStorage.getItem("aiGeneratedItems");
-        console.log("📦 Reload from localStorage:", stored);
         if (stored) {
           try {
             const parsed = JSON.parse(stored);
