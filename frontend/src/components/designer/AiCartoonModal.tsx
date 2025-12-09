@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 
 interface AiCartoonModalProps {
   isOpen: boolean;
@@ -20,19 +20,8 @@ const AiCartoonModal: React.FC<AiCartoonModalProps> = ({
   const [isGenerated, setIsGenerated] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (isGenerated && previewImageUrl) {
-      const existingItems = JSON.parse(localStorage.getItem("aiGeneratedItems") || "[]");
-      const newItem = {
-        id: Date.now().toString(),
-        url: previewImageUrl,
-        createdAt: new Date().toISOString(),
-        type: "cartoon", // 🎨 Đánh dấu là ảnh sản phẩm cartoon (không có người)
-      };
-      const updatedItems = [newItem, ...existingItems].slice(0, 20); // Limit to 20 items
-      localStorage.setItem("aiGeneratedItems", JSON.stringify(updatedItems));
-    }
-  }, [isGenerated, previewImageUrl]);
+  // ✅ Removed localStorage saving logic - handled by parent component
+  // This prevents duplicate saves and ensures proper state updates
 
   if (!isOpen) return null;
 

@@ -4,6 +4,8 @@ import { TrashIcon, CheckCircleIcon, EyeIcon, XMarkIcon } from "@heroicons/react
 interface AiGeneratedGalleryProps {
   onSelect: (imageUrl: string) => void;
   isOpen: boolean;
+  images?: SavedItem[]; // ✅ Optional: receive images from parent
+  onImagesChange?: (images: SavedItem[]) => void; // ✅ Optional: notify parent when images change
 }
 
 interface SavedItem {
@@ -13,33 +15,48 @@ interface SavedItem {
   type?: string;
 }
 
-const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ onSelect, isOpen }) => {
+const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({ 
+  onSelect, 
+  isOpen, 
+  images: propImages,
+  onImagesChange 
+}) => {
   const [items, setItems] = useState<SavedItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // 🔁 Mỗi khi modal mở → reload lại dữ liệu
+  // 🔁 Use prop images if provided, otherwise load from localStorage
   useEffect(() => {
     if (isOpen) {
-      const stored = localStorage.getItem("aiGeneratedItems");
-      console.log("📦 Reload wardrobe:", stored);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) setItems(parsed);
-        } catch (e) {
-          console.error("⚠️ Parse error:", e);
-        }
+      if (propImages && Array.isArray(propImages)) {
+        console.log("📦 Using prop images:", propImages.length);
+        setItems(propImages);
       } else {
-        setItems([]);
+        const stored = localStorage.getItem("aiGeneratedItems");
+        console.log("📦 Reload from localStorage:", stored);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            if (Array.isArray(parsed)) setItems(parsed);
+          } catch (e) {
+            console.error("⚠️ Parse error:", e);
+          }
+        } else {
+          setItems([]);
+        }
       }
     }
-  }, [isOpen]);
+  }, [isOpen, propImages]);
 
   const handleDelete = (id: string) => {
     const updated = items.filter((i) => i.id !== id);
     setItems(updated);
     localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
+    
+    // ✅ Notify parent component about the change
+    if (onImagesChange) {
+      onImagesChange(updated);
+    }
   };
 
   const handleSelect = (item: SavedItem) => {

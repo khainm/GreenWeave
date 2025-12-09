@@ -8,6 +8,8 @@ interface AiTryOnModalProps {
   onSubmit: (userImage: File, productPreviewUrl?: string) => Promise<void> | void;
   previewImageUrl?: string;
   productPreviewUrl?: string;
+  aiGeneratedImages?: any[]; // ✅ Nhận danh sách ảnh AI từ parent
+  onImagesChange?: (images: any[]) => void; // ✅ Callback khi xóa ảnh
 }
 
 const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
@@ -15,6 +17,8 @@ const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
   onClose,
   onSubmit,
   productPreviewUrl,
+  aiGeneratedImages,
+  onImagesChange,
 }) => {
   const [userImage, setUserImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -164,7 +168,12 @@ const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
             </div>
 
             <div className="flex-1 overflow-y-auto rounded-xl bg-white/50 p-2">
-              <AiGeneratedGallery onSelect={setSelectedProductUrl} isOpen={isOpen} />
+              <AiGeneratedGallery 
+                onSelect={setSelectedProductUrl} 
+                isOpen={isOpen} 
+                images={aiGeneratedImages}
+                onImagesChange={onImagesChange}
+              />
             </div>
 
             {selectedProductUrl && (

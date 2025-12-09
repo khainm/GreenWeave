@@ -47,6 +47,7 @@ const CustomProductDesigner: React.FC = () => {
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>(""); // result image
   const [geminiHealthy, setGeminiHealthy] = useState<boolean>(true);
   const [aiImageType, setAiImageType] = useState<"cartoon" | "tryon" | null>(null); // 🎨 Phân biệt loại ảnh AI
+  const [aiGeneratedImages, setAiGeneratedImages] = useState<any[]>([]); // 🎨 Danh sách ảnh AI đã tạo
 
   // UX
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -267,6 +268,23 @@ const CustomProductDesigner: React.FC = () => {
     })();
   }, []);
 
+  // 🎨 Load AI generated images from localStorage on mount
+  useEffect(() => {
+    const loadAiImages = () => {
+      try {
+        const stored = localStorage.getItem("aiGeneratedItems");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          setAiGeneratedImages(Array.isArray(parsed) ? parsed : []);
+        }
+      } catch (error) {
+        console.error("❌ Failed to load AI images from localStorage:", error);
+        setAiGeneratedImages([]);
+      }
+    };
+    loadAiImages();
+  }, []);
+
 
   useEffect(() => {
     if (canvasDataUrl && canvasDataUrl.startsWith("data:image") && aiImageType) {
@@ -292,6 +310,7 @@ const CustomProductDesigner: React.FC = () => {
           const updated = [newItem, ...existing].slice(0, 15);
           localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
           console.log(`💾 Saved AI ${aiImageType} to localStorage:`, newItem);
+          setAiGeneratedImages(updated); // ✅ Cập nhật state ngay lập tức
           setAiImageType(null); // Reset để tránh lưu lại nhiều lần
         };
       } catch (error) {
@@ -832,9 +851,7 @@ const CustomProductDesigner: React.FC = () => {
             canvasDataUrl ||
             undefined
           }
-          aiGeneratedImages={
-            JSON.parse(localStorage.getItem("aiGeneratedItems") || "[]")
-          }
+          aiGeneratedImages={aiGeneratedImages}
         />
       )}
 
@@ -908,6 +925,8 @@ const CustomProductDesigner: React.FC = () => {
           // ✅ Ảnh preview gốc từ canvas (sản phẩm AI design)
           // productPreviewUrl={(window as any).Konva?.stages?.[0]?.toDataURL?.({ pixelRatio: 1 })}
           productPreviewUrl={canvasDataUrl} // ✅ ảnh AI generate
+          aiGeneratedImages={aiGeneratedImages} // ✅ Truyền danh sách ảnh AI
+          onImagesChange={setAiGeneratedImages} // ✅ Callback khi xóa ảnh
         />
       )}
 
