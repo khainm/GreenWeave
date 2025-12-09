@@ -30,30 +30,19 @@ public class AiEditController : ControllerBase
     {
         _logger = logger;
 
-        // ✅ Load credentials from environment variable
+        // ✅ Check if credentials are available in environment variable
         var credentialContent = Environment.GetEnvironmentVariable("GOOGLE_CREDENTIAL_CONTENT");
         if (string.IsNullOrEmpty(credentialContent))
         {
             _logger.LogWarning("⚠️ GOOGLE_CREDENTIAL_CONTENT environment variable is not set - AI features will be disabled");
             credentialsAvailable = false;
             serviceAccountJsonPath = null;
-            return;
         }
-
-        try
+        else
         {
-            // ✅ Write credentials to temp file with unique name to avoid conflicts
-            var tempFilePath = Path.Combine(Path.GetTempPath(), $"google-credentials-edit-{Guid.NewGuid()}.json");
-            System.IO.File.WriteAllText(tempFilePath, credentialContent);
-            serviceAccountJsonPath = tempFilePath;
             credentialsAvailable = true;
-            _logger.LogInformation("✅ [AiEdit] Google credentials loaded successfully to {Path}", tempFilePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "❌ [AiEdit] Failed to write Google credentials to temp file");
-            credentialsAvailable = false;
-            serviceAccountJsonPath = null;
+            serviceAccountJsonPath = credentialContent; // Store JSON content directly, not file path
+            _logger.LogInformation("✅ [AiEdit] Google credentials loaded from environment variable");
         }
     }
 
@@ -83,7 +72,7 @@ public class AiEditController : ControllerBase
             _logger.LogInformation("🔄 [AiEdit] Fetching new access token...");
             var scopes = new[] { "https://www.googleapis.com/auth/cloud-platform" };
 #pragma warning disable CS0618
-            var cred = GoogleCredential.FromFile(serviceAccountJsonPath).CreateScoped(scopes);
+            var cred = GoogleCredential.FromJson(serviceAccountJsonPath).CreateScoped(scopes); // Use FromJson
 #pragma warning restore CS0618
             var token = await cred.UnderlyingCredential.GetAccessTokenForRequestAsync();
             
@@ -241,18 +230,6 @@ public class AiEditController : ControllerBase
                 return StatusCode((int)resp.StatusCode, new { error = errorMessage, details = respText });
             }
 
-            // 💾 Save raw response to file for debugging
-            try
-            {
-                var logPath = Path.Combine(Path.GetTempPath(), $"gemini_response_{DateTime.Now:yyyyMMdd_HHmmss}.json");
-                await System.IO.File.WriteAllTextAsync(logPath, respText);
-                _logger.LogInformation("💾 Saved raw response to: {Path}", logPath);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Failed to save response to file: {Error}", ex.Message);
-            }
-
             // ✅ Parse JSON an toàn
             using var doc = JsonDocument.Parse(respText);
             
@@ -352,20 +329,5 @@ public class AiEditController : ControllerBase
         }
     }
     
-    // 🧹 Cleanup temp credential file
-    public void Dispose()
-    {
-        try
-        {
-            if (!string.IsNullOrEmpty(serviceAccountJsonPath) && System.IO.File.Exists(serviceAccountJsonPath))
-            {
-                System.IO.File.Delete(serviceAccountJsonPath);
-                _logger.LogDebug("🧹 Cleaned up temp credential file: {Path}", serviceAccountJsonPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to cleanup temp credential file");
-        }
-    }
+
 }

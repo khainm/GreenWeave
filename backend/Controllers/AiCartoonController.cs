@@ -30,30 +30,19 @@ public class AiCartoonController : ControllerBase
     {
         _logger = logger;
 
-        // ✅ Load credentials from environment variable
+        // ✅ Check if credentials are available in environment variable
         var credentialContent = Environment.GetEnvironmentVariable("GOOGLE_CREDENTIAL_CONTENT");
         if (string.IsNullOrEmpty(credentialContent))
         {
             _logger.LogWarning("⚠️ GOOGLE_CREDENTIAL_CONTENT environment variable is not set - AI features will be disabled");
             credentialsAvailable = false;
             credentialPath = null;
-            return;
         }
-
-        try
+        else
         {
-            // ✅ Write credentials to temp file
-            var tempFilePath = Path.Combine(Path.GetTempPath(), $"google-credentials-cartoon-{Guid.NewGuid()}.json");
-            System.IO.File.WriteAllText(tempFilePath, credentialContent);
-            credentialPath = tempFilePath;
             credentialsAvailable = true;
-            _logger.LogInformation("✅ [AiCartoon] Google credentials loaded successfully to {Path}", tempFilePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "❌ [AiCartoon] Failed to write Google credentials to temp file");
-            credentialsAvailable = false;
-            credentialPath = null;
+            credentialPath = credentialContent; // Store JSON content directly, not file path
+            _logger.LogInformation("✅ [AiCartoon] Google credentials loaded from environment variable");
         }
     }
 
@@ -83,7 +72,7 @@ public class AiCartoonController : ControllerBase
             _logger.LogInformation("🔄 [AiCartoon] Fetching new access token...");
 #pragma warning disable CS0618
             var credential = await GoogleCredential
-                .FromFile(credentialPath)
+                .FromJson(credentialPath) // credentialPath now contains JSON content
                 .CreateScoped("https://www.googleapis.com/auth/cloud-platform")
                 .UnderlyingCredential
                 .GetAccessTokenForRequestAsync();
@@ -307,22 +296,7 @@ public class AiCartoonController : ControllerBase
         }
     }
     
-    // 🧹 Cleanup temp credential file on dispose
-    public void Dispose()
-    {
-        try
-        {
-            if (!string.IsNullOrEmpty(credentialPath) && System.IO.File.Exists(credentialPath))
-            {
-                System.IO.File.Delete(credentialPath);
-                _logger.LogDebug("🧹 Cleaned up temp credential file: {Path}", credentialPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to cleanup temp credential file");
-        }
-    }
+
 
     // ✅ Hàm tiện ích trích xuất ảnh base64 từ inlineData / inline_data
     private bool TryExtractBase64(JsonElement element, out string? base64)
