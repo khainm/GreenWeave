@@ -198,33 +198,105 @@ const CustomProductDesigner: React.FC = () => {
     }
   };
 
+  // 🗜️ Helper function to compress image
+  const compressImage = async (file: File | Blob, maxSizeMB: number = 2): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // 📏 Resize if too large (max 1920px width)
+        const maxWidth = 1920;
+        if (width > maxWidth) {
+          height = (height * maxWidth) / width;
+          width = maxWidth;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // 🗜️ Start with quality 0.8, reduce if still too large
+        let quality = 0.8;
+        const tryCompress = () => {
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Compression failed'));
+              return;
+            }
+            
+            const sizeMB = blob.size / (1024 * 1024);
+            console.log(`🗜️ Compressed to ${sizeMB.toFixed(2)}MB with quality ${quality}`);
+            
+            if (sizeMB <= maxSizeMB || quality <= 0.3) {
+              resolve(blob);
+            } else {
+              quality -= 0.1;
+              tryCompress();
+            }
+          }, 'image/jpeg', quality);
+        };
+        
+        tryCompress();
+      };
+      
+      img.onerror = () => reject(new Error('Image load failed'));
+      reader.onerror = () => reject(new Error('File read failed'));
+      
+      reader.readAsDataURL(file);
+    });
+  };
+
   // ✅ AI Try-On (accept file from modal)
   const handleAiTryOn = async (userImage: File, productPreviewUrl?: string) => {
     try {
       setIsLoading(true);
       setUploadProgress(0);
 
+      // 🗜️ Compress user image first
+      console.log('🗜️ Original user image size:', (userImage.size / (1024 * 1024)).toFixed(2), 'MB');
+      const compressedUserImage = await compressImage(userImage, 2);
+      console.log('✅ Compressed user image to:', (compressedUserImage.size / (1024 * 1024)).toFixed(2), 'MB');
 
       let productBlob: Blob;
       if (productPreviewUrl && productPreviewUrl.startsWith("data:image")) {
-        productBlob = await (await fetch(productPreviewUrl)).blob();
+        const originalBlob = await (await fetch(productPreviewUrl)).blob();
+        console.log('🗜️ Original product image size:', (originalBlob.size / (1024 * 1024)).toFixed(2), 'MB');
+        productBlob = await compressImage(originalBlob, 2);
+        console.log('✅ Compressed product image to:', (productBlob.size / (1024 * 1024)).toFixed(2), 'MB');
         console.log("🧠 Using AI-generated product image for try-on");
       } else if (canvasDataUrl && canvasDataUrl.startsWith("data:image")) {
-        productBlob = await (await fetch(canvasDataUrl)).blob();
+        const originalBlob = await (await fetch(canvasDataUrl)).blob();
+        console.log('🗜️ Original canvas image size:', (originalBlob.size / (1024 * 1024)).toFixed(2), 'MB');
+        productBlob = await compressImage(originalBlob, 2);
+        console.log('✅ Compressed canvas image to:', (productBlob.size / (1024 * 1024)).toFixed(2), 'MB');
         console.log("🧠 Using last AI canvas image for try-on");
       } else {
         const stage = (window as any).Konva?.stages?.[0];
         if (!stage) throw new Error("Canvas not found.");
-        const dataUrl = stage.toDataURL({ pixelRatio: 2 });
-        productBlob = await (await fetch(dataUrl)).blob();
+        const dataUrl = stage.toDataURL({ pixelRatio: 1 }); // ✅ Giảm pixelRatio từ 2 xuống 1
+        const originalBlob = await (await fetch(dataUrl)).blob();
+        console.log('🗜️ Original snapshot size:', (originalBlob.size / (1024 * 1024)).toFixed(2), 'MB');
+        productBlob = await compressImage(originalBlob, 2);
+        console.log('✅ Compressed snapshot to:', (productBlob.size / (1024 * 1024)).toFixed(2), 'MB');
         console.log("🧠 Fallback to current canvas snapshot for try-on");
       }
 
 
       // 2) gửi 2 ảnh + prompt lên backend
       const formData = new FormData();
-      formData.append("image1", userImage, "person.png");   // người
-      formData.append("image2", productBlob, "product.png"); // sản phẩm
+      formData.append("image1", compressedUserImage, "person.jpg");   // người (compressed)
+      formData.append("image2", productBlob, "product.jpg"); // sản phẩm (compressed)
       formData.append("prompt",
         "Combine the person and the tote bag into a realistic full-body photo where the person naturally wears the tote bag on their shoulder. " +
         "If the uploaded person image only shows the upper body, realistically extend the missing parts (legs, feet, posture) to complete the body. " +

@@ -154,15 +154,15 @@ builder.Services.AddControllers()
     });
 
 // Allow larger multipart form uploads (e.g. canvas images). Default limits can be small and cause 413 errors.
-// Increase MultipartBodyLengthLimit and Kestrel MaxRequestBodySize to 50 MB.
+// Increase MultipartBodyLengthLimit and Kestrel MaxRequestBodySize to 100 MB for AI image processing.
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.MultipartBodyLengthLimit = 50 * 1024 * 1024; // 50 MB
+    options.MultipartBodyLengthLimit = 100 * 1024 * 1024; // 100 MB
 });
 
 builder.WebHost.ConfigureKestrel(serverOptions =>
 {
-    serverOptions.Limits.MaxRequestBodySize = 50 * 1024 * 1024; // 50 MB
+    serverOptions.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
 });
 
 // Add Swagger/OpenAPI services
