@@ -45,6 +45,7 @@ const CustomProductDesigner: React.FC = () => {
   const [showCartoonModal, setShowCartoonModal] = useState(false);
   const [showGeminiModal, setShowGeminiModal] = useState(false);
   const [canvasDataUrl, setCanvasDataUrl] = useState<string>(""); // result image
+  const [currentAiProductUrl, setCurrentAiProductUrl] = useState<string>(""); // ✅ Current AI product for Try-On
   const [geminiHealthy, setGeminiHealthy] = useState<boolean>(true);
   const [aiImageType, setAiImageType] = useState<"cartoon" | "tryon" | null>(null); // 🎨 Phân biệt loại ảnh AI
   const [aiGeneratedImages, setAiGeneratedImages] = useState<any[]>([]); // 🎨 Danh sách ảnh AI đã tạo
@@ -346,37 +347,47 @@ const CustomProductDesigner: React.FC = () => {
   }, []);
 
 
+  // ✅ Save AI image to localStorage and state synchronously
+  const saveAiImageToGallery = useCallback((imageUrl: string, type: "cartoon" | "tryon") => {
+    console.log('💾 [CustomProductDesigner] Saving AI image to gallery, type:', type);
+    try {
+      const img = new Image();
+      img.src = imageUrl;
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        const scale = 800 / img.width;
+        canvas.width = 800;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext("2d");
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
+
+        const existing = JSON.parse(localStorage.getItem("aiGeneratedItems") || "[]");
+        const newItem = {
+          id: Date.now().toString(),
+          url: compressedBase64,
+          createdAt: new Date().toISOString(),
+          type: type,
+        };
+        const updated = [newItem, ...existing].slice(0, 15);
+        localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
+        setAiGeneratedImages(updated); // ✅ Cập nhật state ngay lập tức
+        console.log('✅ [CustomProductDesigner] AI image saved to gallery, total:', updated.length);
+      };
+    } catch (error) {
+      console.error("❌ Error saving AI image:", error);
+    }
+  }, []);
+
   useEffect(() => {
     if (canvasDataUrl && canvasDataUrl.startsWith("data:image") && aiImageType) {
-      try {
-        const img = new Image();
-        img.src = canvasDataUrl;
-        img.onload = () => {
-          const canvas = document.createElement("canvas");
-          const scale = 800 / img.width;
-          canvas.width = 800;
-          canvas.height = img.height * scale;
-          const ctx = canvas.getContext("2d");
-          ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressedBase64 = canvas.toDataURL("image/jpeg", 0.8);
-
-          const existing = JSON.parse(localStorage.getItem("aiGeneratedItems") || "[]");
-          const newItem = {
-            id: Date.now().toString(),
-            url: compressedBase64,
-            createdAt: new Date().toISOString(),
-            type: aiImageType, // 🎨 Lưu loại ảnh (cartoon hoặc tryon)
-          };
-          const updated = [newItem, ...existing].slice(0, 15);
-          localStorage.setItem("aiGeneratedItems", JSON.stringify(updated));
-          setAiGeneratedImages(updated); // ✅ Cập nhật state ngay lập tức
-          setAiImageType(null); // Reset để tránh lưu lại nhiều lần
-        };
-      } catch (error) {
-        console.error("❌ Error saving AI image:", error);
-      }
+      console.log('🎨 [CustomProductDesigner] New AI image created, type:', aiImageType);
+      saveAiImageToGallery(canvasDataUrl, aiImageType);
+      setCurrentAiProductUrl(canvasDataUrl); // ✅ Save current AI product for Try-On
+      console.log('✅ [CustomProductDesigner] currentAiProductUrl updated');
+      setAiImageType(null); // Reset để tránh lưu lại nhiều lần
     }
-  }, [canvasDataUrl, aiImageType]);
+  }, [canvasDataUrl, aiImageType, saveAiImageToGallery]);
 
   // Upload image to canvas
   const handleImageUpload = useCallback(async (file: File) => {
@@ -951,9 +962,14 @@ const CustomProductDesigner: React.FC = () => {
               <button
                 onClick={() => {
                   setShowGeminiModal(false);
-                  const aiGeneratedImage = canvasDataUrl;
-                  setCanvasDataUrl(aiGeneratedImage);
-                  setShowTryOnModal(true);
+                  // ✅ Ensure currentAiProductUrl is set before opening Try-On modal
+                  if (canvasDataUrl) {
+                    setCurrentAiProductUrl(canvasDataUrl);
+                  }
+                  // Give a small delay to ensure state update completes
+                  setTimeout(() => {
+                    setShowTryOnModal(true);
+                  }, 100);
                 }}
                 className="group px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 shadow-lg flex items-center gap-2">
                 <SparklesIcon className="w-5 h-5 group-hover:animate-spin" />
@@ -981,9 +997,8 @@ const CustomProductDesigner: React.FC = () => {
           isOpen={showTryOnModal}
           onClose={() => setShowTryOnModal(false)}
           onSubmit={handleAiTryOn}
-          // ✅ Ảnh preview gốc từ canvas (sản phẩm AI design)
-          // productPreviewUrl={(window as any).Konva?.stages?.[0]?.toDataURL?.({ pixelRatio: 1 })}
-          productPreviewUrl={canvasDataUrl} // ✅ ảnh AI generate
+          // ✅ Use currentAiProductUrl to ensure latest AI product is passed
+          productPreviewUrl={currentAiProductUrl || canvasDataUrl}
           aiGeneratedImages={aiGeneratedImages} // ✅ Truyền danh sách ảnh AI
           onImagesChange={setAiGeneratedImages} // ✅ Callback khi xóa ảnh
         />
@@ -1006,10 +1021,16 @@ const CustomProductDesigner: React.FC = () => {
           //   setShowTryOnModal(true); // mở modal phòng thay đồ
           // }}
           onTryOn={() => {
-            // ✅ Reset ảnh AI generation để người dùng thử đồ với người mẫu khác
-            setCanvasDataUrl("");
+            // ✅ Ensure currentAiProductUrl is set before opening Try-On modal
             setShowCartoonModal(false);
-            setShowTryOnModal(true);
+            if (canvasDataUrl) {
+              setCurrentAiProductUrl(canvasDataUrl);
+            }
+            
+            // Give a small delay to ensure state update completes
+            setTimeout(() => {
+              setShowTryOnModal(true);
+            }, 100);
           }}
 
         />

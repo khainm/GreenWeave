@@ -22,10 +22,16 @@ const AiTryOnModal: React.FC<AiTryOnModalProps> = ({
 }) => {
   const [userImage, setUserImage] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(
-    productPreviewUrl || null
-  );
+  const [selectedProductUrl, setSelectedProductUrl] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // ✅ Update selectedProductUrl when productPreviewUrl changes and modal opens
+  React.useEffect(() => {
+    if (isOpen && productPreviewUrl) {
+      console.log('🎨 [AiTryOnModal] Setting productPreviewUrl as selected:', productPreviewUrl.substring(0, 100));
+      setSelectedProductUrl(productPreviewUrl);
+    }
+  }, [isOpen, productPreviewUrl]);
 
   if (!isOpen) return null;
 

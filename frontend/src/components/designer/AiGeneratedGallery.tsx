@@ -27,21 +27,23 @@ const AiGeneratedGallery: React.FC<AiGeneratedGalleryProps> = ({
 
   // 🔁 Use prop images if provided, otherwise load from localStorage
   useEffect(() => {
-    if (isOpen) {
-      if (propImages && Array.isArray(propImages)) {
-        setItems(propImages);
-      } else {
-        const stored = localStorage.getItem("aiGeneratedItems");
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) setItems(parsed);
-          } catch (e) {
-            console.error("⚠️ Parse error:", e);
+    if (propImages && Array.isArray(propImages)) {
+      console.log('📦 [AiGeneratedGallery] Loaded from props:', propImages.length, 'items');
+      setItems(propImages);
+    } else if (isOpen) {
+      const stored = localStorage.getItem("aiGeneratedItems");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            console.log('📦 [AiGeneratedGallery] Loaded from localStorage:', parsed.length, 'items');
+            setItems(parsed);
           }
-        } else {
-          setItems([]);
+        } catch (e) {
+          console.error("⚠️ Parse error:", e);
         }
+      } else {
+        setItems([]);
       }
     }
   }, [isOpen, propImages]);
