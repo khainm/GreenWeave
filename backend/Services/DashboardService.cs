@@ -28,8 +28,9 @@ namespace backend.Services
                 var currentMonth = DateTime.UtcNow.Date.AddDays(1 - DateTime.UtcNow.Day);
                 var lastMonth = currentMonth.AddMonths(-1);
 
-                // Get current month data
+                // Get all orders data
                 var orders = await _orderRepository.GetAllAsync();
+                var allOrders = orders.ToList();
                 var currentMonthOrders = orders.Where(o => o.CreatedAt >= currentMonth).ToList();
                 var lastMonthOrders = orders.Where(o => o.CreatedAt >= lastMonth && o.CreatedAt < currentMonth).ToList();
 
@@ -42,8 +43,8 @@ namespace backend.Services
                 var currentMonthCustomers = customers.Where(c => c.CreatedAt >= currentMonth).Count();
                 var lastMonthCustomers = customers.Where(c => c.CreatedAt >= lastMonth && c.CreatedAt < currentMonth).Count();
 
-                // Calculate totals
-                var totalRevenue = currentMonthOrders.Sum(o => o.Total);
+                // Calculate totals - TỔNG TẤT CẢ đơn hàng (không chỉ tháng hiện tại)
+                var totalRevenue = allOrders.Sum(o => o.Total);
                 var lastMonthRevenue = lastMonthOrders.Sum(o => o.Total);
 
                 // Calculate growth percentages
@@ -53,11 +54,11 @@ namespace backend.Services
 
                 return new DashboardStatsDto
                 {
-                    TotalRevenue = totalRevenue,
-                    TotalOrders = currentMonthOrders.Count,
+                    TotalRevenue = totalRevenue, // TỔNG tất cả đơn hàng
+                    TotalOrders = allOrders.Count, // TỔNG tất cả đơn hàng (không chỉ tháng này)
                     TotalCustomers = customers.Count(),
                     TotalStaff = allStaff.Count,
-                    RevenueGrowth = revenueGrowth,
+                    RevenueGrowth = revenueGrowth, // So sánh tháng này vs tháng trước
                     OrdersGrowth = ordersGrowth,
                     CustomersGrowth = customersGrowth,
                     StaffGrowth = 0 // Staff growth calculation can be implemented similarly
